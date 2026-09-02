@@ -58,6 +58,7 @@ export default function ProcessTracker({
   const [hasSearched, setHasSearched] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [caseData, setCaseData] = useState<CaseData | null>(null);
+  const [tribunaisConsultados, setTribunaisConsultados] = useState<string[]>([]);
 
   const [aiSummary, setAiSummary] = useState('');
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
@@ -85,7 +86,7 @@ export default function ProcessTracker({
     []
   );
 
-  /* ── Busca (consulta real via Infosimples /api/processos) ─────────────── */
+  /* ── Busca (consulta real multi-tribunal via Infosimples /api/processos) ── */
   const handleSearch = async () => {
     const digits = cleanDigits(cpfInput);
     if (digits.length !== 11) return setFormError('Digite um CPF válido com 11 dígitos.');
@@ -104,7 +105,7 @@ export default function ProcessTracker({
       const res = await fetch('/api/processos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf: digits, fullName })
+        body: JSON.stringify({ cpf: digits, fullName, phone: phoneDigits })
       });
 
       const data = await res.json();
@@ -112,6 +113,8 @@ export default function ProcessTracker({
       if (!res.ok) {
         throw new Error(data.error || 'Falha ao consultar processos.');
       }
+
+      setTribunaisConsultados(data.tribunaisConsultados || []);
 
       if (data.notFound || !data.processes || data.processes.length === 0) {
         setNotFound(true);
@@ -483,19 +486,63 @@ export default function ProcessTracker({
               animation: 'bf-fadein 0.7s ease both'
             }}
           >
-            <h2 style={{ margin: '0 0 10px', fontSize: 18, color: '#000', fontWeight: 600 }}>
-              Nenhum processo localizado automaticamente
-            </h2>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 8,
+                marginBottom: 10
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 18, color: '#000', fontWeight: 600 }}>
+                Nenhum processo localizado automaticamente
+              </h2>
+              {tribunaisConsultados.length > 0 && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: MUTED,
+                    background: '#ebe5d8',
+                    padding: '3px 8px',
+                    letterSpacing: 0.5
+                  }}
+                >
+                  Tribunais consultados: {tribunaisConsultados.join(', ')}
+                </span>
+              )}
+            </div>
             <p style={{ margin: '0 0 22px', fontSize: 14, color: MUTED, lineHeight: 1.7 }}>
-              Isso não significa que não existam pendências. Muitos clientes descobrem processos e
-              cobranças que desconheciam apenas com apoio jurídico especializado.
+              A consulta automática nos tribunais ({tribunaisConsultados.join(', ') || 'TJSP, TJRJ'}) não retornou processos públicos ativos para este CPF.
+              Isso não significa que não existam pendências, pois processos em outros tribunais regionais ou em segredo de justiça requerem análise com um especialista.
             </p>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
               <button
                 onClick={() => setInfoModalOpen(true)}
                 style={{ ...primaryButtonStyle, padding: '13px 26px', fontWeight: 400, letterSpacing: 1 }}
               >
                 PRECISO DE AUXÍLIO JURÍDICO
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCaseData(buildCaseData());
+                  setNotFound(false);
+                  setHasSearched(true);
+                  setAiSummary('');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: BLUE,
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  padding: 4
+                }}
+              >
+                Visualizar tela com dados demonstrativos de exemplo
               </button>
             </div>
           </section>
@@ -535,7 +582,14 @@ export default function ProcessTracker({
               </div>
               <div>
                 <div style={stripLabelStyle}>PROCESSOS ENCONTRADOS</div>
-                <div style={{ fontSize: 15.5 }}>{caseData.totalProcessos}</div>
+                <div style={{ fontSize: 15.5 }}>
+                  {caseData.totalProcessos}
+                  {tribunaisConsultados.length > 0 && (
+                    <span style={{ fontSize: 11, opacity: 0.85, marginLeft: 8 }}>
+                      ({tribunaisConsultados.join(' + ')})
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
