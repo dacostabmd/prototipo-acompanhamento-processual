@@ -116,19 +116,17 @@ export default function ProcessTracker({
     }
   }, [currentStepIndex, isStep1Valid, isStep2Valid, isStep3Valid, isStep4Valid]);
 
-  // Dispara Confete com a paleta nobre estendida
+  // Dispara Confete com a paleta nobre estendida (Azul Real, Noturno, Cobalto, Dourado e Creme)
   const triggerConfetti = () => {
     const colors = [
       '#2455b8',
       '#17347a',
       '#3b82f6',
+      '#a9c3ef',
       '#c5a059',
       '#d4af37',
-      '#1b6b3e',
-      '#8a2b2b',
-      '#f5efe1',
-      '#60a5fa',
-      '#93c5fd'
+      '#e8cca4',
+      '#f5efe1'
     ];
 
     confetti({
@@ -344,15 +342,13 @@ export default function ProcessTracker({
       style={{
         position: 'relative',
         minHeight: '100vh',
-        background: found
-          ? 'radial-gradient(ellipse at 50% 0%, #152744 0%, #0b0b0d 75%)'
-          : NEAR_BLACK,
+        background: NEAR_BLACK,
         color: TEXT,
         fontFamily: "'Cinzel', 'Playfair Display', Georgia, 'Times New Roman', serif"
       }}
     >
-      {/* Fibers de fundo no canvas ativo apenas no formulário/stepper para alto desempenho */}
-      {!found && <GhostFibers />}
+      {/* Fibers de fundo no canvas mantido ativo continuamente tanto no stepper quanto a posteriori */}
+      <GhostFibers />
 
       {/* Container principal */}
       <div

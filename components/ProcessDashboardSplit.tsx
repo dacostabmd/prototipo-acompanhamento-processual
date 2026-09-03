@@ -15,7 +15,7 @@ const CREAM_TEXT = '#f5efe1';
 const PAPER = '#ffffff';
 const BORDER = '#e3ddd0';
 const TEXT = '#1b2733';
-const MUTED = '#5b6b78';
+const MUTED = '#37424c';
 const DANGER = '#8a3a3a';
 const DANGER_BG = '#fbf0f0';
 const SUCCESS = '#1b6b3e';
@@ -26,7 +26,7 @@ const TAG_META: Record<MovementTag, { label: string; color: string }> = {
   urgente: { label: 'URGENTE', color: '#8a2b2b' },
   positivo: { label: 'POSITIVO', color: '#1b6b3e' },
   andamento: { label: 'EM ANDAMENTO', color: '#2455b8' },
-  informativo: { label: 'INFORMATIVO', color: '#738394' }
+  informativo: { label: 'INFORMATIVO', color: '#4b5a68' }
 };
 
 interface ProcessDashboardSplitProps {
@@ -325,27 +325,37 @@ export default function ProcessDashboardSplit({
         </div>
       </section>
 
-      {/* ── GRID PRINCIPAL SPLIT 70% / 30% ── */}
+      {/* ── GRID PRINCIPAL SPLIT 70% / 30% (PAPERS CONECTADOS) ── */}
       <div
         className="bf-split-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(0, 7fr) minmax(0, 3fr)',
-          gap: 24,
-          alignItems: 'start'
+          gap: 0,
+          alignItems: 'stretch',
+          background: PAPER,
+          border: `1px solid ${BORDER}`,
+          borderRadius: 3,
+          boxShadow: '0 16px 50px rgba(0,0,0,0.3)',
+          overflow: 'hidden'
         }}
       >
         {/* ══════════════════════════════════════════════════════
             COLUNA ESQUERDA (70%) — RESUMO, TIMELINE & INSIGHTS
             ══════════════════════════════════════════════════════ */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: `1px solid ${BORDER}`,
+            background: '#ffffff'
+          }}
+        >
           {/* Card de Ações Rápidas & Insights da IA */}
           <div
             style={{
-              background: PAPER,
-              border: `1px solid ${BORDER}`,
-              padding: '24px 28px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
+              padding: '26px 32px',
+              borderBottom: `1px solid ${BORDER}`
             }}
           >
             <div
@@ -569,10 +579,7 @@ export default function ProcessDashboardSplit({
           {/* Linha do Tempo dos Processos */}
           <div
             style={{
-              background: PAPER,
-              border: `1px solid ${BORDER}`,
-              padding: '28px 32px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
+              padding: '28px 32px'
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -710,16 +717,13 @@ export default function ProcessDashboardSplit({
             ══════════════════════════════════════════════════════ */}
         <div
           style={{
-            background: PAPER,
-            border: `1px solid ${BORDER}`,
-            boxShadow: '0 4px 24px rgba(0,0,0,0.07)',
+            background: '#ffffff',
             display: 'flex',
             flexDirection: 'column',
-            height: 'calc(100vh - 140px)',
-            minHeight: 680,
-            maxHeight: 900,
+            height: '100%',
+            minHeight: 700,
             position: 'sticky',
-            top: 24
+            top: 0
           }}
         >
           {/* Cabeçalho do Chat */}
