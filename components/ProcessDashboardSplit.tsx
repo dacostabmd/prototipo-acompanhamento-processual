@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import type { CaseData, LegalProcess, MovementTag } from '@/lib/mockProcesses';
-
 import { validateSafeDocument, type FileValidationResult } from '@/lib/security';
 
 const BLUE = '#2455b8';
@@ -15,18 +15,16 @@ const CREAM_TEXT = '#f5efe1';
 const PAPER = '#ffffff';
 const BORDER = '#e3ddd0';
 const TEXT = '#1b2733';
-const MUTED = '#37424c';
+const MUTED = '#5b6b78';
 const DANGER = '#8a3a3a';
-const DANGER_BG = '#fbf0f0';
 const SUCCESS = '#1b6b3e';
-const SUCCESS_BG = '#edf7f0';
 const WHATSAPP = '#25603f';
 
 const TAG_META: Record<MovementTag, { label: string; color: string }> = {
   urgente: { label: 'URGENTE', color: '#8a2b2b' },
   positivo: { label: 'POSITIVO', color: '#1b6b3e' },
   andamento: { label: 'EM ANDAMENTO', color: '#2455b8' },
-  informativo: { label: 'INFORMATIVO', color: '#4b5a68' }
+  informativo: { label: 'INFORMATIVO', color: '#738394' }
 };
 
 interface ProcessDashboardSplitProps {
@@ -325,7 +323,10 @@ export default function ProcessDashboardSplit({
         </div>
       </section>
 
-      {/* ── GRID PRINCIPAL SPLIT 70% / 30% (PAPERS CONECTADOS) ── */}
+      {/* ═════════════════════════════════════════════════════════════════
+          1. BLOCO SUPERIOR CONECTADO: RESUMO (70%) + CHAT COM IA (30%)
+          O Chat tem altura exatamente até o início da Linha do Tempo!
+          ═════════════════════════════════════════════════════════════════ */}
       <div
         className="bf-split-grid"
         style={{
@@ -335,395 +336,249 @@ export default function ProcessDashboardSplit({
           alignItems: 'stretch',
           background: PAPER,
           border: `1px solid ${BORDER}`,
-          borderRadius: 3,
+          borderBottom: 'none',
+          borderRadius: '3px 3px 0 0',
           boxShadow: '0 16px 50px rgba(0,0,0,0.3)',
           overflow: 'hidden'
         }}
       >
-        {/* ══════════════════════════════════════════════════════
-            COLUNA ESQUERDA (70%) — RESUMO, TIMELINE & INSIGHTS
-            ══════════════════════════════════════════════════════ */}
+        {/* ── LADO ESQUERDO (70%): DOSSIÊ JURÍDICO & RESUMO DA IA ── */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
             borderRight: `1px solid ${BORDER}`,
-            background: '#ffffff'
+            background: '#ffffff',
+            padding: '28px 32px'
           }}
         >
-          {/* Card de Ações Rápidas & Insights da IA */}
+          {/* Header e Ações */}
           <div
             style={{
-              padding: '26px 32px',
-              borderBottom: `1px solid ${BORDER}`
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 16,
+              paddingBottom: 20,
+              borderBottom: `1px solid #f0eae1`
             }}
           >
+            <div>
+              <h2 style={{ margin: 0, fontSize: 18, color: '#000', fontWeight: 600, letterSpacing: 0.5 }}>
+                Dossiê Jurídico & Análise de IA
+              </h2>
+              <div style={{ fontSize: 12, color: MUTED, marginTop: 4 }}>
+                Relatório consolidado com timeline de movimentações e síntese executiva
+              </div>
+            </div>
+
+            {/* Botões de Ação */}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                onClick={handleDownloadPdf}
+                style={{
+                  background: '#1b2733',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '10px 18px',
+                  fontSize: 11.5,
+                  letterSpacing: 1,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontWeight: 500
+                }}
+                title="Baixar resumo completo em PDF"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                </svg>
+                BAIXAR PDF
+              </button>
+
+              <button
+                onClick={handleSendWhatsapp}
+                style={{
+                  background: WHATSAPP,
+                  color: CREAM_TEXT,
+                  border: 'none',
+                  padding: '10px 18px',
+                  fontSize: 11.5,
+                  letterSpacing: 1,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.85.5 3.58 1.4 5.09L2 22l5.2-1.36a9.9 9.9 0 0 0 4.84 1.24h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.12.11-1.8-.11-.42-.14-.96-.32-1.66-.63-2.92-1.26-4.82-4.2-4.96-4.4-.14-.19-1.18-1.57-1.18-3 0-1.42.75-2.12 1.02-2.41.27-.29.58-.36.78-.36h.55c.18 0 .42-.02.65.5.24.55.82 1.98.9 2.12.08.14.13.3.03.48-.1.19-.16.31-.31.48-.16.17-.32.38-.46.51-.16.15-.32.31-.14.62.19.32.85 1.4 1.83 2.27 1.26 1.13 2.32 1.48 2.66 1.65.34.16.55.14.75-.08.24-.27.55-.72.87-1.16.22-.31.5-.35.83-.22.34.13 2.12 1 2.48 1.18.36.18.6.27.68.42.09.16.09.9-.15 1.58z" />
+                </svg>
+                {whatsappSent ? 'ENVIADO!' : 'ENVIAR WHATSAPP'}
+              </button>
+
+              <button
+                onClick={onRefreshAiSummary}
+                disabled={aiSummaryLoading}
+                style={{
+                  background: 'transparent',
+                  border: `1px solid ${BLUE}`,
+                  color: '#000',
+                  padding: '10px 16px',
+                  fontSize: 11,
+                  letterSpacing: 1,
+                  cursor: aiSummaryLoading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {aiSummaryLoading ? 'ANALISANDO...' : 'RECRIAR RESUMO'}
+              </button>
+            </div>
+          </div>
+
+          {/* Métricas de Insights */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 16,
+              marginTop: 20
+            }}
+          >
+            <div
+              style={{
+                background: '#faf8f5',
+                borderTop: `1px solid ${BORDER}`,
+                borderRight: `1px solid ${BORDER}`,
+                borderBottom: `1px solid ${BORDER}`,
+                borderLeft: `4px solid ${riskColor}`,
+                padding: '14px 18px'
+              }}
+            >
+              <div style={{ fontSize: 10.5, color: MUTED, letterSpacing: 1 }}>ÍNDICE DE RISCO</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: riskColor, marginTop: 4 }}>
+                {riskScore}
+              </div>
+              <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
+                {totalUrgentes > 0 ? `${totalUrgentes} alerta(s) de execução/cobrança` : 'Nenhuma penhora imediata'}
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: '#faf8f5',
+                borderTop: `1px solid ${BORDER}`,
+                borderRight: `1px solid ${BORDER}`,
+                borderBottom: `1px solid ${BORDER}`,
+                borderLeft: `4px solid ${SUCCESS}`,
+                padding: '14px 18px'
+              }}
+            >
+              <div style={{ fontSize: 10.5, color: MUTED, letterSpacing: 1 }}>PONTOS FAVORÁVEIS</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: SUCCESS, marginTop: 4 }}>
+                {totalPositivos}
+              </div>
+              <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
+                Decisões favoráveis ou baixas
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: '#faf8f5',
+                borderTop: `1px solid ${BORDER}`,
+                borderRight: `1px solid ${BORDER}`,
+                borderBottom: `1px solid ${BORDER}`,
+                borderLeft: `4px solid ${BLUE}`,
+                padding: '14px 18px'
+              }}
+            >
+              <div style={{ fontSize: 10.5, color: MUTED, letterSpacing: 1 }}>TOTAL DE AÇÕES</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: BLUE, marginTop: 4 }}>
+                {caseData.totalProcessos}
+              </div>
+              <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
+                Varredura em {tribunaisConsultados.join(', ') || 'TJSP/TJRJ'}
+              </div>
+            </div>
+          </div>
+
+          {/* Resumo da Inteligência Artificial */}
+          <div style={{ marginTop: 24 }}>
             <div
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 flexWrap: 'wrap',
-                gap: 16,
-                paddingBottom: 20,
-                borderBottom: `1px solid #f0eae1`
+                gap: 12,
+                marginBottom: 14
               }}
             >
-              <div>
-                <h2 style={{ margin: 0, fontSize: 18, color: '#000', fontWeight: 600, letterSpacing: 0.5 }}>
-                  Dossiê Jurídico & Análise de IA
-                </h2>
-                <div style={{ fontSize: 12, color: MUTED, marginTop: 4 }}>
-                  Relatório consolidado com timeline de movimentações e síntese executiva
-                </div>
-              </div>
-
-              {/* Botões de Ação */}
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button
-                  onClick={handleDownloadPdf}
-                  style={{
-                    background: '#1b2733',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '10px 18px',
-                    fontSize: 11.5,
-                    letterSpacing: 1,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontWeight: 500
-                  }}
-                  title="Baixar resumo completo em PDF"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
-                  </svg>
-                  BAIXAR PDF
-                </button>
-
-                <button
-                  onClick={handleSendWhatsapp}
-                  style={{
-                    background: WHATSAPP,
-                    color: CREAM_TEXT,
-                    border: 'none',
-                    padding: '10px 18px',
-                    fontSize: 11.5,
-                    letterSpacing: 1,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.85.5 3.58 1.4 5.09L2 22l5.2-1.36a9.9 9.9 0 0 0 4.84 1.24h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.12.11-1.8-.11-.42-.14-.96-.32-1.66-.63-2.92-1.26-4.82-4.2-4.96-4.4-.14-.19-1.18-1.57-1.18-3 0-1.42.75-2.12 1.02-2.41.27-.29.58-.36.78-.36h.55c.18 0 .42-.02.65.5.24.55.82 1.98.9 2.12.08.14.13.3.03.48-.1.19-.16.31-.31.48-.16.17-.32.38-.46.51-.16.15-.32.31-.14.62.19.32.85 1.4 1.83 2.27 1.26 1.13 2.32 1.48 2.66 1.65.34.16.55.14.75-.08.24-.27.55-.72.87-1.16.22-.31.5-.35.83-.22.34.13 2.12 1 2.48 1.18.36.18.6.27.68.42.09.16.09.9-.15 1.58z" />
-                  </svg>
-                  {whatsappSent ? 'ENVIADO!' : 'ENVIAR WHATSAPP'}
-                </button>
-
-                <button
-                  onClick={onRefreshAiSummary}
-                  disabled={aiSummaryLoading}
-                  style={{
-                    background: 'transparent',
-                    border: `1px solid ${BLUE}`,
-                    color: '#000',
-                    padding: '10px 16px',
-                    fontSize: 11,
-                    letterSpacing: 1,
-                    cursor: aiSummaryLoading ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  {aiSummaryLoading ? 'ANALISANDO...' : 'RECRIAR RESUMO'}
-                </button>
-              </div>
-            </div>
-
-            {/* Métricas de Insights */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: 16,
-                marginTop: 20
-              }}
-            >
-              <div
+              <span
                 style={{
-                  background: '#faf8f5',
-                  borderTop: `1px solid ${BORDER}`,
-                  borderRight: `1px solid ${BORDER}`,
-                  borderBottom: `1px solid ${BORDER}`,
-                  borderLeft: `4px solid ${riskColor}`,
-                  padding: '14px 18px'
+                  fontSize: 9.5,
+                  letterSpacing: 1.5,
+                  color: BLUE,
+                  border: `1px solid ${BLUE}`,
+                  padding: '3px 8px'
                 }}
               >
-                <div style={{ fontSize: 10.5, color: MUTED, letterSpacing: 1 }}>ÍNDICE DE RISCO</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: riskColor, marginTop: 4 }}>
-                  {riskScore}
-                </div>
-                <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
-                  {totalUrgentes > 0 ? `${totalUrgentes} alerta(s) de execução/cobrança` : 'Nenhuma penhora imediata'}
-                </div>
-              </div>
+                RESUMO EXECUTIVO POR IA
+              </span>
 
-              <div
-                style={{
-                  background: '#faf8f5',
-                  borderTop: `1px solid ${BORDER}`,
-                  borderRight: `1px solid ${BORDER}`,
-                  borderBottom: `1px solid ${BORDER}`,
-                  borderLeft: `4px solid ${SUCCESS}`,
-                  padding: '14px 18px'
-                }}
-              >
-                <div style={{ fontSize: 10.5, color: MUTED, letterSpacing: 1 }}>PONTOS FAVORÁVEIS</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: SUCCESS, marginTop: 4 }}>
-                  {totalPositivos}
-                </div>
-                <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
-                  Decisões favoráveis ou baixas
-                </div>
-              </div>
-
-              <div
-                style={{
-                  background: '#faf8f5',
-                  borderTop: `1px solid ${BORDER}`,
-                  borderRight: `1px solid ${BORDER}`,
-                  borderBottom: `1px solid ${BORDER}`,
-                  borderLeft: `4px solid ${BLUE}`,
-                  padding: '14px 18px'
-                }}
-              >
-                <div style={{ fontSize: 10.5, color: MUTED, letterSpacing: 1 }}>TOTAL DE AÇÕES</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: BLUE, marginTop: 4 }}>
-                  {caseData.totalProcessos}
-                </div>
-                <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
-                  Varredura em {tribunaisConsultados.join(', ') || 'TJSP/TJRJ'}
-                </div>
-              </div>
-            </div>
-
-            {/* Resumo da Inteligência Artificial */}
-            <div style={{ marginTop: 24 }}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: 12,
-                  marginBottom: 14
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 9.5,
-                    letterSpacing: 1.5,
-                    color: BLUE,
-                    border: `1px solid ${BLUE}`,
-                    padding: '3px 8px'
-                  }}
-                >
-                  RESUMO EXECUTIVO POR IA
+              {/* Legenda de Cores */}
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11, color: MUTED }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#8a2b2b' }} />
+                  <strong style={{ color: '#8a2b2b' }}>Vermelho escuro:</strong> Alertas & Execuções
                 </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#1b6b3e' }} />
+                  <strong style={{ color: '#1b6b3e' }}>Verde escuro:</strong> Favoráveis & Arquivados
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <strong style={{ color: '#000' }}>Negrito:</strong> Processos e Valores
+                </span>
+              </div>
+            </div>
 
-                {/* Legenda de Cores */}
-                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11, color: MUTED }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#8a2b2b' }} />
-                    <strong style={{ color: '#8a2b2b' }}>Vermelho escuro:</strong> Alertas & Execuções
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#1b6b3e' }} />
-                    <strong style={{ color: '#1b6b3e' }}>Verde escuro:</strong> Favoráveis & Arquivados
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <strong style={{ color: '#000' }}>Negrito:</strong> Processos e Valores
-                  </span>
+            {aiSummaryLoading ? (
+              <div style={{ padding: '24px', textAlign: 'center', color: MUTED, fontSize: 14 }}>
+                <div style={{ animation: 'bf-blink 1.4s ease-in-out infinite' }}>
+                  Analisando processos com Inteligência Artificial e gerando síntese jurídica...
                 </div>
               </div>
-
-              {aiSummaryLoading ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: MUTED, fontSize: 14 }}>
-                  <div style={{ animation: 'bf-blink 1.4s ease-in-out infinite' }}>
-                    Analisando processos com Inteligência Artificial e gerando síntese jurídica...
-                  </div>
-                </div>
-              ) : aiSummary ? (
-                <div
-                  style={{
-                    fontSize: 14,
-                    lineHeight: 1.85,
-                    color: TEXT,
-                    textAlign: 'left',
-                    background: '#faf8f5',
-                    border: `1px solid ${BORDER}`,
-                    padding: '22px 26px'
-                  }}
-                  dangerouslySetInnerHTML={{ __html: formatAiSummaryHtml(aiSummary) }}
-                />
-              ) : (
-                <div style={{ padding: '16px', background: '#faf8f5', color: MUTED, fontSize: 13 }}>
-                  Clique em &quot;Recriar Resumo&quot; para gerar a síntese com Inteligência Artificial.
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Linha do Tempo dos Processos */}
-          <div
-            style={{
-              padding: '28px 32px'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ margin: 0, fontSize: 16.5, color: '#000', fontWeight: 600 }}>
-                Linha do Tempo Processual ({caseData.timeline.length} movimentações)
-              </h3>
-              <span style={{ fontSize: 11, color: MUTED }}>Clique no card para expandir detalhes da ação</span>
-            </div>
-
-            <div style={{ position: 'relative', paddingLeft: 32 }}>
-              {/* Linha vertical */}
+            ) : aiSummary ? (
               <div
                 style={{
-                  position: 'absolute',
-                  left: 11,
-                  top: 8,
-                  bottom: 8,
-                  width: 2,
-                  background: '#dcd5c9'
+                  fontSize: 14,
+                  lineHeight: 1.85,
+                  color: TEXT,
+                  textAlign: 'left',
+                  background: '#faf8f5',
+                  border: `1px solid ${BORDER}`,
+                  padding: '22px 26px'
                 }}
+                dangerouslySetInnerHTML={{ __html: formatAiSummaryHtml(aiSummary) }}
               />
-
-              {caseData.timeline.map(item => {
-                const tagMeta = TAG_META[item.tag] || TAG_META.informativo;
-                const isExpanded = expandedId === item.id;
-                const process = item.processo;
-
-                return (
-                  <div key={item.id} style={{ position: 'relative', marginBottom: 24 }}>
-                    {/* Ponto na timeline */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left: -32 + 5,
-                        top: 14,
-                        width: 14,
-                        height: 14,
-                        borderRadius: '50%',
-                        background: tagMeta.color,
-                        border: '3px solid #ffffff',
-                        boxShadow: '0 0 0 2px rgba(0,0,0,0.1)'
-                      }}
-                    />
-
-                    {/* Card do movimento */}
-                    <div
-                      onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                      style={{
-                        background: isExpanded ? '#fbf9f4' : '#ffffff',
-                        borderTop: `1px solid ${isExpanded ? BLUE : BORDER}`,
-                        borderRight: `1px solid ${isExpanded ? BLUE : BORDER}`,
-                        borderBottom: `1px solid ${isExpanded ? BLUE : BORDER}`,
-                        borderLeft: `4px solid ${tagMeta.color}`,
-                        padding: '16px 20px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        boxShadow: isExpanded ? '0 6px 20px rgba(36,85,184,0.1)' : 'none'
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          gap: 12,
-                          marginBottom: 8
-                        }}
-                      >
-                        <span style={{ fontSize: 12, color: MUTED, fontWeight: 500 }}>
-                          {formatDateLabel(item.date)}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: 10,
-                            letterSpacing: 1,
-                            color: tagMeta.color,
-                            fontWeight: 700
-                          }}
-                        >
-                          {tagMeta.label}
-                        </span>
-                      </div>
-
-                      <div style={{ fontSize: 14.5, fontWeight: 600, color: '#000', marginBottom: 6 }}>
-                        {item.titulo}
-                      </div>
-
-                      <p style={{ margin: 0, fontSize: 13, color: MUTED, lineHeight: 1.6 }}>
-                        {item.descricao}
-                      </p>
-
-                      {/* Detalhes expandidos */}
-                      {isExpanded && process && (
-                        <div
-                          style={{
-                            marginTop: 14,
-                            paddingTop: 14,
-                            borderTop: '1px dashed #dcd5c9',
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                            gap: 12,
-                            fontSize: 12
-                          }}
-                        >
-                          <div>
-                            <strong style={{ color: '#000' }}>Processo:</strong> {process.numero}
-                          </div>
-                          <div>
-                            <strong style={{ color: '#000' }}>Tribunal/Vara:</strong> {process.tribunal}
-                          </div>
-                          <div>
-                            <strong style={{ color: '#000' }}>Classe/Tipo:</strong> {process.tipo}
-                          </div>
-                          <div>
-                            <strong style={{ color: '#000' }}>Parte Contrária:</strong> {process.parteContraria}
-                          </div>
-                          <div>
-                            <strong style={{ color: '#000' }}>Valor da Causa:</strong> {process.valorCausa}
-                          </div>
-                          <div>
-                            <strong style={{ color: '#000' }}>Distribuição:</strong> {process.distribuicao}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            ) : (
+              <div style={{ padding: '16px', background: '#faf8f5', color: MUTED, fontSize: 13 }}>
+                Clique em &quot;Recriar Resumo&quot; para gerar a síntese com Inteligência Artificial.
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════════════════
-            COLUNA DIREITA (30%) — CHAT COM A IA & FREEMIUM
-            ══════════════════════════════════════════════════════ */}
+        {/* ── LADO DIREITO (30%): CHAT COM A IA & FREEMIUM ── */}
         <div
           style={{
-            background: '#ffffff',
             display: 'flex',
             flexDirection: 'column',
+            background: '#ffffff',
             height: '100%',
-            minHeight: 700,
-            position: 'sticky',
-            top: 0
+            position: 'relative'
           }}
         >
           {/* Cabeçalho do Chat */}
@@ -755,7 +610,7 @@ export default function ProcessDashboardSplit({
               </span>
             </div>
 
-            {/* Chave/Switch Freemium para Desenvolvedores / Testes */}
+            {/* Chave/Switch Freemium para Desenvolvedores */}
             <div
               style={{
                 marginTop: 12,
@@ -797,7 +652,8 @@ export default function ProcessDashboardSplit({
               display: 'flex',
               flexDirection: 'column',
               gap: 14,
-              background: '#faf8f5'
+              background: '#faf8f5',
+              maxHeight: 520
             }}
           >
             {chatMessages.map((msg, idx) => (
@@ -866,7 +722,7 @@ export default function ProcessDashboardSplit({
               </div>
             )}
 
-            {/* Banner Freemium (quando atinge o limite no modo restrito) */}
+            {/* Banner Freemium */}
             {!isProUnlocked && freemiumQuestionsUsed >= 1 && (
               <div
                 style={{
@@ -907,7 +763,7 @@ export default function ProcessDashboardSplit({
             <div ref={chatBottomRef} />
           </div>
 
-          {/* Área de Notificação de Verificação Antivírus e Anexos Selecionados */}
+          {/* Notificação Antivírus e Anexos Selecionados */}
           {scanStatus && (
             <div
               style={{
@@ -994,7 +850,7 @@ export default function ProcessDashboardSplit({
             </div>
           )}
 
-          {/* Campo de Entrada do Chat com Botão de Anexo */}
+          {/* Campo de Entrada do Chat */}
           <div
             style={{
               padding: '12px 18px',
@@ -1005,7 +861,6 @@ export default function ProcessDashboardSplit({
               gap: 8
             }}
           >
-            {/* Input file invisível */}
             <input
               type="file"
               ref={fileInputRef}
@@ -1074,6 +929,173 @@ export default function ProcessDashboardSplit({
               ENVIAR
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* ═════════════════════════════════════════════════════════════════
+          2. BLOCO INFERIOR CONECTADO: LINHA DO TEMPO PROCESSUAL
+          Inicia exatamente onde o chat e o resumo terminam!
+          ═════════════════════════════════════════════════════════════════ */}
+      <div
+        style={{
+          background: PAPER,
+          border: `1px solid ${BORDER}`,
+          borderTop: 'none',
+          borderRadius: '0 0 3px 3px',
+          padding: '28px 32px',
+          boxShadow: '0 16px 50px rgba(0,0,0,0.3)',
+          marginBottom: 48
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h3 style={{ margin: 0, fontSize: 16.5, color: '#000', fontWeight: 600 }}>
+            Linha do Tempo Processual ({caseData.timeline.length} movimentações)
+          </h3>
+          <span style={{ fontSize: 11, color: MUTED }}>Clique no card para expandir detalhes da ação</span>
+        </div>
+
+        <div style={{ position: 'relative', paddingLeft: 32 }}>
+          {/* Linha vertical */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 11,
+              top: 8,
+              bottom: 8,
+              width: 2,
+              background: '#dcd5c9'
+            }}
+          />
+
+          {caseData.timeline.map(item => {
+            const tagMeta = TAG_META[item.tag] || TAG_META.informativo;
+            const isExpanded = expandedId === item.id;
+            const process = item.processo;
+
+            return (
+              <div key={item.id} style={{ position: 'relative', marginBottom: 20 }}>
+                {/* Ponto na timeline */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: -32 + 5,
+                    top: 14,
+                    width: 14,
+                    height: 14,
+                    borderRadius: '50%',
+                    background: tagMeta.color,
+                    border: '3px solid #ffffff',
+                    boxShadow: '0 0 0 2px rgba(0,0,0,0.1)'
+                  }}
+                />
+
+                {/* Card do movimento */}
+                <div
+                  onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                  style={{
+                    background: isExpanded ? '#fbf9f4' : '#ffffff',
+                    borderTop: `1px solid ${isExpanded ? BLUE : BORDER}`,
+                    borderRight: `1px solid ${isExpanded ? BLUE : BORDER}`,
+                    borderBottom: `1px solid ${isExpanded ? BLUE : BORDER}`,
+                    borderLeft: `4px solid ${tagMeta.color}`,
+                    padding: '16px 20px',
+                    cursor: 'pointer',
+                    transition: 'border-color 0.2s ease, background 0.2s ease',
+                    boxShadow: isExpanded ? '0 6px 20px rgba(36,85,184,0.1)' : 'none'
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 12,
+                      marginBottom: 8
+                    }}
+                  >
+                    <span style={{ fontSize: 12, color: MUTED, fontWeight: 500 }}>
+                      {formatDateLabel(item.date)}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          letterSpacing: 1,
+                          color: tagMeta.color,
+                          fontWeight: 700
+                        }}
+                      >
+                        {tagMeta.label}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: MUTED,
+                          display: 'inline-block',
+                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.25s ease'
+                        }}
+                      >
+                        ▼
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: 14.5, fontWeight: 600, color: '#000', marginBottom: 6 }}>
+                    {item.titulo}
+                  </div>
+
+                  <p style={{ margin: 0, fontSize: 13, color: MUTED, lineHeight: 1.6 }}>
+                    {item.descricao}
+                  </p>
+
+                  {/* Detalhes expandidos com animação performática de slide down e slide up */}
+                  <AnimatePresence initial={false}>
+                    {isExpanded && process && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.28, ease: [0.04, 0.62, 0.23, 0.98] }}
+                        style={{ overflow: 'hidden' }}
+                      >
+                        <div
+                          style={{
+                            marginTop: 14,
+                            paddingTop: 14,
+                            borderTop: '1px dashed #dcd5c9',
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                            gap: 12,
+                            fontSize: 12
+                          }}
+                        >
+                          <div>
+                            <strong style={{ color: '#000' }}>Processo:</strong> {process.numero}
+                          </div>
+                          <div>
+                            <strong style={{ color: '#000' }}>Tribunal/Vara:</strong> {process.tribunal}
+                          </div>
+                          <div>
+                            <strong style={{ color: '#000' }}>Classe/Tipo:</strong> {process.tipo}
+                          </div>
+                          <div>
+                            <strong style={{ color: '#000' }}>Parte Contrária:</strong> {process.parteContraria}
+                          </div>
+                          <div>
+                            <strong style={{ color: '#000' }}>Valor da Causa:</strong> {process.valorCausa}
+                          </div>
+                          <div>
+                            <strong style={{ color: '#000' }}>Distribuição:</strong> {process.distribuicao}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
