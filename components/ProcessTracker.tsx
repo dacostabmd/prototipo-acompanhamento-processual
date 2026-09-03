@@ -204,8 +204,17 @@ export default function ProcessTracker({
     let resumoTexto = '';
 
     if (aiSummary) {
+      // Limpeza de placeholders genéricos
+      let cleanSummary = aiSummary
+        .replace(/\[\s*seu nome\s*\]/gi, 'Equipe Blindagem Financeira')
+        .replace(/\[\s*nome(?:\s+do\s+advogado)?\s*\]/gi, 'Equipe Blindagem Financeira')
+        .replace(/\[\s*seu cargo\s*\]/gi, '')
+        .replace(/\[.*?nome.*?\]/gi, 'Equipe Blindagem Financeira');
+
+      cleanSummary = cleanSummary.replace(/Equipe Blindagem Financeira\s*\n\s*Blindagem Financeira/gi, 'Equipe Blindagem Financeira');
+
       // Converte tags HTML e spans de cores para a formatação nativa do WhatsApp
-      resumoTexto = aiSummary
+      resumoTexto = cleanSummary
         .replace(/<span[^>]*color:\s*#8a2b2b[^>]*>(.*?)<\/span>/gi, '🔴 *$1*')
         .replace(/<span[^>]*color:\s*#1b6b3e[^>]*>(.*?)<\/span>/gi, '🟢 *$1*')
         .replace(/<span[^>]*>(.*?)<\/span>/gi, '*$1*')
@@ -1240,6 +1249,15 @@ function formatAiSummaryHtml(raw: string): string {
   if (!raw) return '';
 
   let text = raw;
+
+  // Limpeza de placeholders genéricos como [Seu Nome]
+  text = text
+    .replace(/\[\s*seu nome\s*\]/gi, 'Equipe Blindagem Financeira')
+    .replace(/\[\s*nome(?:\s+do\s+advogado)?\s*\]/gi, 'Equipe Blindagem Financeira')
+    .replace(/\[\s*seu cargo\s*\]/gi, '')
+    .replace(/\[.*?nome.*?\]/gi, 'Equipe Blindagem Financeira');
+
+  text = text.replace(/Equipe Blindagem Financeira\s*\n\s*Blindagem Financeira/gi, 'Equipe Blindagem Financeira');
 
   // 1. Normaliza markdown bold **texto** -> <strong>texto</strong>
   text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');

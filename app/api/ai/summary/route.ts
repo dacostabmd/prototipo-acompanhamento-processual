@@ -21,7 +21,20 @@ const SYSTEM_PROMPT =
   '   - Valores de causa e datas dos andamentos mais recentes.\n' +
   '4. Estruture a resposta em 2 a 3 parágrafos fluidos, com quebras de linha entre eles.\n' +
   '5. Mantenha um tom profissional e tranquilizador, sem juridiquês complexo sem explicação.\n' +
-  '6. Baseie-se estritamente nos dados fornecidos na lista de processos.';
+  '6. Baseie-se estritamente nos dados fornecidos na lista de processos.\n' +
+  '7. NUNCA utilize placeholders ou marcações entre colchetes como "[Seu Nome]", "[Nome do Advogado]" ou "[Seu Cargo]". Se for assinar, utilize exclusivamente "Equipe Blindagem Financeira" ou finalize sem assinatura individual.';
+
+function sanitizeSummaryText(raw: string): string {
+  if (!raw) return '';
+  let cleaned = raw
+    .replace(/\[\s*seu nome\s*\]/gi, 'Equipe Blindagem Financeira')
+    .replace(/\[\s*nome(?:\s+do\s+advogado)?\s*\]/gi, 'Equipe Blindagem Financeira')
+    .replace(/\[\s*seu cargo\s*\]/gi, '')
+    .replace(/\[.*?nome.*?\]/gi, 'Equipe Blindagem Financeira');
+
+  cleaned = cleaned.replace(/Equipe Blindagem Financeira\s*\n\s*Blindagem Financeira/gi, 'Equipe Blindagem Financeira');
+  return cleaned;
+}
 
 export async function POST(request: Request) {
   try {
@@ -53,7 +66,7 @@ export async function POST(request: Request) {
         temperature: 0.6
       });
 
-      const text = completion.choices[0]?.message?.content ?? '';
+      const text = sanitizeSummaryText(completion.choices[0]?.message?.content ?? '');
       return NextResponse.json({ text });
     }
 
@@ -71,10 +84,12 @@ export async function POST(request: Request) {
         ]
       });
 
-      const text = response.content
-        .filter(block => block.type === 'text')
-        .map(block => (block as { text: string }).text)
-        .join('\n');
+      const text = sanitizeSummaryText(
+        response.content
+          .filter(block => block.type === 'text')
+          .map(block => (block as { text: string }).text)
+          .join('\n')
+      );
 
       return NextResponse.json({ text });
     }
