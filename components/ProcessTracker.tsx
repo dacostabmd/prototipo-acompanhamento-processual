@@ -344,13 +344,15 @@ export default function ProcessTracker({
       style={{
         position: 'relative',
         minHeight: '100vh',
-        background: NEAR_BLACK,
+        background: found
+          ? 'radial-gradient(ellipse at 50% 0%, #152744 0%, #0b0b0d 75%)'
+          : NEAR_BLACK,
         color: TEXT,
         fontFamily: "'Cinzel', 'Playfair Display', Georgia, 'Times New Roman', serif"
       }}
     >
-      {/* Fibers de fundo no canvas */}
-      <GhostFibers />
+      {/* Fibers de fundo no canvas ativo apenas no formulário/stepper para alto desempenho */}
+      {!found && <GhostFibers />}
 
       {/* Container principal */}
       <div

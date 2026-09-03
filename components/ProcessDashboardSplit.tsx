@@ -242,23 +242,6 @@ export default function ProcessDashboardSplit({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Badge do Bitrix */}
-          <div
-            style={{
-              background: 'rgba(255,255,255,0.12)',
-              border: '1px solid rgba(255,255,255,0.25)',
-              padding: '6px 12px',
-              fontSize: 10.5,
-              letterSpacing: 0.5,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-          >
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80' }} />
-            Bitrix24: {bitrixLeadId ? `Card #${bitrixLeadId}` : 'Card Registrado'}
-          </div>
-
           <button
             onClick={onNewSearch}
             style={{
