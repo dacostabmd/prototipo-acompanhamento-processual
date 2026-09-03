@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { CaseData, LegalProcess, MovementTag } from '@/lib/mockProcesses';
 import { validateSafeDocument, type FileValidationResult } from '@/lib/security';
+import { formatDateLabel, formatChatMessageHtml } from '@/lib/format';
 import AiSummaryLoadingBar from './AiSummaryLoadingBar';
 
 const BLUE = '#2455b8';
@@ -73,7 +74,7 @@ export default function ProcessDashboardSplit({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: `Olá, ${fullName.split(' ')[0] || 'Cliente'}! Sou o Assistente Jurídico com IA da Blindagem Financeira. Analisei seus ${caseData.totalProcessos} processo(s) encontrados. Como posso ajudar com dúvidas sobre prazos, riscos patrimoniais ou defesas possíveis? Você também pode me enviar documentos, PDFs ou fotos de petições aqui.`
+      content: `Olá, ${fullName.split(' ')[0] || 'Cliente'}! Sou o Assistente Jurídico com IA da Blindagem Financeira. Analisei seus ${caseData.totalProcessos} processo(s) encontrados.\n\nComo posso ajudar com dúvidas sobre prazos, riscos patrimoniais ou defesas possíveis? Você também pode me enviar documentos, PDFs ou fotos de petições aqui.`
     }
   ]);
   const [chatInput, setChatInput] = useState('');
@@ -343,7 +344,7 @@ export default function ProcessDashboardSplit({
         className="bf-split-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 7fr) minmax(0, 3fr)',
+          gridTemplateColumns: 'minmax(0, 68%) minmax(300px, 32%)',
           gap: 0,
           alignItems: 'stretch',
           background: PAPER,
@@ -587,6 +588,7 @@ export default function ProcessDashboardSplit({
             background: '#ffffff',
             height: '100%',
             minHeight: 0,
+            minWidth: 0,
             justifyContent: 'space-between',
             position: 'relative'
           }}
@@ -687,7 +689,14 @@ export default function ProcessDashboardSplit({
                     boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
                   }}
                 >
-                  <div>{msg.content}</div>
+                  {msg.role === 'user' ? (
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                  ) : (
+                    <div
+                      style={{ fontSize: 13, color: TEXT }}
+                      dangerouslySetInnerHTML={{ __html: formatChatMessageHtml(msg.content, false) }}
+                    />
+                  )}
                   {msg.attachments && msg.attachments.length > 0 && (
                     <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
                       {msg.attachments.map((att, attIdx) => (
@@ -863,13 +872,15 @@ export default function ProcessDashboardSplit({
           {/* Campo de Entrada do Chat */}
           <div
             style={{
-              padding: '12px 18px',
+              padding: '12px 14px',
               background: '#ffffff',
               borderTop: `1px solid ${BORDER}`,
               display: 'flex',
               alignItems: 'center',
               gap: 8,
-              marginTop: 'auto'
+              marginTop: 'auto',
+              width: '100%',
+              boxSizing: 'border-box'
             }}
           >
             <input
@@ -897,6 +908,7 @@ export default function ProcessDashboardSplit({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
                 transition: 'all 0.2s'
               }}
             >
@@ -916,11 +928,14 @@ export default function ProcessDashboardSplit({
               }
               style={{
                 flex: 1,
+                minWidth: 0,
+                width: '100%',
                 padding: '10px 12px',
                 fontSize: 13,
                 border: `1px solid ${BORDER}`,
                 outline: 'none',
-                background: !isProUnlocked && freemiumQuestionsUsed >= 1 ? '#f3f4f6' : '#ffffff'
+                background: !isProUnlocked && freemiumQuestionsUsed >= 1 ? '#f3f4f6' : '#ffffff',
+                boxSizing: 'border-box'
               }}
             />
             <button
@@ -934,7 +949,9 @@ export default function ProcessDashboardSplit({
                 fontSize: 11.5,
                 letterSpacing: 1,
                 fontWeight: 600,
-                cursor: !isProUnlocked && freemiumQuestionsUsed >= 1 ? 'not-allowed' : 'pointer'
+                cursor: !isProUnlocked && freemiumQuestionsUsed >= 1 ? 'not-allowed' : 'pointer',
+                flexShrink: 0,
+                whiteSpace: 'nowrap'
               }}
             >
               ENVIAR
@@ -1106,16 +1123,6 @@ export default function ProcessDashboardSplit({
       </div>
     </div>
   );
-}
-
-function formatDateLabel(dateStr: string): string {
-  if (!dateStr) return '';
-  const parts = dateStr.split('-');
-  if (parts.length === 3) {
-    const [y, m, d] = parts;
-    return `${d}/${m}/${y}`;
-  }
-  return dateStr;
 }
 
 function formatAiSummaryHtml(raw: string): string {

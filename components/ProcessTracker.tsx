@@ -15,7 +15,8 @@ import {
   cleanDigits,
   formatCpf,
   formatPhone,
-  isValidCpf
+  isValidCpf,
+  formatChatMessageHtml
 } from '@/lib/format';
 
 /* ── Design tokens ────────────────────────────────────────────────────── */
@@ -965,7 +966,14 @@ export default function ProcessTracker({
                     boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
                   }}
                 >
-                  {msg.content}
+                  {msg.role === 'user' ? (
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                  ) : (
+                    <div
+                      style={{ fontSize: 13.5, color: TEXT }}
+                      dangerouslySetInnerHTML={{ __html: formatChatMessageHtml(msg.content, false) }}
+                    />
+                  )}
                 </div>
               </div>
             ))}
