@@ -77,3 +77,30 @@ a:hover {
     transform: translateY(0);
   }
 }
+
+/* Responsividade do Split 70% / 30% */
+@media (max-width: 1040px) {
+  .bf-split-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Formatação Profissional para Download / Impressão do PDF */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  canvas,
+  button,
+  .bf-split-grid > div:last-child {
+    display: none !important;
+  }
+  .bf-split-grid {
+    display: block !important;
+  }
+  .bf-split-grid > div:first-child {
+    width: 100% !important;
+  }
+}
+

@@ -48,7 +48,7 @@ async function fetchInfosimples(service: string, token: string, cleanCpf: string
 
 export async function POST(request: Request) {
   try {
-    const { cpf, fullName, phone } = await request.json();
+    const { cpf, fullName, phone, state, processNumber } = await request.json();
     const cleanCpf = (cpf || '').replace(/\D/g, '');
 
     if (cleanCpf.length !== 11) {
@@ -66,9 +66,10 @@ export async function POST(request: Request) {
 
     const cleanPhone = (phone || '').replace(/\D/g, '');
     const ddd = cleanPhone.length >= 10 ? parseInt(cleanPhone.slice(0, 2), 10) : 0;
-    const isRj = ddd === 21 || ddd === 22 || ddd === 24;
+    const selectedState = (state || '').toUpperCase();
+    const isRj = selectedState.includes('RJ') || selectedState.includes('RIO') || ddd === 21 || ddd === 22 || ddd === 24;
 
-    // Multi-tribunal inteligente: define os tribunais a consultar baseado no DDD/CPF
+    // Multi-tribunal inteligente: define os tribunais a consultar baseado no Estado selecionado, DDD e CPF
     const targets: { service: string; label: string }[] = [];
 
     if (isRj) {
@@ -79,7 +80,10 @@ export async function POST(request: Request) {
       targets.push({ service: 'tribunal/tjrj/processo-eproc', label: 'TJRJ' });
     }
 
-    console.log(`[api/processos] Consulta multi-tribunal para ${fullName || 'Cliente'} (CPF: ${cleanCpf}, DDD: ${ddd || 'N/I'}) nos tribunais:`, targets.map(t => t.label).join(', '));
+    console.log(
+      `[api/processos] Consulta multi-tribunal para ${fullName || 'Cliente'} (CPF: ${cleanCpf}, Estado: ${state || 'Auto'}, DDD: ${ddd || 'N/I'}) nos tribunais:`,
+      targets.map(t => t.label).join(', ')
+    );
 
     const queries = await Promise.allSettled(
       targets.map(t => fetchInfosimples(t.service, token, cleanCpf))

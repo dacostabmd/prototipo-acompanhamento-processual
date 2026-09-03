@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
+    "canvas-confetti": "^1.9.4",
+    "motion": "^13.2.0",
     "next": "^15.5.0",
     "ogl": "^1.0.11",
     "openai": "^7.9.0",
@@ -17,6 +19,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",

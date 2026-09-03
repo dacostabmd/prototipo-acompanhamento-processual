@@ -1,24 +1,24 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import confetti from 'canvas-confetti';
 import GhostFibers from './GhostFibers';
+import Stepper, { Step } from './Stepper';
+import ProcessDashboardSplit from './ProcessDashboardSplit';
 import {
   buildCaseData,
   buildCaseDataFromProcesses,
-  TAG_META,
   type CaseData,
   type LegalProcess
 } from '@/lib/mockProcesses';
 import {
   cleanDigits,
   formatCpf,
-  formatDateLabel,
   formatPhone,
-  isValidCpf,
-  normalizeName
+  isValidCpf
 } from '@/lib/format';
 
-/* ── Design tokens (extraídos do protótipo) ───────────────────────────── */
+/* ── Design tokens ────────────────────────────────────────────────────── */
 const BLUE = '#2455b8';
 const BLUE_DARK = '#17347a';
 const BLUE_LIGHT = '#a9c3ef';
@@ -34,12 +34,22 @@ const MUTED = '#5b6b78';
 const DANGER = '#8a3a3a';
 const WHATSAPP = '#25603f';
 
-const LOADING_TEXT = 'Gerando resumo com inteligência artificial...';
+const BRAZIL_STATES = [
+  { value: 'AUTO', label: 'Verificação Inteligente (Recomendado — SP, RJ e Federais)' },
+  { value: 'SP', label: 'São Paulo — TJSP (Tribunal de Justiça de SP)' },
+  { value: 'RJ', label: 'Rio de Janeiro — TJRJ (Tribunal de Justiça do RJ)' },
+  { value: 'MG', label: 'Minas Gerais — TJMG' },
+  { value: 'RS', label: 'Rio Grande do Sul — TJRS' },
+  { value: 'PR', label: 'Paraná — TJPR' },
+  { value: 'SC', label: 'Santa Catarina — TJSC' },
+  { value: 'DF', label: 'Distrito Federal — TJDFT' },
+  { value: 'BA', label: 'Bahia — TJBA' },
+  { value: 'FEDERAL', label: 'Justiça Federal — TRF1 / TRF2 / TRF3' },
+  { value: 'OUTRO', label: 'Outro Tribunal Estadual' }
+];
 
 export interface ProcessTrackerProps {
-  /** Modelo usado nas chamadas de IA (repassado às rotas /api/ai/*). */
   aiModel?: 'claude-haiku-4-5' | 'claude-sonnet-4-5';
-  /** Tom do assistente de triagem no chat. */
   chatTone?: 'Acolhedor' | 'Formal';
 }
 
@@ -49,24 +59,32 @@ export default function ProcessTracker({
   aiModel = 'claude-haiku-4-5',
   chatTone = 'Acolhedor'
 }: ProcessTrackerProps) {
+  // Stepper Fields
   const [fullName, setFullName] = useState('');
   const [cpfInput, setCpfInput] = useState('');
+  const [stateInput, setStateInput] = useState('AUTO');
+  const [processNumberInput, setProcessNumberInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
   const [formError, setFormError] = useState('');
 
+  // Search & Result states
+  const [currentStepIndex, setCurrentStepIndex] = useState(1);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [tribunaisConsultados, setTribunaisConsultados] = useState<string[]>([]);
 
+  // Bitrix states
+  const [bitrixLeadId, setBitrixLeadId] = useState<string | number | null>(null);
+  const [bitrixSimulated, setBitrixSimulated] = useState(false);
+
+  // AI Summary state
   const [aiSummary, setAiSummary] = useState('');
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [aiSummaryError, setAiSummaryError] = useState('');
 
-  const [whatsappSending, setWhatsappSending] = useState(false);
-  const [whatsappSent, setWhatsappSent] = useState(false);
-
+  // Floating Chat Modal state (com 40% a mais de largura e altura)
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -77,35 +95,96 @@ export default function ProcessTracker({
 
   const found = hasSearched && !notFound && !!caseData;
 
-  const loadingLetters = useMemo(
-    () =>
-      LOADING_TEXT.split('').map((ch, i) => ({
-        ch: ch === ' ' ? '\u00A0' : ch,
-        delay: `${(i * 0.035).toFixed(2)}s`
-      })),
-    []
-  );
+  // Validações por passo do Stepper
+  const isStep1Valid = fullName.trim().length >= 3;
+  const isStep2Valid = cleanDigits(cpfInput).length === 11 && isValidCpf(cleanDigits(cpfInput));
+  const isStep3Valid = true;
+  const isStep4Valid = cleanDigits(phoneInput).length >= 10;
 
-  /* ── Busca (consulta real multi-tribunal via Infosimples /api/processos) ── */
-  const handleSearch = async () => {
+  const canAdvanceCurrentStep = useMemo(() => {
+    switch (currentStepIndex) {
+      case 1:
+        return isStep1Valid;
+      case 2:
+        return isStep2Valid;
+      case 3:
+        return isStep3Valid;
+      case 4:
+        return isStep4Valid;
+      default:
+        return true;
+    }
+  }, [currentStepIndex, isStep1Valid, isStep2Valid, isStep3Valid, isStep4Valid]);
+
+  // Dispara Confete com a paleta nobre estendida
+  const triggerConfetti = () => {
+    const colors = [
+      '#2455b8',
+      '#17347a',
+      '#3b82f6',
+      '#c5a059',
+      '#d4af37',
+      '#1b6b3e',
+      '#8a2b2b',
+      '#f5efe1',
+      '#60a5fa',
+      '#93c5fd'
+    ];
+
+    confetti({
+      particleCount: 90,
+      spread: 75,
+      origin: { y: 0.6 },
+      colors
+    });
+
+    window.setTimeout(() => {
+      confetti({
+        particleCount: 60,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors
+      });
+      confetti({
+        particleCount: 60,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors
+      });
+    }, 280);
+  };
+
+  // Envio final do Stepper e Execução da Busca + Bitrix
+  const handleFinalStepCompleted = async () => {
     const digits = cleanDigits(cpfInput);
-    if (digits.length !== 11) return setFormError('Digite um CPF válido com 11 dígitos.');
-    if (!isValidCpf(digits)) return setFormError('CPF inválido. Verifique os números digitados.');
-    if (!fullName.trim()) return setFormError('Informe o nome completo.');
     const phoneDigits = cleanDigits(phoneInput);
-    if (phoneDigits.length < 10 || phoneDigits.length > 11)
-      return setFormError('Informe um telefone válido com DDD.');
+
+    if (!isStep1Valid || !isStep2Valid || !isStep4Valid) {
+      setFormError('Por favor, revise os dados informados nos passos anteriores.');
+      return;
+    }
 
     setFormError('');
     setSearching(true);
     setHasSearched(false);
-    setWhatsappSent(false);
+
+    // Dispara Confete imediatamente ao finalizar o Stepper
+    triggerConfetti();
 
     try {
+      // 1. Busca processual multi-tribunal
       const res = await fetch('/api/processos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf: digits, fullName, phone: phoneDigits })
+        body: JSON.stringify({
+          cpf: digits,
+          fullName,
+          phone: phoneDigits,
+          state: stateInput,
+          processNumber: processNumberInput
+        })
       });
 
       const data = await res.json();
@@ -116,19 +195,52 @@ export default function ProcessTracker({
 
       setTribunaisConsultados(data.tribunaisConsultados || []);
 
+      let currentCases: CaseData | null = null;
+      let totalFound = 0;
+
       if (data.notFound || !data.processes || data.processes.length === 0) {
         setNotFound(true);
         setCaseData(null);
       } else {
         setNotFound(false);
-        setCaseData(buildCaseDataFromProcesses(data.processes));
+        currentCases = buildCaseDataFromProcesses(data.processes);
+        setCaseData(currentCases);
+        totalFound = data.processes.length;
       }
 
       setHasSearched(true);
-      setAiSummary('');
-      setAiSummaryError('');
+
+      // 2. Integração com Bitrix24 (criação automática de card)
+      try {
+        const bitrixRes = await fetch('/api/bitrix/lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fullName,
+            cpf: formatCpf(digits),
+            phone: formatPhone(phoneDigits),
+            state: stateInput,
+            processNumber: processNumberInput,
+            processesCount: totalFound,
+            tribunal: data.tribunaisConsultados?.join(', ') || stateInput,
+            processesSummary: currentCases
+              ? currentCases.processes.slice(0, 3).map(p => `${p.tipo} (${p.numero}) - ${p.valorCausa}`).join('; ')
+              : 'Nenhum processo localizado automaticamente'
+          })
+        });
+        const bitrixData = await bitrixRes.json();
+        if (bitrixData.leadId) setBitrixLeadId(bitrixData.leadId);
+        if (bitrixData.simulated) setBitrixSimulated(true);
+      } catch (err) {
+        console.error('[Bitrix integration error]', err);
+      }
+
+      // 3. Se encontrou processos, gera automaticamente o resumo por IA
+      if (currentCases) {
+        void fetchAiSummary(currentCases);
+      }
     } catch (err: any) {
-      console.error('[ProcessTracker search]', err);
+      console.error('[ProcessTracker search error]', err);
       setFormError(err.message || 'Não foi possível consultar os processos no momento. Tente novamente.');
       setHasSearched(false);
     } finally {
@@ -136,26 +248,10 @@ export default function ProcessTracker({
     }
   };
 
-  const toggleExpand = (id: string) => {
-    setCaseData(current =>
-      current
-        ? {
-            ...current,
-            timeline: current.timeline.map(item =>
-              item.id === id ? { ...item, expanded: !item.expanded } : item
-            )
-          }
-        : current
-    );
-  };
-
-  /* ── Resumo por IA (mínimo de 3s para a animação de carregamento) ────── */
-  const generateAiSummary = async () => {
-    if (!caseData) return;
+  // Geração de Resumo com IA
+  const fetchAiSummary = async (casesToSummarize: CaseData) => {
     setAiSummaryLoading(true);
     setAiSummaryError('');
-    setAiSummary('');
-    const startedAt = Date.now();
     try {
       const res = await fetch('/api/ai/summary', {
         method: 'POST',
@@ -163,7 +259,7 @@ export default function ProcessTracker({
         body: JSON.stringify({
           fullName,
           model: aiModel,
-          processes: caseData.processes.map((p: LegalProcess) => ({
+          processes: casesToSummarize.processes.map((p: LegalProcess) => ({
             tipo: p.tipo,
             numero: p.numero,
             tribunal: p.tribunal,
@@ -173,101 +269,24 @@ export default function ProcessTracker({
           }))
         })
       });
-      if (!res.ok) throw new Error('request failed');
+      if (!res.ok) throw new Error('Falha na rota de resumo da IA');
       const { text } = await res.json();
-      const remaining = 3000 - (Date.now() - startedAt);
-      if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
       setAiSummary(text);
     } catch {
-      const remaining = 3000 - (Date.now() - startedAt);
-      if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
-      setAiSummaryError('Não foi possível gerar o resumo agora. Tente novamente.');
+      setAiSummaryError('Não foi possível gerar o resumo automático agora.');
     } finally {
       setAiSummaryLoading(false);
     }
   };
 
-  /* ── Envio por WhatsApp (disparo direto do resumo para o número alvo) ─── */
-  const sendWhatsapp = () => {
-    if (!caseData || whatsappSending) return;
-
-    const rawDigits = cleanDigits(phoneInput);
-    if (rawDigits.length < 10) {
-      setFormError('Informe um telefone válido com DDD para envio por WhatsApp.');
-      return;
-    }
-
-    setWhatsappSending(true);
-
-    const targetPhone = rawDigits.startsWith('55') ? rawDigits : `55${rawDigits}`;
-
-    let resumoTexto = '';
-
-    if (aiSummary) {
-      // Limpeza de placeholders genéricos
-      let cleanSummary = aiSummary
-        .replace(/\[\s*seu nome\s*\]/gi, 'Equipe Blindagem Financeira')
-        .replace(/\[\s*nome(?:\s+do\s+advogado)?\s*\]/gi, 'Equipe Blindagem Financeira')
-        .replace(/\[\s*seu cargo\s*\]/gi, '')
-        .replace(/\[.*?nome.*?\]/gi, 'Equipe Blindagem Financeira');
-
-      cleanSummary = cleanSummary.replace(/Equipe Blindagem Financeira\s*\n\s*Blindagem Financeira/gi, 'Equipe Blindagem Financeira');
-
-      // Converte tags HTML e spans de cores para a formatação nativa do WhatsApp
-      resumoTexto = cleanSummary
-        .replace(/<span[^>]*color:\s*#8a2b2b[^>]*>(.*?)<\/span>/gi, '🔴 *$1*')
-        .replace(/<span[^>]*color:\s*#1b6b3e[^>]*>(.*?)<\/span>/gi, '🟢 *$1*')
-        .replace(/<span[^>]*>(.*?)<\/span>/gi, '*$1*')
-        .replace(/<strong>(.*?)<\/strong>/gi, '*$1*')
-        .replace(/<b>(.*?)<\/b>/gi, '*$1*')
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/p>/gi, '\n\n')
-        .replace(/<p[^>]*>/gi, '')
-        .replace(/<[^>]+>/g, '')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-    } else {
-      resumoTexto = caseData.processes
-        .slice(0, 5)
-        .map(
-          (p, i) =>
-            `${i + 1}. *${p.tipo}* (${p.numero})\n   • *Tribunal:* ${p.tribunal}\n   • *Parte Contrária:* ${p.parteContraria}\n   • *Valor:* ${p.valorCausa}\n   • *Último andamento:* ${p.movimentos[0]?.titulo || 'Sem movimentações'}`
-        )
-        .join('\n\n');
-
-      if (caseData.processes.length > 5) {
-        resumoTexto += `\n\n...e mais *${caseData.processes.length - 5}* processo(s) localizado(s).`;
-      }
-    }
-
-    const mensagem =
-      `*BLINDAGEM FINANCEIRA — Resumo Processual*\n\n` +
-      `*Cliente:* ${fullName || 'Cliente'}\n` +
-      `*CPF:* ${cpfInput}\n` +
-      `*Processos Localizados:* ${caseData.totalProcessos}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `*RESUMO DO ANDAMENTO:*\n\n` +
-      `${resumoTexto}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `_Para auxílio jurídico especializado em proteção patrimonial e defesa em execuções, fale com nossa equipe._\n` +
-      `*Blindagem Financeira*`;
-
-    const whatsappUrl = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(mensagem)}`;
-
-    window.open(whatsappUrl, '_blank');
-
-    setWhatsappSending(false);
-    setWhatsappSent(true);
-  };
-
-  /* ── Chat de triagem ─────────────────────────────────────────────────── */
+  // Abrir Chat Flutuante (com dimensões 40% maiores)
   const openChat = () => {
     if (chatMessages.length === 0) {
       setChatMessages([
         {
           role: 'assistant',
           content:
-            'Olá! Sou o assistente jurídico da Blindagem Financeira. Pode me contar, com suas palavras, o que está acontecendo? Se souber o número do processo ou tiver documentos relacionados, pode compartilhar aqui também.'
+            'Olá! Sou o assistente jurídico da Blindagem Financeira. Pode me contar o que está acontecendo? Se tiver número de processo ou documentos, pode compartilhar aqui também.'
         }
       ]);
     }
@@ -275,224 +294,345 @@ export default function ProcessTracker({
   };
 
   const sendChatMessage = async () => {
-    const text = chatInput.trim();
-    if (!text || chatLoading) return;
-    const next: ChatMessage[] = [...chatMessages, { role: 'user', content: text }];
-    setChatMessages(next);
+    if (!chatInput.trim() || chatLoading) return;
+    const msg = chatInput.trim();
     setChatInput('');
+    const newMessages: ChatMessage[] = [...chatMessages, { role: 'user', content: msg }];
+    setChatMessages(newMessages);
     setChatLoading(true);
+
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: next,
+          messages: newMessages,
           tone: chatTone,
           model: aiModel,
-          totalProcessos: caseData?.totalProcessos ?? 0
+          caseContext: caseData
+            ? {
+                fullName,
+                cpf: cpfInput,
+                totalProcessos: caseData.totalProcessos,
+                processes: caseData.processes.map(p => ({
+                  numero: p.numero,
+                  tribunal: p.tribunal,
+                  tipo: p.tipo,
+                  valorCausa: p.valorCausa,
+                  parteContraria: p.parteContraria
+                }))
+              }
+            : null
         })
       });
-      if (!res.ok) throw new Error('request failed');
-      const { text: reply } = await res.json();
-      setChatMessages(current => [...current, { role: 'assistant', content: reply }]);
+
+      if (!res.ok) throw new Error('Falha no chat');
+      const data = await res.json();
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.text }]);
     } catch {
-      setChatMessages(current => [
-        ...current,
-        { role: 'assistant', content: 'Desculpe, não consegui responder agora. Pode tentar novamente?' }
+      setChatMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: 'Desculpe, tive um problema ao responder. Pode tentar novamente?' }
       ]);
     } finally {
       setChatLoading(false);
     }
   };
 
-  const finalizeChat = () => {
-    setChatMessages(current => [
-      ...current,
-      {
-        role: 'assistant',
-        content:
-          'Dossiê enviado ao advogado responsável, reunindo seus dados, o resumo gerado por IA e as informações processuais consultadas via Infosimples. Em breve alguém da nossa equipe entrará em contato.'
-      }
-    ]);
-    setChatEnded(true);
-  };
-
-  const summaryButtonLabel = aiSummaryLoading
-    ? 'GERANDO...'
-    : aiSummary
-      ? 'GERAR NOVAMENTE'
-      : 'GERAR RESUMO COM IA';
-
   return (
     <div
       style={{
+        position: 'relative',
         minHeight: '100vh',
         background: NEAR_BLACK,
-        fontFamily: 'var(--font-cinzel), serif',
-        fontWeight: 600,
         color: TEXT,
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative'
+        fontFamily: "'Cinzel', 'Playfair Display', Georgia, 'Times New Roman', serif"
       }}
     >
-      {/* Fundo animado (shader WebGL) */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
-        <GhostFibers
-          lineColor="#16244f"
-          glowColor={BLUE}
-          speed={0.15}
-          grain={0.035}
-          vignette={0.9}
-          brightness={1.5}
-        />
-      </div>
+      {/* Fibers de fundo no canvas */}
+      <GhostFibers />
 
-      {/* Cabeçalho */}
-      <header
+      {/* Container principal */}
+      <div
         style={{
           position: 'relative',
-          zIndex: 1,
-          background: BLUE,
-          padding: '18px clamp(16px,5vw,40px)',
+          zIndex: 10,
+          padding: 'clamp(20px, 4vw, 48px) clamp(16px, 3vw, 36px)',
+          minHeight: '100vh',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 16
+          flexDirection: 'column',
+          alignItems: 'center'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/blindagem-logo.png" alt="Blindagem Financeira" style={{ height: 38 }} />
-          <div style={{ borderLeft: '1px solid rgba(255,255,255,0.25)', paddingLeft: 14 }}>
-            <div style={{ color: CREAM_TEXT, fontSize: 'clamp(10px,2.4vw,12px)', letterSpacing: 2 }}>
-              ACOMPANHAMENTO DE PROCESSOS
-            </div>
-          </div>
-        </div>
-        <div style={{ color: '#9fb0bd', fontSize: 11.5, letterSpacing: 0.5 }}>
-          Proteção patrimonial · Negociação de dívidas · Defesa em execuções
-        </div>
-      </header>
-
-      <main
-        style={{
-          position: 'relative',
-          zIndex: 1,
-          flex: 1,
-          maxWidth: 920,
-          margin: '0 auto',
-          padding: '40px clamp(12px,4vw,24px) 100px',
-          width: '100%'
-        }}
-      >
-        {/* Formulário de consulta */}
-        <section
-          style={{
-            background: PAPER,
-            border: `1px solid ${BORDER}`,
-            borderTop: `4px solid ${BLUE}`,
-            padding: 'clamp(20px,5vw,36px) clamp(16px,5vw,40px)'
-          }}
-        >
-          <h1
+        {/* Logotipo Blindagem Financeira */}
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <img
+            src="/blindagem-logo.png"
+            alt="Blindagem Financeira"
             style={{
-              margin: '0 0 8px',
-              fontSize: 'clamp(20px,5vw,25px)',
-              letterSpacing: 0.5,
-              color: '#000',
-              fontWeight: 600
+              height: 48,
+              width: 'auto',
+              filter: 'brightness(1.1) drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
+              display: 'inline-block'
             }}
-          >
-            Consulte seus processos
-          </h1>
-          <p style={{ margin: '0 0 28px', fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 580 }}>
-            Informe seus dados para verificarmos se existem processos judiciais vinculados ao seu CPF,
-            com base em fontes públicas processuais (via Infosimples).
-          </p>
+          />
+        </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 11.5, letterSpacing: 1, color: '#000' }}>NOME COMPLETO</label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                onBlur={() => setFullName(current => normalizeName(current))}
-                placeholder="Digite seu nome completo"
-                style={inputStyle}
-              />
+        {/* ═════════════════════════════════════════════════════════════════
+            FASE 1: FORMULÁRIO EM STEPPER ANIMADO (4 PASSOS)
+            ═════════════════════════════════════════════════════════════════ */}
+        {!hasSearched && (
+          <div style={{ width: '100%', maxWidth: 720, animation: 'bf-fadein 0.5s ease both' }}>
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <h1
+                style={{
+                  fontSize: 'clamp(20px, 3.2vw, 26px)',
+                  color: '#ffffff',
+                  letterSpacing: 1.5,
+                  margin: '0 0 8px',
+                  fontWeight: 600,
+                  textShadow: '0 2px 8px rgba(0,0,0,0.5)'
+                }}
+              >
+                CONSULTE SEUS PROCESSOS
+              </h1>
+              <p
+                style={{
+                  fontSize: 13.5,
+                  color: '#d1d5db',
+                  lineHeight: 1.6,
+                  maxWidth: 580,
+                  margin: '0 auto',
+                  fontFamily: 'system-ui, -apple-system, sans-serif'
+                }}
+              >
+                Preencha os passos abaixo para verificar processos judiciais e execuções vinculadas ao seu documento.
+              </p>
             </div>
 
-            <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 200 }}>
-                <label style={{ fontSize: 11.5, letterSpacing: 1, color: '#000' }}>CPF</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={cpfInput}
-                  onChange={e => {
-                    setCpfInput(formatCpf(e.target.value));
-                    setFormError('');
-                  }}
-                  placeholder="000.000.000-00"
-                  maxLength={14}
-                  style={inputStyle}
-                />
+            {formError && (
+              <div
+                style={{
+                  background: 'rgba(138,58,58,0.9)',
+                  color: '#ffffff',
+                  padding: '10px 16px',
+                  borderRadius: 2,
+                  marginBottom: 16,
+                  fontSize: 13,
+                  textAlign: 'center'
+                }}
+              >
+                {formError}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 190 }}>
-                <label style={{ fontSize: 11.5, letterSpacing: 1, color: '#000' }}>
-                  TELEFONE (WHATSAPP)
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={phoneInput}
-                  onChange={e => {
-                    setPhoneInput(formatPhone(e.target.value));
-                    setFormError('');
-                  }}
-                  placeholder="(00) 00000-0000"
-                  maxLength={15}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
+            )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-              <button onClick={handleSearch} style={primaryButtonStyle}>
-                {searching ? 'CONSULTANDO...' : 'CONSULTAR PROCESSOS'}
-              </button>
-              {searching && (
+            {searching ? (
+              <div
+                style={{
+                  background: PAPER,
+                  padding: '48px 32px',
+                  borderRadius: 4,
+                  textAlign: 'center',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
+                  border: `1px solid ${BORDER}`
+                }}
+              >
                 <div
                   style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: '50%',
-                    border: '3px solid rgba(36,85,184,0.15)',
+                    display: 'inline-block',
+                    width: 44,
+                    height: 44,
+                    border: `3px solid ${BORDER}`,
                     borderTopColor: BLUE,
-                    borderRightColor: BLUE,
-                    animation: 'bf-spin 0.9s linear infinite'
+                    borderRadius: '50%',
+                    animation: 'bf-spin 0.9s linear infinite',
+                    marginBottom: 16
                   }}
                 />
-              )}
-            </div>
+                <h3 style={{ margin: '0 0 8px', fontSize: 18, color: '#000', fontWeight: 600 }}>
+                  Varrendo bases judiciais...
+                </h3>
+                <p style={{ margin: 0, fontSize: 13.5, color: MUTED }}>
+                  Consultando tribunais e registrando protocolo com Inteligência Artificial.
+                </p>
+              </div>
+            ) : (
+              <Stepper
+                initialStep={1}
+                onStepChange={step => setCurrentStepIndex(step)}
+                onFinalStepCompleted={handleFinalStepCompleted}
+                canAdvance={canAdvanceCurrentStep}
+                backButtonText="VOLTAR"
+                nextButtonText="CONTINUAR"
+              >
+                {/* ── PASSO 1: NOME COMPLETO ── */}
+                <Step>
+                  <div>
+                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE, fontWeight: 700, marginBottom: 4 }}>
+                      PASSO 1 DE 4 · IDENTIFICAÇÃO OFICIAL
+                    </div>
+                    <h2 style={{ margin: '0 0 8px', fontSize: 18, color: '#000', fontWeight: 600 }}>
+                      Nome Completo do Titular
+                    </h2>
+                    <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+                      Informe exatamente como consta no RG, CNH ou na capa do processo para correta validação.
+                    </p>
 
-            {formError && <div style={{ color: DANGER, fontSize: 13 }}>{formError}</div>}
+                    <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#000', marginBottom: 6 }}>
+                      NOME COMPLETO
+                    </label>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={e => setFullName(e.target.value)}
+                      placeholder="Nome completo exatamente como consta no documento ou processo"
+                      style={inputStyle}
+                      autoFocus
+                    />
+                    {!isStep1Valid && fullName.length > 0 && (
+                      <span style={{ fontSize: 11, color: DANGER, marginTop: 4, display: 'block' }}>
+                        Mínimo de 3 caracteres para identificação.
+                      </span>
+                    )}
+                  </div>
+                </Step>
+
+                {/* ── PASSO 2: CPF ── */}
+                <Step>
+                  <div>
+                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE, fontWeight: 700, marginBottom: 4 }}>
+                      PASSO 2 DE 4 · DOCUMENTO OFICIAL
+                    </div>
+                    <h2 style={{ margin: '0 0 8px', fontSize: 18, color: '#000', fontWeight: 600 }}>
+                      Cadastro de Pessoa Física (CPF)
+                    </h2>
+                    <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+                      O número do CPF é utilizado para rastreamento nas bases públicas dos tribunais.
+                    </p>
+
+                    <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#000', marginBottom: 6 }}>
+                      CPF
+                    </label>
+                    <input
+                      type="text"
+                      value={cpfInput}
+                      onChange={e => setCpfInput(formatCpf(e.target.value))}
+                      placeholder="000.000.000-00"
+                      maxLength={14}
+                      style={inputStyle}
+                      autoFocus
+                    />
+                    {!isStep2Valid && cleanDigits(cpfInput).length === 11 && (
+                      <span style={{ fontSize: 11, color: DANGER, marginTop: 4, display: 'block' }}>
+                        Dígito verificador do CPF inválido. Verifique os números.
+                      </span>
+                    )}
+                  </div>
+                </Step>
+
+                {/* ── PASSO 3: ESTADO DO PROCESSO ── */}
+                <Step>
+                  <div>
+                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE, fontWeight: 700, marginBottom: 4 }}>
+                      PASSO 3 DE 4 · JURISDIÇÃO E PROCESSO
+                    </div>
+                    <h2 style={{ margin: '0 0 8px', fontSize: 18, color: '#000', fontWeight: 600 }}>
+                      Estado do Processo ou Número CNJ
+                    </h2>
+                    <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+                      Selecione o estado provável onde tramita a ação e/ou informe o número do processo se já souber.
+                    </p>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#000', marginBottom: 6 }}>
+                        ESTADO DO PROCESSO / TRIBUNAL
+                      </label>
+                      <select
+                        value={stateInput}
+                        onChange={e => setStateInput(e.target.value)}
+                        style={{
+                          ...inputStyle,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {BRAZIL_STATES.map(st => (
+                          <option key={st.value} value={st.value}>
+                            {st.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#000', marginBottom: 6 }}>
+                        NÚMERO DO PROCESSO (CNJ — OPCIONAL)
+                      </label>
+                      <input
+                        type="text"
+                        value={processNumberInput}
+                        onChange={e => setProcessNumberInput(e.target.value)}
+                        placeholder="0000000-00.0000.0.00.0000 (se possuir)"
+                        style={inputStyle}
+                      />
+                      <span style={{ fontSize: 11, color: MUTED, marginTop: 4, display: 'block' }}>
+                        Deixe em branco se desejar que a busca encontre todos os processos vinculados ao seu CPF.
+                      </span>
+                    </div>
+                  </div>
+                </Step>
+
+                {/* ── PASSO 4: NÚMERO DE CELULAR ── */}
+                <Step>
+                  <div>
+                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE, fontWeight: 700, marginBottom: 4 }}>
+                      PASSO 4 DE 4 · CONTATO & WHATSAPP
+                    </div>
+                    <h2 style={{ margin: '0 0 8px', fontSize: 18, color: '#000', fontWeight: 600 }}>
+                      Número de Celular (WhatsApp)
+                    </h2>
+                    <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+                      Utilizado para envio do relatório confidencial e confirmação de segurança.
+                    </p>
+
+                    <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#000', marginBottom: 6 }}>
+                      NÚMERO DE CELULAR (COM DDD)
+                    </label>
+                    <input
+                      type="text"
+                      value={phoneInput}
+                      onChange={e => setPhoneInput(formatPhone(e.target.value))}
+                      placeholder="(21) 97402-6883"
+                      maxLength={15}
+                      style={inputStyle}
+                      autoFocus
+                    />
+                    {!isStep4Valid && cleanDigits(phoneInput).length > 0 && (
+                      <span style={{ fontSize: 11, color: DANGER, marginTop: 4, display: 'block' }}>
+                        Informe o DDD e os 9 dígitos do celular.
+                      </span>
+                    )}
+                  </div>
+                </Step>
+              </Stepper>
+            )}
           </div>
-        </section>
+        )}
 
-        {/* Nenhum processo localizado */}
+        {/* ═════════════════════════════════════════════════════════════════
+            FASE 2: NENHUM PROCESSO ENCONTRADO
+            ═════════════════════════════════════════════════════════════════ */}
         {hasSearched && notFound && (
           <section
             style={{
-              marginTop: 28,
+              width: '100%',
+              maxWidth: 720,
+              marginTop: 20,
               background: PAPER,
               border: `1px solid ${BORDER}`,
               borderLeft: '4px solid #4a5a6a',
-              padding: '32px 40px',
-              animation: 'bf-fadein 0.7s ease both'
+              padding: '36px 40px',
+              animation: 'bf-fadein 0.6s ease both',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.3)'
             }}
           >
             <div
@@ -505,7 +645,7 @@ export default function ProcessTracker({
                 marginBottom: 10
               }}
             >
-              <h2 style={{ margin: 0, fontSize: 18, color: '#000', fontWeight: 600 }}>
+              <h2 style={{ margin: 0, fontSize: 19, color: '#000', fontWeight: 600 }}>
                 Nenhum processo localizado automaticamente
               </h2>
               {tribunaisConsultados.length > 0 && (
@@ -518,473 +658,221 @@ export default function ProcessTracker({
                     letterSpacing: 0.5
                   }}
                 >
-                  Tribunais consultados: {tribunaisConsultados.join(', ')}
+                  Bases: {tribunaisConsultados.join(', ')}
                 </span>
               )}
             </div>
             <p style={{ margin: '0 0 22px', fontSize: 14, color: MUTED, lineHeight: 1.7 }}>
-              A consulta automática nos tribunais ({tribunaisConsultados.join(', ') || 'TJSP, TJRJ'}) não retornou processos públicos ativos para este CPF.
-              Isso não significa que não existam pendências, pois processos em outros tribunais regionais ou em segredo de justiça requerem análise com um especialista.
+              A consulta automática para o CPF {cpfInput} não retornou processos públicos ativos no tribunal consultado ({tribunaisConsultados.join(', ') || stateInput}).
+              Isso não significa que não existam pendências, pois processos em segredo de justiça ou em outros estados exigem verificação especializada.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
               <button
                 onClick={() => setInfoModalOpen(true)}
-                style={{ ...primaryButtonStyle, padding: '13px 26px', fontWeight: 400, letterSpacing: 1 }}
+                style={{ ...primaryButtonStyle, padding: '13px 28px', fontWeight: 400, letterSpacing: 1 }}
               >
                 PRECISO DE AUXÍLIO JURÍDICO
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCaseData(buildCaseData());
-                  setNotFound(false);
-                  setHasSearched(true);
-                  setAiSummary('');
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: BLUE,
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                  padding: 4
-                }}
-              >
-                Visualizar tela com dados demonstrativos de exemplo
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* Papel branco com resultados */}
-        {found && caseData && (
-          <section
-            style={{
-              marginTop: 28,
-              background: PAPER,
-              padding: 'clamp(14px,4vw,28px)',
-              boxShadow: '0 10px 40px rgba(0,0,0,0.35)',
-              animation: 'bf-fadein 0.7s ease both'
-            }}
-          >
-            {/* Faixa do cliente */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 14,
-                background: BLUE,
-                color: CREAM_TEXT,
-                padding: '20px 28px'
-              }}
-            >
-              <div>
-                <div style={stripLabelStyle}>CLIENTE</div>
-                <div style={{ fontSize: 15.5 }}>{fullName}</div>
-              </div>
-              <div>
-                <div style={stripLabelStyle}>CPF CONSULTADO</div>
-                <div style={{ fontSize: 15.5 }}>{cpfInput}</div>
-              </div>
-              <div>
-                <div style={stripLabelStyle}>PROCESSOS ENCONTRADOS</div>
-                <div style={{ fontSize: 15.5 }}>
-                  {caseData.totalProcessos}
-                  {tribunaisConsultados.length > 0 && (
-                    <span style={{ fontSize: 11, opacity: 0.85, marginLeft: 8 }}>
-                      ({tribunaisConsultados.join(' + ')})
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Resumo por IA + WhatsApp */}
-            <div
-              style={{
-                marginTop: 24,
-                background: PAPER,
-                border: `1px solid ${BORDER}`,
-                padding: '28px 32px'
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 14,
-                  textAlign: 'center'
-                }}
-              >
-                <h3 style={{ margin: 0, fontSize: 15.5, color: '#000', letterSpacing: 0.5, fontWeight: 600 }}>
-                  Resumo e explicação do andamento
-                </h3>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <button onClick={generateAiSummary} style={ghostButtonStyle}>
-                    {summaryButtonLabel}
-                  </button>
-                  <button
-                    onClick={sendWhatsapp}
-                    style={{
-                      background: WHATSAPP,
-                      color: CREAM_TEXT,
-                      border: 'none',
-                      padding: '10px 20px',
-                      fontFamily: 'inherit',
-                      fontSize: 11.5,
-                      letterSpacing: 1,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8
-                    }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.85.5 3.58 1.4 5.09L2 22l5.2-1.36a9.9 9.9 0 0 0 4.84 1.24h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.12.11-1.8-.11-.42-.14-.96-.32-1.66-.63-2.92-1.26-4.82-4.2-4.96-4.4-.14-.19-1.18-1.57-1.18-3 0-1.42.75-2.12 1.02-2.41.27-.29.58-.36.78-.36h.55c.18 0 .42-.02.65.5.24.55.82 1.98.9 2.12.08.14.13.3.03.48-.1.19-.16.31-.31.48-.16.17-.32.38-.46.51-.16.15-.32.31-.14.62.19.32.85 1.4 1.83 2.27 1.26 1.13 2.32 1.48 2.66 1.65.34.16.55.14.75-.08.24-.27.55-.72.87-1.16.22-.31.5-.35.83-.22.34.13 2.12 1 2.48 1.18.36.18.6.27.68.42.09.16.09.9-.15 1.58z" />
-                    </svg>
-                    {whatsappSending ? 'ENVIANDO...' : whatsappSent ? 'ENVIADO' : 'ENVIAR POR WHATSAPP'}
-                  </button>
-                </div>
-              </div>
-
-              {whatsappSent && (
-                <p style={{ marginTop: 16, fontSize: 13, color: WHATSAPP, textAlign: 'center' }}>
-                  Mensagem enviada via WhatsApp para {phoneInput} com o resumo e os dados do processo.
-                </p>
-              )}
-
-              {/* Animação de carregamento: onda + letras em fade-out */}
-              {aiSummaryLoading && (
-                <div
+              <div style={{ display: 'flex', gap: 16 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const demoData = buildCaseData();
+                    setCaseData(demoData);
+                    setNotFound(false);
+                    setHasSearched(true);
+                    void fetchAiSummary(demoData);
+                  }}
                   style={{
-                    position: 'relative',
-                    overflow: 'hidden',
-                    height: 34,
-                    marginTop: 16,
-                    display: 'flex',
-                    justifyContent: 'center'
+                    background: 'none',
+                    border: 'none',
+                    color: BLUE,
+                    fontSize: 12.5,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 4
                   }}
                 >
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      bottom: 0,
-                      width: '45%',
-                      background:
-                        'linear-gradient(90deg,transparent,rgba(36,85,184,0.55),transparent)',
-                      mixBlendMode: 'multiply',
-                      animation: 'bf-wave-sweep 1.9s ease-in-out infinite'
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      fontSize: 14,
-                      color: MUTED
-                    }}
-                  >
-                    <span style={{ display: 'flex' }}>
-                      {loadingLetters.map((l, i) => (
-                        <span
-                          key={i}
-                          style={{
-                            display: 'inline-block',
-                            animation: 'bf-letter-fade 1.9s ease-in-out infinite',
-                            animationDelay: l.delay
-                          }}
-                        >
-                          {l.ch}
-                        </span>
-                      ))}
-                    </span>
-                    <svg
-                      width="15"
-                      height="15"
-                      viewBox="0 0 24 24"
-                      fill={BLUE}
-                      style={{
-                        animation: 'bf-letter-fade 1.9s ease-in-out infinite',
-                        animationDelay: '0.9s',
-                        flexShrink: 0
-                      }}
-                    >
-                      <path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z" />
-                    </svg>
-                  </div>
-                </div>
-              )}
-
-              {aiSummary && (
-                <div style={{ marginTop: 20 }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: 10,
-                      marginBottom: 14
-                    }}
-                  >
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        fontSize: 9.5,
-                        letterSpacing: 1.5,
-                        color: BLUE,
-                        border: `1px solid ${BLUE}`,
-                        padding: '3px 8px'
-                      }}
-                    >
-                      GERADO POR IA
-                    </span>
-
-                    {/* Legenda visual de cores */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: 14,
-                        flexWrap: 'wrap',
-                        fontSize: 11,
-                        color: MUTED
-                      }}
-                    >
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#8a2b2b' }} />
-                        <span style={{ color: '#8a2b2b', fontWeight: 700 }}>Vermelho escuro:</span> Alertas e execuções
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#1b6b3e' }} />
-                        <span style={{ color: '#1b6b3e', fontWeight: 700 }}>Verde escuro:</span> Pontos favoráveis
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <strong style={{ color: '#000' }}>Negrito:</strong> Processos e valores
-                      </span>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      fontSize: 14,
-                      lineHeight: 1.85,
-                      color: TEXT,
-                      textAlign: 'left',
-                      background: '#faf8f5',
-                      border: `1px solid ${BORDER}`,
-                      padding: '20px 24px'
-                    }}
-                    dangerouslySetInnerHTML={{ __html: formatAiSummaryHtml(aiSummary) }}
-                  />
-                </div>
-              )}
-
-              {aiSummaryError && (
-                <p style={{ marginTop: 14, fontSize: 13, color: DANGER, textAlign: 'center' }}>
-                  {aiSummaryError}
-                </p>
-              )}
-            </div>
-
-            {/* Linha do tempo */}
-            <div style={{ marginTop: 32 }}>
-              <h3
-                style={{
-                  fontSize: 15.5,
-                  color: '#fff',
-                  letterSpacing: 0.5,
-                  margin: '0 0 20px',
-                  fontWeight: 600
-                }}
-              >
-                Linha do tempo de atualizações
-              </h3>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative',
-                  paddingLeft: 28,
-                  borderLeft: `2px solid ${BORDER}`
-                }}
-              >
-                {caseData.timeline.map(item => {
-                  const meta = TAG_META[item.tag];
-                  return (
-                    <div key={item.id} style={{ position: 'relative', padding: '0 0 26px 24px' }}>
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: -35,
-                          top: 4,
-                          width: 11,
-                          height: 11,
-                          borderRadius: '50%',
-                          background: meta.color,
-                          border: '2px solid #2b2b2e'
-                        }}
-                      />
-                      <div
-                        onClick={() => toggleExpand(item.id)}
-                        style={{
-                          cursor: 'pointer',
-                          background: PAPER,
-                          border: `1px solid ${BORDER}`,
-                          padding: '18px 22px'
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'baseline',
-                            gap: 12,
-                            flexWrap: 'wrap'
-                          }}
-                        >
-                          <span style={{ fontSize: 11, letterSpacing: 1, color: MUTED }}>
-                            {formatDateLabel(item.date)}
-                          </span>
-                          <span
-                            style={{ fontSize: 10, letterSpacing: 1, fontWeight: 600, color: meta.color }}
-                          >
-                            {meta.label}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: 15, color: TEXT, marginTop: 7 }}>{item.titulo}</div>
-
-                        {/* Expansão suave via max-height */}
-                        <div
-                          style={{
-                            maxHeight: item.expanded ? 600 : 0,
-                            overflow: 'hidden',
-                            transition: 'max-height 0.35s ease'
-                          }}
-                        >
-                          <div
-                            style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${BORDER}` }}
-                          >
-                            <p style={{ margin: '0 0 14px', fontSize: 13, color: MUTED, lineHeight: 1.75 }}>
-                              {item.descricao}
-                            </p>
-                            <div
-                              style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
-                                gap: '9px 20px',
-                                fontSize: 12,
-                                color: TEXT
-                              }}
-                            >
-                              <div>
-                                <strong style={{ color: '#000' }}>Processo:</strong> {item.processo.numero}
-                              </div>
-                              <div>
-                                <strong style={{ color: '#000' }}>Tribunal:</strong>{' '}
-                                {item.processo.tribunal}
-                              </div>
-                              <div>
-                                <strong style={{ color: '#000' }}>Tipo:</strong> {item.processo.tipo}
-                              </div>
-                              <div>
-                                <strong style={{ color: '#000' }}>Parte contrária:</strong>{' '}
-                                {item.processo.parteContraria}
-                              </div>
-                              <div>
-                                <strong style={{ color: '#000' }}>Valor da causa:</strong>{' '}
-                                {item.processo.valorCausa}
-                              </div>
-                              <div>
-                                <strong style={{ color: '#000' }}>Distribuição:</strong>{' '}
-                                {item.processo.distribuicao}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                  Visualizar com dados demonstrativos (Modo Teste)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHasSearched(false);
+                    setNotFound(false);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: MUTED,
+                    fontSize: 12.5,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 4
+                  }}
+                >
+                  Tentar outro CPF
+                </button>
               </div>
-            </div>
-
-            <div style={{ marginTop: 32, display: 'flex', justifyContent: 'center' }}>
-              <button
-                onClick={() => setInfoModalOpen(true)}
-                style={{
-                  ...primaryButtonStyle,
-                  padding: '16px 32px',
-                  boxShadow: '0 4px 14px rgba(36,85,184,0.25)'
-                }}
-              >
-                PRECISO DE AUXÍLIO JURÍDICO
-              </button>
             </div>
           </section>
         )}
-      </main>
 
-      {/* Modal informativo (antes do chat) */}
-      <div
-        onClick={() => setInfoModalOpen(false)}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(14,36,56,0.55)',
-          zIndex: 60,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 24,
-          opacity: infoModalOpen ? 1 : 0,
-          pointerEvents: infoModalOpen ? 'auto' : 'none',
-          transition: 'opacity 0.3s ease'
-        }}
-      >
-        <div
-          onClick={e => e.stopPropagation()}
-          style={{
-            background: PAPER,
-            maxWidth: 440,
-            width: '100%',
-            padding: 32,
-            textAlign: 'center',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-            transform: infoModalOpen ? 'scale(1)' : 'scale(0.94)',
-            transition: 'transform 0.3s ease'
-          }}
-        >
-          <p style={{ margin: '0 0 22px', fontSize: 14, lineHeight: 1.8, color: TEXT }}>
-            Quanto mais informações e arquivos você nos enviar agora, mais rápido e completo será o
-            relatório que levaremos ao nosso advogado parceiro para avaliar seu caso.
-          </p>
-          <button
-            onClick={() => {
-              setInfoModalOpen(false);
-              openChat();
+        {/* ═════════════════════════════════════════════════════════════════
+            FASE 3: DASHBOARD SPLIT 70% / 30% (TRANSITION AUTOMÁTICA EM FADE)
+            ═════════════════════════════════════════════════════════════════ */}
+        {found && caseData && (
+          <ProcessDashboardSplit
+            fullName={fullName || 'Cliente'}
+            cpf={cpfInput}
+            phone={phoneInput}
+            state={stateInput === 'AUTO' ? 'Multi-Tribunal Automático' : stateInput}
+            processNumber={processNumberInput}
+            caseData={caseData}
+            tribunaisConsultados={tribunaisConsultados}
+            aiSummary={aiSummary}
+            aiSummaryLoading={aiSummaryLoading}
+            onRefreshAiSummary={() => void fetchAiSummary(caseData)}
+            onNewSearch={() => {
+              setHasSearched(false);
+              setNotFound(false);
+              setCaseData(null);
+              setAiSummary('');
             }}
-            style={{ ...primaryButtonStyle, padding: '12px 28px', fontSize: 12, fontWeight: 400 }}
-          >
-            CONTINUAR
-          </button>
-        </div>
+            bitrixLeadId={bitrixLeadId}
+            bitrixSimulated={bitrixSimulated}
+          />
+        )}
       </div>
 
-      {/* Modal do chat */}
+      {/* ═════════════════════════════════════════════════════════════════
+          MODAL DE AJUDA / FALAR COM A IA (+40% LARGURA E ALTURA)
+          ═════════════════════════════════════════════════════════════════ */}
+      {infoModalOpen && (
+        <div
+          onClick={() => setInfoModalOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(14,36,56,0.6)',
+            zIndex: 60,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            animation: 'bf-fadein 0.25s ease'
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 735, // Aumentado em 40% (anterior: 525)
+              maxWidth: '96vw',
+              height: '86vh', // Aumentado em 40%
+              maxHeight: 924, // Aumentado em 40% (anterior: 660)
+              background: CREAM,
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 70px rgba(0,0,0,0.45)',
+              overflow: 'hidden'
+            }}
+          >
+            <div
+              style={{
+                background: BLUE,
+                color: CREAM_TEXT,
+                padding: '24px 28px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 15, letterSpacing: 1, fontWeight: 600 }}>ASSESSORIA JURÍDICA ESTRATÉGICA</div>
+                <div style={{ fontSize: 11, color: BLUE_LIGHT, marginTop: 4 }}>Blindagem Financeira & Defesa Patrimonial</div>
+              </div>
+              <button
+                onClick={() => setInfoModalOpen(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: CREAM_TEXT,
+                  fontSize: 24,
+                  cursor: 'pointer',
+                  lineHeight: 1
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 18, color: '#000', fontWeight: 600 }}>
+                Como a Blindagem Financeira atua em processos e cobranças?
+              </h3>
+              <p style={{ margin: 0, fontSize: 14, color: TEXT, lineHeight: 1.8 }}>
+                Mesmo quando um processo ainda não aparece nos registros públicos abertos do tribunal, ordens de penhora, execuções fiscais ou medidas de constrição de bens podem estar em trâmite sigiloso ou em vias de citação.
+              </p>
+              <div
+                style={{
+                  background: '#ffffff',
+                  border: `1px solid ${BORDER}`,
+                  padding: '20px 24px',
+                  borderLeft: `4px solid ${BLUE}`
+                }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#000', marginBottom: 6 }}>
+                  NOSSAS FRENTES DE ATUAÇÃO:
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: MUTED, lineHeight: 1.8 }}>
+                  <li>Defesa técnica e imediata em Execuções Fiscais e Títulos Extrajudiciais.</li>
+                  <li>Desbloqueio de contas bancárias (Sisbajud / Bacenjud) e proteção de ativos.</li>
+                  <li>Negociação estratégica de dívidas bancárias com redução substancial do passivo.</li>
+                  <li>Blindagem patrimonial lícita de imóveis, veículos e investimentos familiares.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '20px 28px',
+                background: '#ffffff',
+                borderTop: `1px solid ${BORDER}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <button
+                onClick={() => setInfoModalOpen(false)}
+                style={{ background: 'transparent', border: `1px solid ${BORDER}`, padding: '10px 20px', fontSize: 12, cursor: 'pointer' }}
+              >
+                FECHAR
+              </button>
+              <button
+                onClick={() => {
+                  setInfoModalOpen(false);
+                  openChat();
+                }}
+                style={{ ...primaryButtonStyle, padding: '11px 24px', fontSize: 12 }}
+              >
+                INICIAR CHAT DE TRIAGEM
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════
+          MODAL DO CHAT DE TRIAGEM COM IA (+40% LARGURA E ALTURA)
+          ═════════════════════════════════════════════════════════════════ */}
       <div
         onClick={() => setChatOpen(false)}
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(14,36,56,0.55)',
-          zIndex: 50,
+          background: 'rgba(14,36,56,0.6)',
+          zIndex: 70,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -997,31 +885,32 @@ export default function ProcessTracker({
         <div
           onClick={e => e.stopPropagation()}
           style={{
-            width: 525,
-            maxWidth: '100%',
-            height: '80vh',
-            maxHeight: 660,
+            width: 735, // Aumentado em 40% (anterior: 525)
+            maxWidth: '96vw',
+            height: '86vh', // Aumentado em 40%
+            maxHeight: 924, // Aumentado em 40% (anterior: 660)
             background: CREAM,
             display: 'flex',
             flexDirection: 'column',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-            transform: chatOpen ? 'scale(1)' : 'scale(0.94)',
-            transition: 'transform 0.3s ease'
+            boxShadow: '0 25px 70px rgba(0,0,0,0.45)',
+            transform: chatOpen ? 'scale(1)' : 'scale(0.95)',
+            transition: 'transform 0.3s ease',
+            overflow: 'hidden'
           }}
         >
           <div
             style={{
               background: BLUE,
               color: CREAM_TEXT,
-              padding: '20px 24px',
+              padding: '22px 28px',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
             }}
           >
             <div>
-              <div style={{ fontSize: 13.5, letterSpacing: 1 }}>ASSISTENTE JURÍDICO</div>
-              <div style={{ fontSize: 10.5, color: BLUE_LIGHT, marginTop: 3 }}>Blindagem Financeira</div>
+              <div style={{ fontSize: 14.5, letterSpacing: 1, fontWeight: 600 }}>ASSISTENTE JURÍDICO IA</div>
+              <div style={{ fontSize: 11, color: BLUE_LIGHT, marginTop: 3 }}>Blindagem Financeira</div>
             </div>
             <button
               onClick={() => setChatOpen(false)}
@@ -1029,7 +918,7 @@ export default function ProcessTracker({
                 background: 'transparent',
                 border: 'none',
                 color: CREAM_TEXT,
-                fontSize: 20,
+                fontSize: 24,
                 cursor: 'pointer',
                 lineHeight: 1
               }}
@@ -1042,10 +931,10 @@ export default function ProcessTracker({
             style={{
               flex: 1,
               overflowY: 'auto',
-              padding: 20,
+              padding: 24,
               display: 'flex',
               flexDirection: 'column',
-              gap: 12
+              gap: 14
             }}
           >
             {chatMessages.map((msg, i) => (
@@ -1056,12 +945,14 @@ export default function ProcessTracker({
                 <div
                   style={{
                     maxWidth: '82%',
-                    padding: '12px 16px',
-                    fontSize: 13.5,
+                    padding: '13px 18px',
+                    fontSize: 14,
                     lineHeight: 1.65,
+                    borderRadius: 4,
                     background: msg.role === 'user' ? BLUE : PAPER,
                     color: msg.role === 'user' ? '#fff' : TEXT,
-                    border: msg.role === 'user' ? 'none' : `1px solid ${BORDER}`
+                    border: msg.role === 'user' ? 'none' : `1px solid ${BORDER}`,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
                   }}
                 >
                   {msg.content}
@@ -1072,127 +963,53 @@ export default function ProcessTracker({
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                 <div
                   style={{
-                    padding: '12px 16px',
+                    padding: '12px 18px',
                     fontSize: 13,
                     color: MUTED,
+                    background: '#ffffff',
+                    border: `1px solid ${BORDER}`,
                     animation: 'bf-blink 1.4s ease-in-out infinite'
                   }}
                 >
-                  Digitando...
+                  Analisando contexto...
                 </div>
               </div>
             )}
           </div>
 
-          {chatEnded ? (
-            <div
+          <div
+            style={{
+              padding: '16px 20px',
+              borderTop: `1px solid ${BORDER}`,
+              background: '#ffffff',
+              display: 'flex',
+              gap: 10
+            }}
+          >
+            <input
+              type="text"
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && void sendChatMessage()}
+              placeholder="Descreva sua dúvida, número do processo ou situação..."
+              style={{ ...inputStyle, flex: 1, fontSize: 13.5, padding: '12px 16px' }}
+            />
+            <button
+              onClick={() => void sendChatMessage()}
               style={{
-                padding: '16px 20px',
-                fontSize: 11.5,
-                letterSpacing: 0.5,
-                color: MUTED,
-                borderTop: `1px solid ${BORDER}`,
-                background: PAPER
+                background: BLUE,
+                color: CREAM_TEXT,
+                border: 'none',
+                padding: '12px 22px',
+                fontSize: 12,
+                letterSpacing: 1,
+                fontWeight: 600,
+                cursor: 'pointer'
               }}
             >
-              Atendimento finalizado.
-            </div>
-          ) : (
-            <div
-              style={{
-                borderTop: `1px solid ${BORDER}`,
-                padding: '14px 20px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
-                background: PAPER
-              }}
-            >
-              {attachedFiles.length > 0 && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {attachedFiles.map((file, i) => (
-                    <span
-                      key={i}
-                      style={{
-                        fontSize: 11,
-                        background: CREAM,
-                        border: `1px solid ${BORDER}`,
-                        padding: '4px 10px'
-                      }}
-                    >
-                      {file}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <label
-                  title="Anexar documento"
-                  style={{ cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center' }}
-                >
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M8 12l6-6a3 3 0 114 4l-8 8a5 5 0 01-7-7l7-7" />
-                  </svg>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={e => {
-                      const names = Array.from(e.target.files ?? []).map(f => f.name);
-                      if (names.length) setAttachedFiles(current => [...current, ...names]);
-                    }}
-                    style={{ display: 'none' }}
-                  />
-                </label>
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={e => setChatInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      void sendChatMessage();
-                    }
-                  }}
-                  placeholder="Descreva sua situação, número do processo..."
-                  style={{ ...inputStyle, flex: 1, fontSize: 13, padding: '11px 14px' }}
-                />
-                <button
-                  onClick={() => void sendChatMessage()}
-                  style={{
-                    background: BLUE,
-                    color: CREAM_TEXT,
-                    border: 'none',
-                    padding: '11px 18px',
-                    fontFamily: 'inherit',
-                    fontSize: 11.5,
-                    letterSpacing: 1,
-                    cursor: 'pointer'
-                  }}
-                >
-                  ENVIAR
-                </button>
-              </div>
-              <button
-                onClick={finalizeChat}
-                style={{
-                  alignSelf: 'center',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'transparent',
-                  border: `1px solid ${BLUE}`,
-                  color: '#000',
-                  padding: '9px 16px',
-                  fontFamily: 'inherit',
-                  fontSize: 10.5,
-                  letterSpacing: 1,
-                  cursor: 'pointer'
-                }}
-              >
-                FINALIZAR E ENVIAR DOSSIÊ AO ADVOGADO
-              </button>
-            </div>
-          )}
+              ENVIAR
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1203,11 +1020,13 @@ export default function ProcessTracker({
 const inputStyle: React.CSSProperties = {
   fontFamily: 'inherit',
   fontSize: 15,
-  padding: '12px 14px',
+  padding: '13px 16px',
   border: `1px solid ${INPUT_BORDER}`,
   background: INPUT_BG,
   color: TEXT,
-  outline: 'none'
+  outline: 'none',
+  width: '100%',
+  boxSizing: 'border-box'
 };
 
 const primaryButtonStyle: React.CSSProperties = {
@@ -1222,94 +1041,3 @@ const primaryButtonStyle: React.CSSProperties = {
   cursor: 'pointer',
   whiteSpace: 'nowrap'
 };
-
-const ghostButtonStyle: React.CSSProperties = {
-  background: 'transparent',
-  color: '#000',
-  border: `1px solid ${BLUE}`,
-  padding: '10px 20px',
-  fontFamily: 'inherit',
-  fontSize: 11.5,
-  letterSpacing: 1,
-  cursor: 'pointer'
-};
-
-const stripLabelStyle: React.CSSProperties = {
-  fontSize: 10.5,
-  letterSpacing: 2,
-  color: BLUE_LIGHT,
-  marginBottom: 4
-};
-
-/* Referência de token não usada diretamente, mantida para o dev: */
-void BLUE_DARK;
-
-/** Formata o resumo da IA garantindo destaque em vermelho escuro (#8a2b2b), verde escuro (#1b6b3e) e negrito. */
-function formatAiSummaryHtml(raw: string): string {
-  if (!raw) return '';
-
-  let text = raw;
-
-  // Limpeza de placeholders genéricos como [Seu Nome]
-  text = text
-    .replace(/\[\s*seu nome\s*\]/gi, 'Equipe Blindagem Financeira')
-    .replace(/\[\s*nome(?:\s+do\s+advogado)?\s*\]/gi, 'Equipe Blindagem Financeira')
-    .replace(/\[\s*seu cargo\s*\]/gi, '')
-    .replace(/\[.*?nome.*?\]/gi, 'Equipe Blindagem Financeira');
-
-  text = text.replace(/Equipe Blindagem Financeira\s*\n\s*Blindagem Financeira/gi, 'Equipe Blindagem Financeira');
-
-  // 1. Normaliza markdown bold **texto** -> <strong>texto</strong>
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-  // 2. Destacar termos de risco em vermelho escuro (#8a2b2b) se não estiverem já estilizados
-  const dangerTerms = [
-    'execução fiscal',
-    'execução de título extrajudicial',
-    'execução de título',
-    'execuções fiscais',
-    'execuções',
-    'alto risco',
-    'risco de decisões adversas',
-    'penhora',
-    'bloqueio de contas',
-    'bloqueio judicial',
-    'bloqueio',
-    'sisbajud',
-    'bacenjud',
-    'mandado de levantamento'
-  ];
-
-  // 3. Destacar termos favoráveis em verde escuro (#1b6b3e) se não estiverem já estilizados
-  const successTerms = [
-    'arquivado provisoriamente',
-    'arquivado definitivamente',
-    'arquivamento',
-    'alívio em sua situação',
-    'alívio',
-    'favorável para a sua defesa',
-    'favorável',
-    'débito cancelado',
-    'extinta',
-    'extinto',
-    'acordo homologado',
-    'sem restrições'
-  ];
-
-  dangerTerms.forEach(term => {
-    const regex = new RegExp(`(?<!<span[^>]*>)\\b(${term})\\b(?![^<]*<\\/span>)`, 'gi');
-    text = text.replace(regex, '<span style="color: #8a2b2b; font-weight: 700;">$1</span>');
-  });
-
-  successTerms.forEach(term => {
-    const regex = new RegExp(`(?<!<span[^>]*>)\\b(${term})\\b(?![^<]*<\\/span>)`, 'gi');
-    text = text.replace(regex, '<span style="color: #1b6b3e; font-weight: 700;">$1</span>');
-  });
-
-  // 4. Parágrafos estruturados com espaçamento elegante
-  return text
-    .split(/\n\s*\n/)
-    .map(p => `<p style="margin: 0 0 14px; line-height: 1.85;">${p.replace(/\n/g, '<br />')}</p>`)
-    .join('');
-}
-
