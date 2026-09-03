@@ -395,9 +395,11 @@ export default function ProcessDashboardSplit({
               <div
                 style={{
                   background: '#faf8f5',
-                  border: `1px solid ${BORDER}`,
-                  padding: '14px 18px',
-                  borderLeft: `4px solid ${riskColor}`
+                  borderTop: `1px solid ${BORDER}`,
+                  borderRight: `1px solid ${BORDER}`,
+                  borderBottom: `1px solid ${BORDER}`,
+                  borderLeft: `4px solid ${riskColor}`,
+                  padding: '14px 18px'
                 }}
               >
                 <div style={{ fontSize: 10.5, color: MUTED, letterSpacing: 1 }}>ÍNDICE DE RISCO</div>
@@ -412,9 +414,11 @@ export default function ProcessDashboardSplit({
               <div
                 style={{
                   background: '#faf8f5',
-                  border: `1px solid ${BORDER}`,
-                  padding: '14px 18px',
-                  borderLeft: `4px solid ${SUCCESS}`
+                  borderTop: `1px solid ${BORDER}`,
+                  borderRight: `1px solid ${BORDER}`,
+                  borderBottom: `1px solid ${BORDER}`,
+                  borderLeft: `4px solid ${SUCCESS}`,
+                  padding: '14px 18px'
                 }}
               >
                 <div style={{ fontSize: 10.5, color: MUTED, letterSpacing: 1 }}>PONTOS FAVORÁVEIS</div>
@@ -429,9 +433,11 @@ export default function ProcessDashboardSplit({
               <div
                 style={{
                   background: '#faf8f5',
-                  border: `1px solid ${BORDER}`,
-                  padding: '14px 18px',
-                  borderLeft: `4px solid ${BLUE}`
+                  borderTop: `1px solid ${BORDER}`,
+                  borderRight: `1px solid ${BORDER}`,
+                  borderBottom: `1px solid ${BORDER}`,
+                  borderLeft: `4px solid ${BLUE}`,
+                  padding: '14px 18px'
                 }}
               >
                 <div style={{ fontSize: 10.5, color: MUTED, letterSpacing: 1 }}>TOTAL DE AÇÕES</div>
@@ -567,7 +573,9 @@ export default function ProcessDashboardSplit({
                       onClick={() => setExpandedId(isExpanded ? null : item.id)}
                       style={{
                         background: isExpanded ? '#fbf9f4' : '#ffffff',
-                        border: `1px solid ${isExpanded ? BLUE : BORDER}`,
+                        borderTop: `1px solid ${isExpanded ? BLUE : BORDER}`,
+                        borderRight: `1px solid ${isExpanded ? BLUE : BORDER}`,
+                        borderBottom: `1px solid ${isExpanded ? BLUE : BORDER}`,
                         borderLeft: `4px solid ${tagMeta.color}`,
                         padding: '16px 20px',
                         cursor: 'pointer',

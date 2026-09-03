@@ -628,7 +628,9 @@ export default function ProcessTracker({
               maxWidth: 720,
               marginTop: 20,
               background: PAPER,
-              border: `1px solid ${BORDER}`,
+              borderTop: `1px solid ${BORDER}`,
+              borderRight: `1px solid ${BORDER}`,
+              borderBottom: `1px solid ${BORDER}`,
               borderLeft: '4px solid #4a5a6a',
               padding: '36px 40px',
               animation: 'bf-fadein 0.6s ease both',
@@ -816,9 +818,11 @@ export default function ProcessTracker({
               <div
                 style={{
                   background: '#ffffff',
-                  border: `1px solid ${BORDER}`,
-                  padding: '20px 24px',
-                  borderLeft: `4px solid ${BLUE}`
+                  borderTop: `1px solid ${BORDER}`,
+                  borderRight: `1px solid ${BORDER}`,
+                  borderBottom: `1px solid ${BORDER}`,
+                  borderLeft: `4px solid ${BLUE}`,
+                  padding: '20px 24px'
                 }}
               >
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#000', marginBottom: 6 }}>
