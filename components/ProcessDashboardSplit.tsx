@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { CaseData, LegalProcess, MovementTag } from '@/lib/mockProcesses';
 
+import { validateSafeDocument, type FileValidationResult } from '@/lib/security';
+
 const BLUE = '#2455b8';
 const BLUE_DARK = '#17347a';
 const BLUE_LIGHT = '#a9c3ef';
@@ -43,7 +45,7 @@ interface ProcessDashboardSplitProps {
   bitrixSimulated?: boolean;
 }
 
-type ChatMessage = { role: 'user' | 'assistant'; content: string };
+type ChatMessage = { role: 'user' | 'assistant'; content: string; attachments?: { name: string; size: number }[] };
 
 export default function ProcessDashboardSplit({
   fullName,
@@ -72,16 +74,66 @@ export default function ProcessDashboardSplit({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: `Olá, ${fullName.split(' ')[0] || 'Cliente'}! Sou o Assistente Jurídico com IA da Blindagem Financeira. Analisei seus ${caseData.totalProcessos} processo(s) encontrados. Como posso ajudar com dúvidas sobre prazos, riscos patrimoniais ou defesas possíveis?`
+      content: `Olá, ${fullName.split(' ')[0] || 'Cliente'}! Sou o Assistente Jurídico com IA da Blindagem Financeira. Analisei seus ${caseData.totalProcessos} processo(s) encontrados. Como posso ajudar com dúvidas sobre prazos, riscos patrimoniais ou defesas possíveis? Você também pode me enviar documentos, PDFs ou fotos de petições aqui.`
     }
   ]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
+  // Anexos de arquivos protegidos
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFiles, setAttachedFiles] = useState<{ name: string; size: number; type: string }[]>([]);
+  const [fileScanning, setFileScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatMessages.length > 1) {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [chatMessages, chatLoading]);
+
+  // Upload e Validação de Arquivos Seguros
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadError(null);
+    setFileScanning(true);
+    setScanStatus('Inspecionando assinaturas de arquivo e executáveis...');
+
+    const validated: { name: string; size: number; type: string }[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setScanStatus(`Analisando "${file.name}" contra ameaças e malware...`);
+      const result: FileValidationResult = await validateSafeDocument(file);
+
+      if (!result.safe) {
+        setUploadError(result.error || `Arquivo "${file.name}" bloqueado.`);
+        setFileScanning(false);
+        setScanStatus(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+
+      validated.push({
+        name: result.name,
+        size: result.size,
+        type: result.type
+      });
+    }
+
+    setAttachedFiles(prev => [...prev, ...validated]);
+    setFileScanning(false);
+    setScanStatus(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   // Insights calculados
   const totalUrgentes = caseData.processes.filter(p =>
@@ -139,22 +191,30 @@ export default function ProcessDashboardSplit({
 
   // Download do PDF
   const handleDownloadPdf = () => {
-    // Cria visualização limpa de impressão e aciona a impressão do navegador (Salvar como PDF)
     window.print();
   };
 
-  // Envio de mensagem no Chat
+  // Envio de mensagem no Chat com CONTEXTO TOTAL e ANEXOS
   const handleSendMessage = async () => {
-    if (!chatInput.trim() || chatLoading) return;
+    if ((!chatInput.trim() && attachedFiles.length === 0) || chatLoading) return;
 
     if (!isProUnlocked && freemiumQuestionsUsed >= 1) {
-      // Bloqueio Freemium
       return;
     }
 
     const userText = chatInput.trim();
+    const currentAttachments = [...attachedFiles];
     setChatInput('');
-    const newMessages: ChatMessage[] = [...chatMessages, { role: 'user', content: userText }];
+    setAttachedFiles([]);
+
+    const newMessages: ChatMessage[] = [
+      ...chatMessages,
+      {
+        role: 'user',
+        content: userText || (currentAttachments.length > 0 ? 'Documento enviado para análise:' : ''),
+        attachments: currentAttachments.map(a => ({ name: a.name, size: a.size }))
+      }
+    ];
     setChatMessages(newMessages);
     setChatLoading(true);
     setFreemiumQuestionsUsed(prev => prev + 1);
@@ -164,7 +224,13 @@ export default function ProcessDashboardSplit({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          messages: newMessages.map(m => ({
+            role: m.role,
+            content: m.attachments && m.attachments.length > 0
+              ? `${m.content}\n[Anexos seguros verificados: ${m.attachments.map(a => a.name).join(', ')}]`
+              : m.content
+          })),
+          attachments: currentAttachments,
           caseContext: {
             fullName,
             cpf,
@@ -751,7 +817,30 @@ export default function ProcessDashboardSplit({
                     boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
                   }}
                 >
-                  {msg.content}
+                  <div>{msg.content}</div>
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {msg.attachments.map((att, attIdx) => (
+                        <div
+                          key={attIdx}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '4px 8px',
+                            borderRadius: 3,
+                            background: msg.role === 'user' ? 'rgba(255,255,255,0.18)' : '#f3f4f6',
+                            fontSize: 11,
+                            fontWeight: 500
+                          }}
+                        >
+                          <span>📄</span>
+                          <span style={{ textDecoration: 'underline' }}>{att.name}</span>
+                          <span style={{ fontSize: 9.5, opacity: 0.8 }}>({(att.size / 1024).toFixed(0)} KB · Seguro)</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -768,7 +857,7 @@ export default function ProcessDashboardSplit({
                     animation: 'bf-blink 1.4s ease-in-out infinite'
                   }}
                 >
-                  Analisando teses jurídicas...
+                  Analisando teses jurídicas e documentos...
                 </div>
               </div>
             )}
@@ -814,16 +903,136 @@ export default function ProcessDashboardSplit({
             <div ref={chatBottomRef} />
           </div>
 
-          {/* Campo de Entrada do Chat */}
+          {/* Área de Notificação de Verificação Antivírus e Anexos Selecionados */}
+          {scanStatus && (
+            <div
+              style={{
+                padding: '6px 16px',
+                background: '#eff6ff',
+                color: '#1d4ed8',
+                fontSize: 11,
+                borderTop: '1px solid #bfdbfe',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              <span style={{ animation: 'bf-blink 1s infinite' }}>🛡️</span>
+              <span>{scanStatus}</span>
+            </div>
+          )}
+
+          {uploadError && (
+            <div
+              style={{
+                padding: '8px 16px',
+                background: '#fef2f2',
+                color: '#b91c1c',
+                fontSize: 11.5,
+                borderTop: '1px solid #fecaca',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8
+              }}
+            >
+              <span>⚠️ {uploadError}</span>
+              <button
+                type="button"
+                onClick={() => setUploadError(null)}
+                style={{ background: 'none', border: 'none', color: '#b91c1c', cursor: 'pointer', fontSize: 14 }}
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {attachedFiles.length > 0 && (
+            <div
+              style={{
+                padding: '8px 16px',
+                background: '#f9fafb',
+                borderTop: `1px solid ${BORDER}`,
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 6
+              }}
+            >
+              {attachedFiles.map((f, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #d1d5db',
+                    padding: '4px 8px',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    color: '#374151'
+                  }}
+                >
+                  <span style={{ color: '#16a34a', fontWeight: 700 }}>✓</span>
+                  <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {f.name}
+                  </span>
+                  <span style={{ color: '#9ca3af', fontSize: 9.5 }}>({(f.size / 1024).toFixed(0)} KB)</span>
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(idx)}
+                    style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0 2px' }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Campo de Entrada do Chat com Botão de Anexo */}
           <div
             style={{
-              padding: '14px 18px',
+              padding: '12px 18px',
               background: '#ffffff',
               borderTop: `1px solid ${BORDER}`,
               display: 'flex',
+              alignItems: 'center',
               gap: 8
             }}
           >
+            {/* Input file invisível */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx"
+              multiple
+              style={{ display: 'none' }}
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={fileScanning || (!isProUnlocked && freemiumQuestionsUsed >= 1)}
+              title="Anexar documento, PDF ou imagem (com verificação antivírus)"
+              style={{
+                background: '#f3f4f6',
+                border: `1px solid ${BORDER}`,
+                color: '#4b5563',
+                padding: '10px 12px',
+                fontSize: 14,
+                cursor: !isProUnlocked && freemiumQuestionsUsed >= 1 ? 'not-allowed' : 'pointer',
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s'
+              }}
+            >
+              📎
+            </button>
+
             <input
               type="text"
               value={chatInput}
@@ -833,7 +1042,7 @@ export default function ProcessDashboardSplit({
               placeholder={
                 !isProUnlocked && freemiumQuestionsUsed >= 1
                   ? 'Limite gratuito atingido'
-                  : 'Faça uma pergunta sobre seus processos...'
+                  : 'Faça uma pergunta sobre seus processos ou envie um documento...'
               }
               style={{
                 flex: 1,
@@ -846,7 +1055,7 @@ export default function ProcessDashboardSplit({
             />
             <button
               onClick={() => void handleSendMessage()}
-              disabled={chatLoading || (!isProUnlocked && freemiumQuestionsUsed >= 1)}
+              disabled={chatLoading || fileScanning || (!isProUnlocked && freemiumQuestionsUsed >= 1)}
               style={{
                 background: !isProUnlocked && freemiumQuestionsUsed >= 1 ? '#9ca3af' : BLUE,
                 color: '#ffffff',
