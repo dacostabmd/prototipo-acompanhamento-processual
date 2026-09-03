@@ -366,7 +366,9 @@ export default function ProcessTracker({
           minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center'
+          alignItems: 'center',
+          width: '100%',
+          boxSizing: 'border-box'
         }}
       >
         {/* Logotipo Blindagem Financeira */}

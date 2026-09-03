@@ -263,21 +263,35 @@ export default function ProcessDashboardSplit({
   };
 
   return (
-    <div style={{ width: '100%', maxWidth: 1400, margin: '0 auto', animation: 'bf-fadein 0.6s ease both', fontWeight: 600 }}>
+    <div
+      style={{
+        width: '100%',
+        maxWidth: 1400,
+        margin: '0 auto 48px',
+        background: PAPER,
+        border: `1px solid ${BORDER}`,
+        borderRadius: 6,
+        padding: 'clamp(20px, 2.5vw, 32px)',
+        boxShadow: '0 16px 50px rgba(0,0,0,0.3)',
+        animation: 'bf-fadein 0.6s ease both',
+        fontWeight: 600,
+        boxSizing: 'border-box'
+      }}
+    >
       {/* ── BARRA SUPERIOR DO CLIENTE ── */}
       <section
         style={{
           background: BLUE,
           color: CREAM_TEXT,
-          padding: '20px 32px',
-          boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
+          padding: '20px 28px',
+          boxShadow: '0 4px 18px rgba(36,85,184,0.18)',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 16,
           marginBottom: 24,
-          borderRadius: 2
+          borderRadius: 4
         }}
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center' }}>
@@ -324,7 +338,7 @@ export default function ProcessDashboardSplit({
         </div>
       </section>
 
-      {/* ── GRID PRINCIPAL SPLIT 70% / 30% (PAPERS CONECTADOS) ── */}
+      {/* ── GRID PRINCIPAL SPLIT 70% / 30% ── */}
       <div
         className="bf-split-grid"
         style={{
@@ -334,9 +348,10 @@ export default function ProcessDashboardSplit({
           alignItems: 'stretch',
           background: PAPER,
           border: `1px solid ${BORDER}`,
-          borderRadius: '3px 3px 0 0',
-          boxShadow: '0 16px 50px rgba(0,0,0,0.3)',
-          overflow: 'hidden'
+          borderRadius: 4,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+          overflow: 'hidden',
+          marginBottom: 24
         }}
       >
         {/* ── LADO ESQUERDO (70%): DOSSIÊ JURÍDICO & RESUMO DA IA ── */}
@@ -928,19 +943,14 @@ export default function ProcessDashboardSplit({
         </div>
       </div>
 
-      {/* ═════════════════════════════════════════════════════════════════
-          2. BLOCO INFERIOR CONECTADO: LINHA DO TEMPO PROCESSUAL
-          Inicia exatamente onde o chat e o resumo terminam!
-          ═════════════════════════════════════════════════════════════════ */}
+      {/* ── BLOCO INFERIOR: LINHA DO TEMPO PROCESSUAL ── */}
       <div
         style={{
           background: PAPER,
           border: `1px solid ${BORDER}`,
-          borderTop: 'none',
-          borderRadius: '0 0 3px 3px',
-          padding: '28px 32px',
-          boxShadow: '0 16px 50px rgba(0,0,0,0.3)',
-          marginBottom: 48
+          borderRadius: 4,
+          padding: '24px 28px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
