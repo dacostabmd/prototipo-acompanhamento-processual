@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { CaseData, LegalProcess, MovementTag } from '@/lib/mockProcesses';
 import { validateSafeDocument, type FileValidationResult } from '@/lib/security';
+import AiSummaryLoadingBar from './AiSummaryLoadingBar';
 
 const BLUE = '#2455b8';
 const BLUE_DARK = '#17347a';
@@ -541,11 +542,7 @@ export default function ProcessDashboardSplit({
             </div>
 
             {aiSummaryLoading ? (
-              <div style={{ padding: '24px', textAlign: 'center', color: MUTED, fontSize: 14 }}>
-                <div style={{ animation: 'bf-blink 1.4s ease-in-out infinite' }}>
-                  Analisando processos com Inteligência Artificial e gerando síntese jurídica...
-                </div>
-              </div>
+              <AiSummaryLoadingBar />
             ) : aiSummary ? (
               <div
                 style={{

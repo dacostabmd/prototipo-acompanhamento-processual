@@ -247,6 +247,7 @@ export default function ProcessTracker({
   const fetchAiSummary = async (casesToSummarize: CaseData) => {
     setAiSummaryLoading(true);
     setAiSummaryError('');
+    const startTime = Date.now();
     try {
       const res = await fetch('/api/ai/summary', {
         method: 'POST',
@@ -266,6 +267,13 @@ export default function ProcessTracker({
       });
       if (!res.ok) throw new Error('Falha na rota de resumo da IA');
       const { text } = await res.json();
+
+      // Garante tempo mínimo de ~3.2s para exibição completa das 4 etapas discriminadas
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 3200) {
+        await new Promise(r => setTimeout(r, 3200 - elapsed));
+      }
+
       setAiSummary(text);
       // Dispara o confetti exatamente quando o resultado da análise é finalizado e exibido
       triggerConfetti();
@@ -343,7 +351,7 @@ export default function ProcessTracker({
         minHeight: '100vh',
         background: NEAR_BLACK,
         color: TEXT,
-        fontFamily: "'Cinzel', 'Playfair Display', Georgia, 'Times New Roman', serif"
+        fontFamily: 'var(--font-poppins), sans-serif'
       }}
     >
       {/* Fibers de fundo no canvas mantido ativo continuamente tanto no stepper quanto a posteriori */}
@@ -399,8 +407,7 @@ export default function ProcessTracker({
                   color: '#d1d5db',
                   lineHeight: 1.6,
                   maxWidth: 580,
-                  margin: '0 auto',
-                  fontFamily: 'system-ui, -apple-system, sans-serif'
+                  margin: '0 auto'
                 }}
               >
                 Preencha os passos abaixo para verificar processos judiciais e execuções vinculadas ao seu documento.

@@ -7,10 +7,18 @@
 
 body {
   margin: 0;
+  font-family: var(--font-poppins), sans-serif;
+}
+
+input,
+button,
+textarea,
+select {
+  font-family: inherit;
 }
 
 ::placeholder {
-  font-family: var(--font-cinzel), serif;
+  font-family: var(--font-poppins), sans-serif;
   color: #9aa2a8;
 }
 

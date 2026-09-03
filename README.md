@@ -18,7 +18,7 @@ Abre em `http://localhost:3000`.
 
 ```
 app/
-  layout.tsx              fonte Cinzel (next/font) + metadata
+  layout.tsx              fonte Poppins (next/font) + metadata
   globals.css             reset, ::placeholder, links, @keyframes das animações
   page.tsx                monta <ProcessTracker />
   api/processos/route.ts  consulta real de processos (Infosimples)
@@ -51,7 +51,7 @@ public/
 | WhatsApp | `#25603f` | botão de envio por WhatsApp |
 | Status | urgente `#8a3a3a`, andamento `#3a6b8a`, informativo `#4a5a6a`, favorável `#4a7a5c` | pontos e etiquetas da timeline |
 
-Tipografia: **Cinzel** (400/500/600/700) em todo o sistema, peso base 600.
+Tipografia: **Poppins** (300/400/500/600/700) em todo o sistema.
 Escalas fluidas: `clamp(20px,5vw,25px)` no H1, `clamp(10px,2.4vw,12px)` no subtítulo do header,
 paddings `clamp(...)` no header, cards e main (responsivo sem media queries).
 

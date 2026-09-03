@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { Cinzel } from 'next/font/google';
+import { Poppins } from 'next/font/google';
 import './globals.css';
 
-const cinzel = Cinzel({
+const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-cinzel',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-poppins',
   display: 'swap'
 });
 
@@ -17,8 +17,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={cinzel.variable}>
-      <body style={{ fontFamily: 'var(--font-cinzel), serif' }}>{children}</body>
+    <html lang="pt-BR" className={poppins.variable}>
+      <body style={{ fontFamily: 'var(--font-poppins), sans-serif' }}>{children}</body>
     </html>
   );
 }
