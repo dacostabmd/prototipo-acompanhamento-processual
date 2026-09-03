@@ -15,7 +15,7 @@ const CREAM_TEXT = '#f5efe1';
 const PAPER = '#ffffff';
 const BORDER = '#e3ddd0';
 const TEXT = '#1b2733';
-const MUTED = '#5b6b78';
+const MUTED = '#37424c';
 const DANGER = '#8a3a3a';
 const SUCCESS = '#1b6b3e';
 const WHATSAPP = '#25603f';
@@ -24,7 +24,7 @@ const TAG_META: Record<MovementTag, { label: string; color: string }> = {
   urgente: { label: 'URGENTE', color: '#8a2b2b' },
   positivo: { label: 'POSITIVO', color: '#1b6b3e' },
   andamento: { label: 'EM ANDAMENTO', color: '#2455b8' },
-  informativo: { label: 'INFORMATIVO', color: '#738394' }
+  informativo: { label: 'INFORMATIVO', color: '#4b5a68' }
 };
 
 interface ProcessDashboardSplitProps {
@@ -262,7 +262,7 @@ export default function ProcessDashboardSplit({
   };
 
   return (
-    <div style={{ width: '100%', maxWidth: 1400, margin: '0 auto', animation: 'bf-fadein 0.6s ease both' }}>
+    <div style={{ width: '100%', maxWidth: 1400, margin: '0 auto', animation: 'bf-fadein 0.6s ease both', fontWeight: 600 }}>
       {/* ── BARRA SUPERIOR DO CLIENTE ── */}
       <section
         style={{
@@ -323,10 +323,7 @@ export default function ProcessDashboardSplit({
         </div>
       </section>
 
-      {/* ═════════════════════════════════════════════════════════════════
-          1. BLOCO SUPERIOR CONECTADO: RESUMO (70%) + CHAT COM IA (30%)
-          O Chat tem altura exatamente até o início da Linha do Tempo!
-          ═════════════════════════════════════════════════════════════════ */}
+      {/* ── GRID PRINCIPAL SPLIT 70% / 30% (PAPERS CONECTADOS) ── */}
       <div
         className="bf-split-grid"
         style={{
@@ -336,7 +333,6 @@ export default function ProcessDashboardSplit({
           alignItems: 'stretch',
           background: PAPER,
           border: `1px solid ${BORDER}`,
-          borderBottom: 'none',
           borderRadius: '3px 3px 0 0',
           boxShadow: '0 16px 50px rgba(0,0,0,0.3)',
           overflow: 'hidden'
@@ -578,6 +574,8 @@ export default function ProcessDashboardSplit({
             flexDirection: 'column',
             background: '#ffffff',
             height: '100%',
+            minHeight: 0,
+            justifyContent: 'space-between',
             position: 'relative'
           }}
         >
@@ -653,7 +651,7 @@ export default function ProcessDashboardSplit({
               flexDirection: 'column',
               gap: 14,
               background: '#faf8f5',
-              maxHeight: 520
+              minHeight: 0
             }}
           >
             {chatMessages.map((msg, idx) => (
@@ -858,7 +856,8 @@ export default function ProcessDashboardSplit({
               borderTop: `1px solid ${BORDER}`,
               display: 'flex',
               alignItems: 'center',
-              gap: 8
+              gap: 8,
+              marginTop: 'auto'
             }}
           >
             <input

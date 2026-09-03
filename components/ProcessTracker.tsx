@@ -168,9 +168,6 @@ export default function ProcessTracker({
     setSearching(true);
     setHasSearched(false);
 
-    // Dispara Confete imediatamente ao finalizar o Stepper
-    triggerConfetti();
-
     try {
       // 1. Busca processual multi-tribunal
       const res = await fetch('/api/processos', {
@@ -270,6 +267,8 @@ export default function ProcessTracker({
       if (!res.ok) throw new Error('Falha na rota de resumo da IA');
       const { text } = await res.json();
       setAiSummary(text);
+      // Dispara o confetti exatamente quando o resultado da análise é finalizado e exibido
+      triggerConfetti();
     } catch {
       setAiSummaryError('Não foi possível gerar o resumo automático agora.');
     } finally {
