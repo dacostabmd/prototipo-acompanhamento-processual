@@ -52,9 +52,9 @@ export async function POST(request: Request) {
         );
       }
 
-      const result = await response.json();
-      console.log('[api/bitrix/lead] Lead criado com sucesso no Bitrix24! ID:', result.result);
-      return NextResponse.json({ success: true, leadId: result.result, simulated: false });
+      const result = await response.json().catch(() => ({}));
+      console.log('[api/bitrix/lead] Lead criado com sucesso no Bitrix24! ID:', result?.result);
+      return NextResponse.json({ success: true, leadId: result?.result || null, simulated: false });
     }
 
     // Se a variável BITRIX_WEBHOOK_URL ainda não estiver preenchida no .env.local

@@ -39,7 +39,7 @@ async function fetchInfosimples(service: string, token: string, cleanCpf: string
     });
 
     if (!res.ok) return null;
-    return await res.json();
+    return await res.json().catch(() => null);
   } catch (err) {
     console.error(`[api/processos] Erro ao consultar ${service}:`, err);
     return null;

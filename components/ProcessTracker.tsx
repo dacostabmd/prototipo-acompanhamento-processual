@@ -183,7 +183,12 @@ export default function ProcessTracker({
         })
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Erro na resposta do servidor (${res.status}).`);
+      }
 
       if (!res.ok) {
         throw new Error(data.error || 'Falha ao consultar processos.');
@@ -224,9 +229,9 @@ export default function ProcessTracker({
               : 'Nenhum processo localizado automaticamente'
           })
         });
-        const bitrixData = await bitrixRes.json();
-        if (bitrixData.leadId) setBitrixLeadId(bitrixData.leadId);
-        if (bitrixData.simulated) setBitrixSimulated(true);
+        const bitrixData = await bitrixRes.json().catch(() => ({}));
+        if (bitrixData && bitrixData.leadId) setBitrixLeadId(bitrixData.leadId);
+        if (bitrixData && bitrixData.simulated) setBitrixSimulated(true);
       } catch (err) {
         console.error('[Bitrix integration error]', err);
       }
@@ -267,7 +272,8 @@ export default function ProcessTracker({
         })
       });
       if (!res.ok) throw new Error('Falha na rota de resumo da IA');
-      const { text } = await res.json();
+      const summaryData = await res.json().catch(() => ({}));
+      const text = summaryData.text || '';
 
       // Garante tempo mínimo de ~3.2s para exibição completa das 4 etapas discriminadas
       const elapsed = Date.now() - startTime;
@@ -333,8 +339,8 @@ export default function ProcessTracker({
       });
 
       if (!res.ok) throw new Error('Falha no chat');
-      const data = await res.json();
-      setChatMessages(prev => [...prev, { role: 'assistant', content: data.text }]);
+      const data = await res.json().catch(() => ({}));
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.text || 'Ocorreu uma instabilidade na resposta.' }]);
     } catch {
       setChatMessages(prev => [
         ...prev,

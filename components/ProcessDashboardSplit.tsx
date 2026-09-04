@@ -248,8 +248,8 @@ export default function ProcessDashboardSplit({
       });
 
       if (!res.ok) throw new Error('Falha no chat');
-      const data = await res.json();
-      setChatMessages(prev => [...prev, { role: 'assistant', content: data.text }]);
+      const data = await res.json().catch(() => ({}));
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.text || 'Ocorreu uma instabilidade na resposta.' }]);
     } catch {
       setChatMessages(prev => [
         ...prev,
