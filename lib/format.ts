@@ -71,7 +71,8 @@ export function formatChatMessageHtml(raw: string, isUser: boolean = false): str
     .replace(/\[\s*seu cargo\s*\]/gi, '')
     .replace(/\[.*?nome.*?\]/gi, 'Equipe Blindagem Financeira');
 
-  // 2. Garante quebras de linha antes de tópicos numerados ou listas que possam ter vindo coladas em uma única linha
+  // 2. Garante quebras de linha antes de tópicos numerados, títulos ### ou listas que possam ter vindo coladas em uma única linha
+  text = text.replace(/([.:!?])\s+(#{1,6}\s+)/g, '$1\n\n$2');
   text = text.replace(/([.:!?])\s+(\d+\.\s+\*\*)/g, '$1\n\n$2');
   text = text.replace(/([.:!?])\s+(-\s+\*\*)/g, '$1\n\n$2');
   text = text.replace(/([.:!?])\s+(\*\*[^*]+:\*\*)/g, '$1\n\n$2');
@@ -135,28 +136,37 @@ export function formatChatMessageHtml(raw: string, isUser: boolean = false): str
     const trimmed = block.trim();
     if (!trimmed) return '';
 
-    // Se for item com marcador "- " ou "• "
-    if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
-      const items = trimmed.split(/\n(?=[-•]\s*)/).map(item => {
-        const clean = item.replace(/^[-•]\s*/, '').replace(/\n/g, '<br />');
-        return `<div style="margin: 4px 0 4px 8px; display: flex; align-items: flex-start; gap: 7px;"><span style="color: #2455b8; font-weight: 700; line-height: 1.5;">•</span><span style="flex: 1; line-height: 1.6;">${clean}</span></div>`;
-      });
-      return items.join('');
-    }
+    const lines = trimmed.split(/\n/);
 
-    // Se for tópico numerado "1. ", "2. ", etc
-    if (/^\d+\.\s+/.test(trimmed)) {
-      const lines = trimmed.split(/\n/);
-      let html = `<p style="margin: 8px 0 4px; line-height: 1.6;">${lines[0]}</p>`;
-      for (let i = 1; i < lines.length; i++) {
+    const hasHeading = lines.some(l => /^#{1,6}\s+/.test(l.trim()) || /^§\s+/.test(l.trim()));
+    const hasListItems = lines.some(l => /^[-•*]\s+/.test(l.trim()));
+
+    if (hasHeading || hasListItems || /^\d+\.\s+/.test(trimmed)) {
+      let html = '';
+      for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
-        if (line.startsWith('- ') || line.startsWith('• ')) {
-          html += `<div style="margin: 4px 0 4px 8px; display: flex; align-items: flex-start; gap: 7px;"><span style="color: #2455b8; font-weight: 700;">•</span><span style="flex: 1; line-height: 1.5;">${line.replace(/^[-•]\s*/, '')}</span></div>`;
-        } else if (line) {
-          html += `<p style="margin: 4px 0; line-height: 1.6;">${line}</p>`;
+        if (!line) continue;
+
+        // Cabeçalho com ### ou §
+        if (/^#{1,6}\s+/.test(line) || /^§\s+/.test(line)) {
+          const cleanTitle = line.replace(/^(?:#{1,6}|§)\s*/, '');
+          html += `<div style="margin: 10px 0 5px; font-weight: 700; color: #0b192c; font-size: 13.5px; display: flex; align-items: baseline; gap: 6px;"><span style="color: #2455b8; font-weight: 700; font-size: 14.5px;">§</span><span>${cleanTitle}</span></div>`;
+        }
+        // Item de lista com - ou • ou *
+        else if (/^[-•*]\s+/.test(line)) {
+          const cleanItem = line.replace(/^[-•*]\s*/, '');
+          html += `<div style="margin: 3px 0 3px 8px; display: flex; align-items: flex-start; gap: 7px;"><span style="color: #2455b8; font-weight: 700; line-height: 1.5;">•</span><span style="flex: 1; line-height: 1.6;">${cleanItem}</span></div>`;
+        }
+        // Item numerado simples no início do bloco
+        else if (/^\d+\.\s+/.test(line) && i === 0) {
+          html += `<p style="margin: 8px 0 4px; line-height: 1.6; font-weight: 600; color: #0b192c;">${line}</p>`;
+        }
+        // Parágrafo normal dentro do bloco
+        else {
+          html += `<p style="margin: 4px 0; line-height: 1.65;">${line}</p>`;
         }
       }
-      return html;
+      return `<div style="margin: 0 0 8px;">${html}</div>`;
     }
 
     return `<p style="margin: 0 0 8px; line-height: 1.65;">${trimmed.replace(/\n/g, '<br />')}</p>`;

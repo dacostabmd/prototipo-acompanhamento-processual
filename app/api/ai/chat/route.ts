@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       `DIRETRIZES DE ATENDIMENTO E FORMATAÇÃO (OBRIGATÓRIO):\n` +
       `- ${toneInstruction}\n` +
       `- FORMATAÇÃO VISUAL IMPECÁVEL: NUNCA gere um bloco único de texto denso. Separe SEMPRE suas explicações em parágrafos curtos com quebras de linha duplas entre eles.\n` +
-      `- Ao listar itens, processos ou linhas de defesa, utilize SEMPRE marcadores de lista com quebra de linha por item (ex:\n1. **Tópico**:\n- **Item 1**: Explicação\n- **Item 2**: Explicação).\n` +
+      `- Ao listar itens, processos ou linhas de defesa, utilize títulos de seção com o símbolo de parágrafo "§" (ex: "§ 1. Processo: ...", "§ Riscos Imediatos", "§ Próximos Passos") e marcadores de lista com quebra de linha por item (ex:\n- **Item 1**: Explicação\n- **Item 2**: Explicação). NUNCA use marcadores "###".\n` +
       `- Destaque com negrito (**texto**) os números de processos, valores, credores e conceitos-chave.\n` +
       `- Você TEM ACESSO TOTAL ao dossiê judicial do cliente informado abaixo.\n` +
       `- Ao responder dúvidas, cite os números dos processos reais, valores envolvidos, credores e explique com clareza os riscos imediatos (ex: penhora de contas Sisbajud, bloqueio de bens) e as linhas de defesa possíveis (impugnação, excesso de execução, prescrição, nulidade de citação, acordo com deságio).\n` +

@@ -157,6 +157,7 @@ export default function ProcessDashboardSplit({
 
     let resumoLimpo = aiSummary
       ? aiSummary
+          .replace(/#{1,6}\s*/g, '§ ')
           .replace(/<span[^>]*color:\s*#8a2b2b[^>]*>(.*?)<\/span>/gi, '🔴 *$1*')
           .replace(/<span[^>]*color:\s*#1b6b3e[^>]*>(.*?)<\/span>/gi, '🟢 *$1*')
           .replace(/<span[^>]*>(.*?)<\/span>/gi, '*$1*')
@@ -1184,8 +1185,30 @@ function formatAiSummaryHtml(raw: string): string {
     text = text.replace(regex, '<span style="color: #1b6b3e; font-weight: 700;">$1</span>');
   });
 
+  // Quebra em parágrafos e formata ### e listas
   return text
     .split(/\n\s*\n/)
-    .map(p => `<p style="margin: 0 0 14px; line-height: 1.85;">${p.replace(/\n/g, '<br />')}</p>`)
+    .map(block => {
+      const trimmed = block.trim();
+      if (!trimmed) return '';
+      const lines = trimmed.split(/\n/);
+      if (lines.some(l => /^#{1,6}\s+/.test(l.trim()) || /^[-•*]\s+/.test(l.trim()) || /^§\s+/.test(l.trim()))) {
+        let html = '';
+        for (const line of lines) {
+          const l = line.trim();
+          if (!l) continue;
+          if (/^#{1,6}\s+/.test(l) || /^§\s+/.test(l)) {
+            const cleanTitle = l.replace(/^(?:#{1,6}|§)\s*/, '');
+            html += `<div style="margin: 10px 0 5px; font-weight: 700; color: #0b192c; font-size: 14px; display: flex; align-items: baseline; gap: 6px;"><span style="color: #2455b8; font-weight: 700; font-size: 15px;">§</span><span>${cleanTitle}</span></div>`;
+          } else if (/^[-•*]\s+/.test(l)) {
+            html += `<div style="margin: 3px 0 3px 8px; display: flex; align-items: flex-start; gap: 7px;"><span style="color: #2455b8; font-weight: 700;">•</span><span>${l.replace(/^[-•*]\s*/, '')}</span></div>`;
+          } else {
+            html += `<p style="margin: 4px 0; line-height: 1.85;">${l}</p>`;
+          }
+        }
+        return `<div style="margin: 0 0 12px;">${html}</div>`;
+      }
+      return `<p style="margin: 0 0 14px; line-height: 1.85;">${trimmed.replace(/\n/g, '<br />')}</p>`;
+    })
     .join('');
 }
