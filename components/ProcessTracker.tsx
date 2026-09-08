@@ -37,16 +37,35 @@ const WHATSAPP = '#25603f';
 
 const BRAZIL_STATES = [
   { value: 'AUTO', label: 'Verificação Inteligente (Recomendado — SP, RJ e Federais)' },
-  { value: 'SP', label: 'São Paulo — TJSP (Tribunal de Justiça de SP)' },
-  { value: 'RJ', label: 'Rio de Janeiro — TJRJ (Tribunal de Justiça do RJ)' },
+  { value: 'SP', label: 'São Paulo — TJSP' },
+  { value: 'RJ', label: 'Rio de Janeiro — TJRJ' },
   { value: 'MG', label: 'Minas Gerais — TJMG' },
   { value: 'RS', label: 'Rio Grande do Sul — TJRS' },
   { value: 'PR', label: 'Paraná — TJPR' },
   { value: 'SC', label: 'Santa Catarina — TJSC' },
-  { value: 'DF', label: 'Distrito Federal — TJDFT' },
   { value: 'BA', label: 'Bahia — TJBA' },
-  { value: 'FEDERAL', label: 'Justiça Federal — TRF1 / TRF2 / TRF3' },
-  { value: 'OUTRO', label: 'Outro Tribunal Estadual' }
+  { value: 'DF', label: 'Distrito Federal — TJDFT' },
+  { value: 'GO', label: 'Goiás — TJGO' },
+  { value: 'PE', label: 'Pernambuco — TJPE' },
+  { value: 'CE', label: 'Ceará — TJCE' },
+  { value: 'ES', label: 'Espírito Santo — TJES' },
+  { value: 'MT', label: 'Mato Grosso — TJMT' },
+  { value: 'MS', label: 'Mato Grosso do Sul — TJMS' },
+  { value: 'MA', label: 'Maranhão — TJMA' },
+  { value: 'PA', label: 'Pará — TJPA' },
+  { value: 'PB', label: 'Paraíba — TJPB' },
+  { value: 'RN', label: 'Rio Grande do Norte — TJRN' },
+  { value: 'AL', label: 'Alagoas — TJAL' },
+  { value: 'PI', label: 'Piauí — TJPI' },
+  { value: 'SE', label: 'Sergipe — TJSE' },
+  { value: 'RO', label: 'Rondônia — TJRO' },
+  { value: 'TO', label: 'Tocantins — TJTO' },
+  { value: 'AC', label: 'Acre — TJAC' },
+  { value: 'AP', label: 'Amapá — TJAP' },
+  { value: 'AM', label: 'Amazonas — TJAM' },
+  { value: 'RR', label: 'Roraima — TJRR' },
+  { value: 'FEDERAL', label: 'Justiça Federal — TRF1 / TRF2 / TRF3 / TRF4 / TRF5 / TRF6' },
+  { value: 'OUTRO', label: 'Outro Tribunal' }
 ];
 
 export interface ProcessTrackerProps {
@@ -543,22 +562,39 @@ export default function ProcessTracker({
                   </div>
                 </Step>
 
-                {/* ── PASSO 3: ESTADO DO PROCESSO ── */}
+                {/* ── PASSO 3: NÚMERO E ESTADO DO PROCESSO ── */}
                 <Step>
                   <div>
                     <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE, fontWeight: 700, marginBottom: 4 }}>
-                      PASSO 3 DE 4 · JURISDIÇÃO E PROCESSO
+                      PASSO 3 DE 4 · NÚMERO DO PROCESSO & ESTADO
                     </div>
                     <h2 style={{ margin: '0 0 8px', fontSize: 18, color: '#000', fontWeight: 600 }}>
-                      Estado do Processo ou Número CNJ
+                      Número do Processo e Estado
                     </h2>
                     <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
-                      Selecione o estado provável onde tramita a ação e/ou informe o número do processo se já souber.
+                      Informe o número do processo (se tiver em mãos) e selecione o estado em que a ação tramita.
                     </p>
 
                     <div style={{ marginBottom: 16 }}>
                       <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#000', marginBottom: 6 }}>
-                        ESTADO DO PROCESSO / TRIBUNAL
+                        NÚMERO DO PROCESSO (CNJ — OPCIONAL)
+                      </label>
+                      <input
+                        type="text"
+                        value={processNumberInput}
+                        onChange={e => setProcessNumberInput(e.target.value)}
+                        placeholder="0000000-00.0000.0.00.0000 (se possuir)"
+                        style={inputStyle}
+                        autoFocus
+                      />
+                      <span style={{ fontSize: 11, color: MUTED, marginTop: 4, display: 'block' }}>
+                        Deixe em branco se desejar que a busca encontre todos os processos vinculados ao seu CPF.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#000', marginBottom: 6 }}>
+                        ESTADO EM QUE OCORRE O PROCESSO / TRIBUNAL
                       </label>
                       <select
                         value={stateInput}
@@ -574,21 +610,8 @@ export default function ProcessTracker({
                           </option>
                         ))}
                       </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#000', marginBottom: 6 }}>
-                        NÚMERO DO PROCESSO (CNJ — OPCIONAL)
-                      </label>
-                      <input
-                        type="text"
-                        value={processNumberInput}
-                        onChange={e => setProcessNumberInput(e.target.value)}
-                        placeholder="0000000-00.0000.0.00.0000 (se possuir)"
-                        style={inputStyle}
-                      />
                       <span style={{ fontSize: 11, color: MUTED, marginTop: 4, display: 'block' }}>
-                        Deixe em branco se desejar que a busca encontre todos os processos vinculados ao seu CPF.
+                        Ajuda a direcionar a busca diretamente para o tribunal de jurisdição do seu caso.
                       </span>
                     </div>
                   </div>
