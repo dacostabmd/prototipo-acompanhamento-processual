@@ -252,13 +252,13 @@ function StepContentWrapper({
   children,
   className = ''
 }: StepContentWrapperProps) {
-  const [parentHeight, setParentHeight] = useState<number>(0);
+  const [parentHeight, setParentHeight] = useState<number | 'auto'>('auto');
 
   return (
     <motion.div
       style={{ position: 'relative', overflow: 'hidden' }}
-      animate={{ height: isCompleted ? 0 : parentHeight }}
-      transition={{ type: 'spring', duration: 0.4 }}
+      animate={{ height: isCompleted ? 0 : (parentHeight || 'auto') }}
+      transition={{ type: 'spring', duration: 0.35, bounce: 0 }}
       className={className}
     >
       <AnimatePresence initial={false} mode="sync" custom={direction}>
@@ -282,9 +282,30 @@ function SlideTransition({ children, direction, onHeightReady }: SlideTransition
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
-    if (containerRef.current) {
-      onHeightReady(containerRef.current.offsetHeight);
+    const el = containerRef.current;
+    if (!el) return;
+
+    const updateHeight = () => {
+      if (el) {
+        onHeightReady(el.offsetHeight);
+      }
+    };
+
+    updateHeight();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        updateHeight();
+      });
+      resizeObserver.observe(el);
     }
+
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
   }, [children, onHeightReady]);
 
   return (
