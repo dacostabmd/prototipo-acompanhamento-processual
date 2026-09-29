@@ -38,6 +38,7 @@ interface ProcessDashboardSplitProps {
   processNumber?: string;
   caseData: CaseData;
   tribunaisConsultados: string[];
+  custoEstimado?: number;
   aiSummary: string;
   aiSummaryLoading: boolean;
   onRefreshAiSummary: () => void;
@@ -56,6 +57,7 @@ export default function ProcessDashboardSplit({
   processNumber,
   caseData,
   tribunaisConsultados,
+  custoEstimado,
   aiSummary,
   aiSummaryLoading,
   onRefreshAiSummary,
@@ -321,6 +323,12 @@ export default function ProcessDashboardSplit({
               )}
             </div>
           </div>
+          {typeof custoEstimado === 'number' && custoEstimado > 0 && (
+            <div>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 600 }}>CUSTO DA CONSULTA</div>
+              <div style={{ fontSize: 14 }}>R$ {custoEstimado.toFixed(2).replace('.', ',')}</div>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

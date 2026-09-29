@@ -83,10 +83,18 @@ const MOSS_GREEN = '#3d6b4f';
 const RUBY_RED = '#9b2c3f';
 
 // Espelha a lógica multi-tribunal do backend (app/api/processos/route.ts) para exibir o progresso real da varredura
+const ALL_TRIBUNAL_LABELS = [
+  'TJSP', 'TJSP (eproc)', 'TJRJ', 'TJMG', 'TJPR', 'TJBA', 'TJRS', 'TJSC',
+  'TRF1', 'TRF2', 'TRF2 (eproc)', 'TRF3', 'TRF5', 'TRF6'
+];
+
+const CUSTO_POR_CONSULTA = 0.2; // R$ por chamada à Infosimples (mantido em sincronia com app/api/processos/route.ts)
+
 function getTargetTribunals(stateValue: string): string[] {
   const selected = (stateValue || '').toUpperCase();
   const isRj = selected.includes('RJ') || selected.includes('RIO');
-  return isRj ? ['TJRJ', 'TJSP'] : ['TJSP', 'TJRJ'];
+  if (!isRj) return ALL_TRIBUNAL_LABELS;
+  return [...ALL_TRIBUNAL_LABELS].sort((a, b) => (a === 'TJRJ' ? -1 : b === 'TJRJ' ? 1 : 0));
 }
 
 export default function ProcessTracker({
@@ -108,6 +116,7 @@ export default function ProcessTracker({
   const [notFound, setNotFound] = useState(false);
   const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [tribunaisConsultados, setTribunaisConsultados] = useState<string[]>([]);
+  const [custoEstimado, setCustoEstimado] = useState<number>(0);
   const [scanItems, setScanItems] = useState<ScanItem[]>([]);
 
   // Bitrix states
@@ -206,20 +215,27 @@ export default function ProcessTracker({
     const targets = getTargetTribunals(stateInput);
     setScanItems(targets.map((label, i) => ({ label, status: i === 0 ? 'loading' : 'pending' })));
 
-    // Avança visualmente um tribunal por vez enquanto a consulta real roda em paralelo
+    // Avança visualmente pelos tribunais enquanto a consulta real roda em paralelo no backend.
+    // Se a resposta real ainda não chegou ao fim da lista, volta a ciclar pelos itens em vez de
+    // travar visualmente no último ("loading" parado), já que o backend consulta tudo em paralelo
+    // e pode demorar mais que targets.length * MIN_STEP_MS.
     const MIN_STEP_MS = 900;
     let cancelled = false;
     const advanceScan = async () => {
-      for (let i = 0; i < targets.length - 1; i++) {
+      let i = 0;
+      while (!cancelled) {
         await new Promise(r => setTimeout(r, MIN_STEP_MS));
         if (cancelled) return;
+        const current = i % targets.length;
+        const next = (i + 1) % targets.length;
         setScanItems(prev =>
           prev.map((item, idx) => {
-            if (idx === i) return { ...item, status: 'found' };
-            if (idx === i + 1) return { ...item, status: 'loading' };
+            if (idx === current) return { ...item, status: 'found' };
+            if (idx === next) return { ...item, status: 'loading' };
             return item;
           })
         );
+        i++;
       }
     };
     const scanAnimation = advanceScan();
@@ -250,6 +266,7 @@ export default function ProcessTracker({
       }
 
       setTribunaisConsultados(data.tribunaisConsultados || []);
+      setCustoEstimado(typeof data.custoEstimado === 'number' ? data.custoEstimado : 0);
 
       // Aguarda a animação terminar de percorrer os tribunais antes de revelar o resultado final
       cancelled = true;
@@ -839,7 +856,8 @@ export default function ProcessTracker({
                     letterSpacing: 0.5
                   }}
                 >
-                  Bases: {tribunaisConsultados.join(', ')}
+                  Bases: {tribunaisConsultados.join(', ')} · Custo estimado: R${' '}
+                  {custoEstimado.toFixed(2).replace('.', ',')}
                 </span>
               )}
             </div>
@@ -911,6 +929,7 @@ export default function ProcessTracker({
             processNumber={processNumberInput}
             caseData={caseData}
             tribunaisConsultados={tribunaisConsultados}
+            custoEstimado={custoEstimado}
             aiSummary={aiSummary}
             aiSummaryLoading={aiSummaryLoading}
             onRefreshAiSummary={() => void fetchAiSummary(caseData)}

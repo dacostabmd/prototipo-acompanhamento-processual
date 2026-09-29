@@ -112,16 +112,34 @@ export async function POST(request: Request) {
     const selectedState = (state || '').toUpperCase();
     const isRj = selectedState.includes('RJ') || selectedState.includes('RIO') || ddd === 21 || ddd === 22 || ddd === 24;
 
-    // Multi-tribunal inteligente: define os tribunais a consultar baseado no Estado selecionado, DDD e CPF
-    const targets: { service: string; label: string }[] = [];
+    // Multi-tribunal: consulta todos os tribunais com API de busca por CPF (lista de processos) na Infosimples.
+    // TJBA/TJRS/TJSC/TRF6 têm formato de resposta não confirmado na documentação pública — o parser abaixo
+    // tenta múltiplos nomes de campo, mas pode falhar silenciosamente em encontrar processos nesses tribunais
+    // até serem validados com uma chamada real.
+    const ALL_TARGETS: { service: string; label: string }[] = [
+      { service: 'tribunal/tjsp/primeiro-grau', label: 'TJSP' },
+      { service: 'tribunal/tjsp/eproc-lista', label: 'TJSP (eproc)' },
+      { service: 'tribunal/tjrj/processo-eproc', label: 'TJRJ' },
+      { service: 'tribunal/tjmg/processo', label: 'TJMG' },
+      { service: 'tribunal/tjpr/processo', label: 'TJPR' },
+      { service: 'tribunal/tjba/primeiro-grau', label: 'TJBA' },
+      { service: 'tribunal/tjrs/primeiro-grau', label: 'TJRS' },
+      { service: 'tribunal/tjsc/processo', label: 'TJSC' },
+      { service: 'tribunal/trf1/processo', label: 'TRF1' },
+      { service: 'tribunal/trf2/processo', label: 'TRF2' },
+      { service: 'tribunal/trf2/processo-eproc', label: 'TRF2 (eproc)' },
+      { service: 'tribunal/trf3/consulta-publica', label: 'TRF3' },
+      { service: 'tribunal/trf5/processo', label: 'TRF5' },
+      { service: 'tribunal/trf6/processo', label: 'TRF6' }
+    ];
 
-    if (isRj) {
-      targets.push({ service: 'tribunal/tjrj/processo-eproc', label: 'TJRJ' });
-      targets.push({ service: 'tribunal/tjsp/primeiro-grau', label: 'TJSP' });
-    } else {
-      targets.push({ service: 'tribunal/tjsp/primeiro-grau', label: 'TJSP' });
-      targets.push({ service: 'tribunal/tjrj/processo-eproc', label: 'TJRJ' });
-    }
+    // Prioriza SP/RJ primeiro para a animação de progresso, mas consulta todos os tribunais disponíveis
+    const targets = isRj
+      ? [...ALL_TARGETS].sort((a, b) => (a.label === 'TJRJ' ? -1 : b.label === 'TJRJ' ? 1 : 0))
+      : ALL_TARGETS;
+
+    const CUSTO_POR_CONSULTA = 0.2; // R$ por chamada à Infosimples (valor estimado, confirmar no painel da conta)
+    const custoEstimado = Number((targets.length * CUSTO_POR_CONSULTA).toFixed(2));
 
     console.log(
       `[api/processos] Consulta multi-tribunal para ${fullName || 'Cliente'} (CPF: ${cleanCpf}, Estado: ${state || 'Auto'}, DDD: ${ddd || 'N/I'}) nos tribunais:`,
@@ -146,31 +164,39 @@ export async function POST(request: Request) {
 
       if (result.code !== 200 || !result.data?.[0]) return;
 
-      // Trata retorno do TJSP (processos) ou TJRJ (processos / lista_processos)
+      // Cada tribunal usa um nome de campo diferente para a lista de processos
       const rawList: any[] =
         result.data[0].processos ||
         result.data[0].lista_processos ||
+        result.data[0].processos_lista ||
+        result.data[0].lista_processos_encontrados ||
         [];
 
       rawList.forEach((p: any) => {
-        const num = (p.processo || p.numero || p.numero_processo || '').trim();
+        const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').trim();
         if (!num || seenProcessos.has(num)) return;
         seenProcessos.add(num);
 
         const movs: Movement[] = [];
 
-        // Trata movimentações (ultimas_movimentacoes ou eventos)
-        const rawMovs = p.ultimas_movimentacoes || p.eventos || [];
+        // Cada tribunal usa um nome de campo diferente para as movimentações
+        const rawMovs =
+          p.ultimas_movimentacoes ||
+          p.eventos ||
+          p.movimento_processo ||
+          p.movimentacoes_processo ||
+          p.movimentacao ||
+          [];
         if (Array.isArray(rawMovs) && rawMovs.length > 0) {
           rawMovs.forEach((m: any) => {
-            const fullText = (m.movimento || m.descricao || m.evento || '').trim();
+            const fullText = (m.movimento || m.descricao || m.evento || m.movimentacao || '').trim();
             const dashIdx = fullText.indexOf(' - ');
             let titulo = dashIdx > 0 && dashIdx < 60 ? fullText.slice(0, dashIdx) : fullText.slice(0, 70);
             if (titulo.length < fullText.length && !titulo.endsWith('...')) {
               titulo += '...';
             }
             movs.push({
-              data: convertBrDateToIso(m.data || m.data_evento),
+              data: convertBrDateToIso(m.data || m.data_evento || m.data_hora_movimentacao),
               titulo: titulo || 'Movimentação processual',
               descricao: fullText || 'Sem descrição detalhada.',
               tag: classifyTag(fullText)
@@ -243,17 +269,19 @@ export async function POST(request: Request) {
         notFound: true,
         totalProcessos: 0,
         processes: [],
-        tribunaisConsultados
+        tribunaisConsultados,
+        custoEstimado
       });
     }
 
-    console.log(`[api/processos] Sucesso: ${allProcesses.length} processo(s) consolidado(s) de ${tribunaisConsultados.join(', ')}.`);
+    console.log(`[api/processos] Sucesso: ${allProcesses.length} processo(s) consolidado(s) de ${tribunaisConsultados.join(', ')}. Custo estimado: R$ ${custoEstimado.toFixed(2)}`);
 
     return NextResponse.json({
       notFound: false,
       totalProcessos: allProcesses.length,
       processes: allProcesses,
-      tribunaisConsultados
+      tribunaisConsultados,
+      custoEstimado
     });
   } catch (error) {
     console.error('[api/processos] Exceção:', error);
