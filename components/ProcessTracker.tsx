@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/authFetch';
 import React, { useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 import GhostFibers from './GhostFibers';
@@ -75,6 +76,19 @@ export interface ProcessTrackerProps {
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
+type ScanStatus = 'pending' | 'loading' | 'found' | 'not-found';
+type ScanItem = { label: string; status: ScanStatus };
+
+const MOSS_GREEN = '#3d6b4f';
+const RUBY_RED = '#9b2c3f';
+
+// Espelha a lógica multi-tribunal do backend (app/api/processos/route.ts) para exibir o progresso real da varredura
+function getTargetTribunals(stateValue: string): string[] {
+  const selected = (stateValue || '').toUpperCase();
+  const isRj = selected.includes('RJ') || selected.includes('RIO');
+  return isRj ? ['TJRJ', 'TJSP'] : ['TJSP', 'TJRJ'];
+}
+
 export default function ProcessTracker({
   aiModel = 'claude-haiku-4-5',
   chatTone = 'Acolhedor'
@@ -94,6 +108,7 @@ export default function ProcessTracker({
   const [notFound, setNotFound] = useState(false);
   const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [tribunaisConsultados, setTribunaisConsultados] = useState<string[]>([]);
+  const [scanItems, setScanItems] = useState<ScanItem[]>([]);
 
   // Bitrix states
   const [bitrixLeadId, setBitrixLeadId] = useState<string | number | null>(null);
@@ -188,9 +203,30 @@ export default function ProcessTracker({
     setSearching(true);
     setHasSearched(false);
 
+    const targets = getTargetTribunals(stateInput);
+    setScanItems(targets.map((label, i) => ({ label, status: i === 0 ? 'loading' : 'pending' })));
+
+    // Avança visualmente um tribunal por vez enquanto a consulta real roda em paralelo
+    const MIN_STEP_MS = 900;
+    let cancelled = false;
+    const advanceScan = async () => {
+      for (let i = 0; i < targets.length - 1; i++) {
+        await new Promise(r => setTimeout(r, MIN_STEP_MS));
+        if (cancelled) return;
+        setScanItems(prev =>
+          prev.map((item, idx) => {
+            if (idx === i) return { ...item, status: 'found' };
+            if (idx === i + 1) return { ...item, status: 'loading' };
+            return item;
+          })
+        );
+      }
+    };
+    const scanAnimation = advanceScan();
+
     try {
       // 1. Busca processual multi-tribunal
-      const res = await fetch('/api/processos', {
+      const res = await authFetch('/api/processos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -215,6 +251,21 @@ export default function ProcessTracker({
 
       setTribunaisConsultados(data.tribunaisConsultados || []);
 
+      // Aguarda a animação terminar de percorrer os tribunais antes de revelar o resultado final
+      cancelled = true;
+      await scanAnimation;
+
+      const consultados: string[] = data.tribunaisConsultados || [];
+      const processesList: any[] = data.processes || [];
+      setScanItems(
+        targets.map(label => {
+          if (!consultados.includes(label)) return { label, status: 'not-found' };
+          const hasProcess = processesList.some((p: any) => (p.tribunal || '').includes(label));
+          return { label, status: hasProcess ? 'found' : 'not-found' };
+        })
+      );
+      await new Promise(r => setTimeout(r, 650));
+
       let currentCases: CaseData | null = null;
       let totalFound = 0;
 
@@ -232,7 +283,7 @@ export default function ProcessTracker({
 
       // 2. Integração com Bitrix24 (criação automática de card)
       try {
-        const bitrixRes = await fetch('/api/bitrix/lead', {
+        const bitrixRes = await authFetch('/api/bitrix/lead', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -264,6 +315,7 @@ export default function ProcessTracker({
       setFormError(err.message || 'Não foi possível consultar os processos no momento. Tente novamente.');
       setHasSearched(false);
     } finally {
+      cancelled = true;
       setSearching(false);
     }
   };
@@ -274,7 +326,7 @@ export default function ProcessTracker({
     setAiSummaryError('');
     const startTime = Date.now();
     try {
-      const res = await fetch('/api/ai/summary', {
+      const res = await authFetch('/api/ai/summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -333,7 +385,7 @@ export default function ProcessTracker({
     setChatLoading(true);
 
     try {
-      const res = await fetch('/api/ai/chat', {
+      const res = await authFetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -377,7 +429,7 @@ export default function ProcessTracker({
         minHeight: '100vh',
         background: NEAR_BLACK,
         color: TEXT,
-        fontFamily: 'var(--font-poppins), sans-serif'
+        fontFamily: 'var(--font-inter), sans-serif'
       }}
     >
       {/* Fibers de fundo no canvas mantido ativo continuamente tanto no stepper quanto a posteriori */}
@@ -484,9 +536,100 @@ export default function ProcessTracker({
                 <h3 style={{ margin: '0 0 8px', fontSize: 18, color: '#000', fontWeight: 600 }}>
                   Varrendo bases judiciais...
                 </h3>
-                <p style={{ margin: 0, fontSize: 13.5, color: MUTED }}>
+                <p style={{ margin: '0 0 20px', fontSize: 13.5, color: MUTED }}>
                   Consultando tribunais e registrando protocolo com Inteligência Artificial.
                 </p>
+
+                {scanItems.length > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10,
+                      textAlign: 'left',
+                      maxWidth: 360,
+                      margin: '0 auto'
+                    }}
+                  >
+                    {scanItems.map(item => (
+                      <div
+                        key={item.label}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          padding: '10px 14px',
+                          background: CREAM,
+                          border: `1px solid ${BORDER}`,
+                          borderRadius: 3,
+                          fontSize: 13,
+                          animation: 'bf-fadein 0.35s ease both'
+                        }}
+                      >
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            display: 'inline-flex',
+                            width: 16,
+                            height: 16,
+                            flex: 'none',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          {item.status === 'pending' && (
+                            <span
+                              style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                background: INPUT_BORDER
+                              }}
+                            />
+                          )}
+                          {item.status === 'loading' && (
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                width: 14,
+                                height: 14,
+                                border: `2px solid ${BORDER}`,
+                                borderTopColor: BLUE,
+                                borderRadius: '50%',
+                                animation: 'bf-spin 0.8s linear infinite'
+                              }}
+                            />
+                          )}
+                          {item.status === 'found' && (
+                            <span style={{ color: MOSS_GREEN, fontSize: 15, fontWeight: 700 }}>✓</span>
+                          )}
+                          {item.status === 'not-found' && (
+                            <span style={{ color: RUBY_RED, fontSize: 15, fontWeight: 700 }}>✕</span>
+                          )}
+                        </span>
+                        <span style={{ fontWeight: 600, color: '#000' }}>{item.label}</span>
+                        <span
+                          style={{
+                            marginLeft: 'auto',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color:
+                              item.status === 'found'
+                                ? MOSS_GREEN
+                                : item.status === 'not-found'
+                                ? RUBY_RED
+                                : MUTED
+                          }}
+                        >
+                          {item.status === 'pending' && 'Aguardando...'}
+                          {item.status === 'loading' && 'Consultando...'}
+                          {item.status === 'found' && 'Informações encontradas!'}
+                          {item.status === 'not-found' && 'Nenhum processo encontrado'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <Stepper

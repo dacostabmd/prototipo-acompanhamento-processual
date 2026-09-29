@@ -1,6 +1,10 @@
+import { requireUser } from '@/lib/requireUser';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
+  const unauthorized = await requireUser(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const { fullName, cpf, state, phone, processNumber, processesCount, processesSummary, tribunal } =
       await request.json();

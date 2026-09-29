@@ -1,3 +1,4 @@
+import { requireUser } from '@/lib/requireUser';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
@@ -37,6 +38,9 @@ function sanitizeSummaryText(raw: string): string {
 }
 
 export async function POST(request: Request) {
+  const unauthorized = await requireUser(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const { fullName, processes, model } = await request.json();
 

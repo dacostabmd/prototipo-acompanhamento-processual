@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/lib/authFetch';
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { CaseData, LegalProcess, MovementTag } from '@/lib/mockProcesses';
@@ -221,7 +222,7 @@ export default function ProcessDashboardSplit({
     setFreemiumQuestionsUsed(prev => prev + 1);
 
     try {
-      const res = await fetch('/api/ai/chat', {
+      const res = await authFetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

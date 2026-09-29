@@ -1,3 +1,6 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
 /* Reset + animações. Todo o restante do estilo é inline nos componentes,
    espelhando o protótipo original para máxima fidelidade visual. */
 
@@ -7,7 +10,7 @@
 
 body {
   margin: 0;
-  font-family: var(--font-poppins), sans-serif;
+  font-family: var(--font-inter), sans-serif;
 }
 
 input,
@@ -18,7 +21,7 @@ select {
 }
 
 ::placeholder {
-  font-family: var(--font-poppins), sans-serif;
+  font-family: var(--font-inter), sans-serif;
   color: #9aa2a8;
 }
 
@@ -112,3 +115,387 @@ a:hover {
   }
 }
 
+
+/* Tela de acesso: 2 colunas full-width / full-height, sem margens externas */
+.bf-auth {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+}
+
+.bf-auth-left {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #040b20;
+}
+
+.bf-auth-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px clamp(20px, 4vw, 56px);
+  background: #f5f2ea;
+}
+
+@media (max-width: 860px) {
+  .bf-auth {
+    grid-template-columns: 1fr;
+  }
+  .bf-auth-left {
+    min-height: 60vh;
+  }
+}
+
+.bf-auth-right {
+  background: linear-gradient(160deg, #dfe3ea 0%, #e8ebf0 100%);
+}
+
+.bf-auth-card {
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border-radius: 28px;
+  padding: clamp(28px, 4vw, 52px);
+  box-shadow: 0 24px 60px -12px rgba(23, 52, 122, 0.18), 0 2px 6px rgba(15, 23, 42, 0.04);
+  border: 1px solid #e8ecf5;
+}
+
+.bf-input {
+  width: 100%;
+  padding: 15px 18px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 14px;
+  font-size: 15px;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.bf-input:focus {
+  border-color: #2455b8;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(36, 85, 184, 0.14);
+}
+
+.bf-btn-google,
+.bf-btn-primary {
+  width: 100%;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 15px 18px;
+  transition: transform 0.1s, box-shadow 0.15s, background 0.15s;
+}
+
+.bf-btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  color: #0f172a;
+}
+
+.bf-btn-google:hover {
+  background: #f8fafc;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.bf-btn-primary {
+  border: none;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2f63cf, #17347a);
+  box-shadow: 0 10px 24px -8px rgba(36, 85, 184, 0.6);
+}
+
+.bf-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.bf-btn-primary:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+
+/* ============================================================
+   Design tokens da marca (espelham lib/theme.ts)
+   ============================================================ */
+:root {
+  --bf-navy-950: #040b20;
+  --bf-navy-900: #0b1636;
+  --bf-navy-800: #111f47;
+  --bf-blue-700: #17347a;
+  --bf-blue-600: #2455b8;
+  --bf-blue-500: #2f63cf;
+  --bf-surface: #f1f3f7;
+  --bf-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ============================================================
+   Sidebar (trilho 80px → 264px). Grid de 8px:
+   padding 12 · item 48 · gap 4 · coluna do ícone 56 (centraliza no trilho)
+   Fica fora de @layer para vencer os estilos do Mantine.
+   ============================================================ */
+.bf-side.bf-side {
+  background: linear-gradient(180deg, var(--bf-navy-900) 0%, #08112b 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: width 260ms var(--bf-ease), transform 260ms var(--bf-ease);
+}
+
+.bf-side-brand {
+  display: flex;
+  align-items: center;
+  height: 72px;
+  padding-left: 10px;
+  flex: none;
+}
+
+.bf-side-logo {
+  display: block;
+  width: 31px;
+  height: 40px;
+  overflow: hidden;
+  transition: width 260ms var(--bf-ease);
+}
+
+.bf-side-logo img {
+  display: block;
+  max-width: none;
+  height: 40px;
+  width: auto;
+}
+
+.bf-side[data-expanded] .bf-side-logo {
+  width: 122px;
+}
+
+.bf-side-caption {
+  flex: none;
+  height: 32px;
+  padding: 12px 0 0 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(169, 182, 211, 0.55);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.bf-side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+  padding-top: 4px;
+}
+
+.bf-side-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: none;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bf-side .bf-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 48px;
+  border-radius: 14px;
+  color: #a9b6d3;
+  text-decoration: none;
+  transition: background-color 160ms ease, color 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bf-side .bf-nav-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.bf-side .bf-nav-item:focus-visible {
+  outline: 2px solid var(--bf-blue-500);
+  outline-offset: 2px;
+}
+
+.bf-side .bf-nav-item[data-active] {
+  color: #fff;
+}
+
+.bf-side .bf-nav-item[data-active]:hover {
+  background: transparent;
+}
+
+.bf-side .bf-nav-muted {
+  color: rgba(169, 182, 211, 0.65);
+}
+
+.bf-nav-pill {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--bf-blue-500) 0%, var(--bf-blue-600) 100%);
+  box-shadow: 0 8px 20px -6px rgba(47, 99, 207, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.bf-nav-icon {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 48px;
+}
+
+.bf-nav-label {
+  position: relative;
+  z-index: 1;
+  padding-right: 16px;
+  font-size: 14.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-6px);
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 260ms var(--bf-ease);
+}
+
+.bf-side[data-expanded] .bf-nav-label,
+.bf-side[data-expanded] .bf-side-caption {
+  opacity: 1;
+  transform: none;
+  transition-delay: 60ms;
+}
+
+/* Mobile: gaveta sempre expandida */
+@media (max-width: 47.99em) {
+  .bf-side .bf-nav-label,
+  .bf-side .bf-side-caption {
+    opacity: 1;
+    transform: none;
+  }
+  .bf-side .bf-side-logo {
+    width: 122px;
+  }
+}
+
+.bf-topbar.bf-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+}
+
+@media (max-width: 47.99em) {
+  .bf-topbar.bf-topbar {
+    padding: 0 16px;
+  }
+}
+
+.bf-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.bf-user-name {
+  color: #0f172a;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 30em) {
+  .bf-user-name {
+    display: none;
+  }
+}
+
+.bf-main.bf-main {
+  background: var(--bf-surface);
+  min-height: 100dvh;
+}
+
+/* Cartões com spotlight (React Bits) */
+.bf-spot {
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
+  display: block;
+  overflow: hidden;
+  padding: 28px;
+  border-radius: 24px;
+  border: 1px solid #e3e8f1;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: transform 220ms var(--bf-ease), box-shadow 220ms var(--bf-ease), border-color 220ms ease;
+}
+
+.bf-spot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(320px circle at var(--mx) var(--my), rgba(47, 99, 207, 0.14), transparent 70%);
+  transition: opacity 220ms ease;
+  pointer-events: none;
+}
+
+.bf-spot:hover,
+.bf-spot:focus-visible {
+  color: inherit;
+  transform: translateY(-3px);
+  border-color: #c9d6f2;
+  box-shadow: 0 18px 36px -16px rgba(23, 52, 122, 0.28);
+}
+
+.bf-spot:hover::before {
+  opacity: 1;
+}
+
+.bf-spot-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  color: var(--bf-blue-600);
+  background: #eef3fd;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bf-side.bf-side,
+  .bf-side-logo,
+  .bf-nav-label,
+  .bf-spot {
+    transition: none;
+  }
+}

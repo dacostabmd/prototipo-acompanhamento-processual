@@ -1,3 +1,6 @@
+import { createHash } from 'crypto';
+import { getAdminClient, getUserId, trackEvento } from '@/lib/track';
+import { requireUser } from '@/lib/requireUser';
 import { NextResponse } from 'next/server';
 import type { LegalProcess, Movement, MovementTag } from '@/lib/mockProcesses';
 
@@ -46,7 +49,47 @@ async function fetchInfosimples(service: string, token: string, cleanCpf: string
   }
 }
 
+/** Salva os processos pesquisados (com hash) e completa o perfil. Nunca lança erro. */
+async function salvarProcessos(userId: string, cpf: string, phone: string | undefined, fullName: string | undefined, list: LegalProcess[]) {
+  try {
+    const db = getAdminClient();
+    if (!db) return;
+
+    const perfil: Record<string, string> = { cpf };
+    const tel = (phone || '').replace(/\D/g, '');
+    if (tel) perfil.telefone = tel;
+    if (fullName?.trim()) perfil.nome = fullName.trim();
+    const up = await db.from('ap_perfis').update(perfil).eq('id', userId);
+    if (up.error) console.error('[api/processos] perfil:', up.error.message);
+
+    const rows = list
+      .map(p => {
+        const [tribunal, vara] = p.tribunal.split(' · ');
+        return {
+          user_id: userId,
+          numero_cnj: p.numero,
+          hash: createHash('sha256').update(`${userId}:${p.numero}`).digest('hex'),
+          tribunal,
+          classe: p.tipo,
+          assunto: vara ?? null,
+          parte_passiva: p.parteContraria,
+          ultima_movimentacao_em: p.movimentos[0]?.data ?? null,
+          dados_brutos: { valorCausa: p.valorCausa, distribuicao: p.distribuicao, movimentos: p.movimentos.slice(0, 20) }
+        };
+      });
+    if (rows.length) {
+      const r = await db.from('ap_processos_pesquisados').upsert(rows, { onConflict: 'user_id,numero_cnj' });
+      if (r.error) console.error('[api/processos] salvar:', r.error.message);
+    }
+  } catch (e) {
+    console.error('[api/processos] falha ao salvar processos', e);
+  }
+}
+
 export async function POST(request: Request) {
+  const unauthorized = await requireUser(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const { cpf, fullName, phone, state, processNumber } = await request.json();
     const cleanCpf = (cpf || '').replace(/\D/g, '');
@@ -178,6 +221,21 @@ export async function POST(request: Request) {
         });
       });
     });
+
+    const userId = await getUserId(request);
+    await trackEvento(request, userId, {
+      tipo: 'consulta',
+      assunto: allProcesses[0]?.tipo,
+      classe: allProcesses[0]?.tipo,
+      tribunal: tribunaisConsultados.join(', '),
+      dados: {
+        totalProcessos: allProcesses.length,
+        estado: selectedState || null,
+        processos: allProcesses.slice(0, 20).map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
+      }
+    });
+
+    if (userId) await salvarProcessos(userId, cleanCpf, phone, fullName, allProcesses);
 
     if (allProcesses.length === 0) {
       console.log(`[api/processos] Nenhum processo localizado nos tribunais consultados (${tribunaisConsultados.join(', ')}) para o CPF ${cleanCpf}.`);
