@@ -6,11 +6,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import type { CaseData, LegalProcess, MovementTag } from '@/lib/mockProcesses';
 import { validateSafeDocument, type FileValidationResult } from '@/lib/security';
 import { formatDateLabel, formatChatMessageHtml } from '@/lib/format';
+import { FileText, ShieldCheck, AlertTriangle, Check, Paperclip } from 'lucide-react';
 import AiSummaryLoadingBar from './AiSummaryLoadingBar';
 
-const BLUE = '#2455b8';
-const BLUE_DARK = '#17347a';
-const BLUE_LIGHT = '#a9c3ef';
+const BLUE = '#5f5f5f';
+const BLUE_DARK = '#3d3d3d';
+const BLUE_LIGHT = '#bdbdbb';
 const GOLD = '#c5a059';
 const GOLD_LIGHT = '#f4ebd8';
 const CREAM = '#f5f2ea';
@@ -723,7 +724,7 @@ export default function ProcessDashboardSplit({
                             fontWeight: 500
                           }}
                         >
-                          <span>📄</span>
+                          <FileText size={13} style={{ flexShrink: 0 }} />
                           <span style={{ textDecoration: 'underline' }}>{att.name}</span>
                           <span style={{ fontSize: 9.5, opacity: 0.8 }}>({(att.size / 1024).toFixed(0)} KB · Seguro)</span>
                         </div>
@@ -806,7 +807,7 @@ export default function ProcessDashboardSplit({
                 gap: 6
               }}
             >
-              <span style={{ animation: 'bf-blink 1s infinite' }}>🛡️</span>
+              <ShieldCheck size={16} style={{ flexShrink: 0 }} />
               <span>{scanStatus}</span>
             </div>
           )}
@@ -825,7 +826,9 @@ export default function ProcessDashboardSplit({
                 gap: 8
               }}
             >
-              <span>⚠️ {uploadError}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <AlertTriangle size={15} style={{ flexShrink: 0 }} /> {uploadError}
+              </span>
               <button
                 type="button"
                 onClick={() => setUploadError(null)}
@@ -862,7 +865,7 @@ export default function ProcessDashboardSplit({
                     color: '#374151'
                   }}
                 >
-                  <span style={{ color: '#16a34a', fontWeight: 700 }}>✓</span>
+                  <Check size={14} strokeWidth={2.5} style={{ color: '#16a34a', flexShrink: 0 }} />
                   <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {f.name}
                   </span>
@@ -922,7 +925,7 @@ export default function ProcessDashboardSplit({
                 transition: 'all 0.2s'
               }}
             >
-              📎
+              <Paperclip size={16} />
             </button>
 
             <input

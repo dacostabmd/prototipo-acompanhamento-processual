@@ -1,0 +1,141 @@
+{
+  "descricao": "Checklist de features pendentes (gap Jusbrasil). Atualizado com comentários breves a cada 1h de desenvolvimento.",
+  "criado_em": "2026-09-30",
+  "features": [
+    {
+      "id": "busca-multi-tribunal-cpf",
+      "titulo": "Busca multi-tribunal por CPF (14 fontes: TJSP+eproc, TJRJ, TJMG, TJPR, TJBA, TJRS, TJSC, TRF1/2+eproc/3/5/6)",
+      "modelo": "consulta pontual sob demanda, 1º grau",
+      "status": "Implementada",
+      "log": []
+    },
+    {
+      "id": "custo-estimado-consulta",
+      "titulo": "Exibição de custo estimado por consulta (R$/tribunal)",
+      "modelo": "transparência de custo Infosimples",
+      "status": "Implementada",
+      "log": []
+    },
+    {
+      "id": "exibicao-dados-processo",
+      "titulo": "Exibição de dados do processo (movimentações, valor da causa, parte contrária, tribunal/vara, classificação de tags)",
+      "modelo": "texto resumido, sem documentos na íntegra",
+      "status": "Implementada",
+      "log": []
+    },
+    {
+      "id": "resumo-ia",
+      "titulo": "Resumo executivo dos processos por IA",
+      "modelo": "OpenAI gpt-4o-mini com fallback Anthropic claude-haiku-4-5",
+      "status": "Implementada",
+      "log": []
+    },
+    {
+      "id": "chat-juridico-ia",
+      "titulo": "Chat jurídico com IA contextualizado nos processos do cliente",
+      "modelo": "OpenAI/Anthropic fallback, mesmo padrão do resumo",
+      "status": "Implementada",
+      "log": []
+    },
+    {
+      "id": "conta-multiplos-processos",
+      "titulo": "Conta de usuário com múltiplos processos salvos + histórico de atividade",
+      "modelo": "Supabase auth, upsert por user_id+numero_cnj",
+      "status": "Implementada",
+      "log": []
+    },
+    {
+      "id": "integracao-bitrix-lead",
+      "titulo": "Integração com Bitrix24 para captura de lead comercial",
+      "modelo": "CRM, não gestão jurídica de carteira",
+      "status": "Implementada",
+      "log": []
+    },
+    {
+      "id": "tema-dark-glass-shell",
+      "titulo": "Tema visual dark/glass (glassmorphism) em todo o shell autenticado",
+      "modelo": "sidebar, topbar, área principal e páginas consulta/processos/perfil/painel",
+      "status": "Implementada",
+      "log": [
+        "2026-09-30: globals.css com novos tokens --bf-purple-*/--bf-glass-*; .bf-side, .bf-topbar, .bf-main, .bf-spot, páginas Tailwind puras migradas para paleta translúcida.",
+        "2026-09-30: dev server ficou servindo 404 em /_next/static por um processo antigo (rodando desde antes das mudanças de hoje) com cache .next desatualizado; processo encerrado, cache limpo e servidor reiniciado na porta 3000 — sem relação com o código do tema em si.",
+        "2026-09-30: paleta trocada de azul/roxo para cinza monocromático (Grey Olive #999999 / Charcoal #5F5F5F / Gunmetal #3D3D3D / Porcelain #FEFEFA) em todos os arquivos ativos (globals.css, lib/theme.ts, AuthGateway, Stepper, ProcessTracker, ProcessResultView, AiSummaryLoadingBar, lib/format.ts).",
+        "2026-09-30: GhostFibers (fundo animado WebGL) movido para dentro do AppShellLayout — monta uma única vez e persiste entre navegações, presente em todas as rotas autenticadas com a nova paleta; removida a instância duplicada dentro de ProcessTracker que ainda usava cores antigas.",
+        "2026-09-30: topbar (.bf-topbar) ficou sem background nem border-bottom, a pedido do usuário. Fundo animado escurecido em duas rodadas (~20% e depois mais ~50%) para melhorar contraste.",
+        "2026-09-30: ícones migrados de @tabler/icons-react/emojis para lucide-react em todo o app, por nova regra no CLAUDE.md (trabalho de outra sessão concorrente, verificado e sem regressões)."
+      ]
+    },
+    {
+      "id": "stepper-4-passos-reformulado",
+      "titulo": "Novo Stepper de consulta em 4 passos (Como buscar / Onde procurar / Avisos / Revisar e consultar)",
+      "modelo": "substitui o stepper antigo (Nome/CPF/Processo+Estado/Celular)",
+      "status": "Implementada",
+      "log": [
+        "2026-09-30: ProcessTracker.tsx reescrito; Stepper.tsx ganhou goToStep (navegação externa) e nextButtonText no passo final.",
+        "2026-09-30: tela de 'Varrendo bases judiciais' corrigida — removida a animação de progresso sequencial falsa (parecia consultar 2x); agora todos os tribunais ficam 'Consultando...' até a resposta real da Infosimples chegar e são marcados de uma vez. Layout mudou de lista vertical para grid responsivo de 2 colunas, com fundo escurecido para legibilidade.",
+        "2026-09-30: card do Stepper e inputs escurecidos (fundo translúcido claro trocado por cinza sólido escuro) para melhorar contraste de texto/placeholder."
+      ]
+    },
+    {
+      "id": "nova-tela-resultado",
+      "titulo": "Nova tela de resultado pós-consulta (resumo IA, 3 cards, últimas movimentações, chat, Petições e decisões)",
+      "modelo": "substitui ProcessDashboardSplit (mantido no repo, sem uso)",
+      "status": "Implementada",
+      "log": [
+        "2026-09-30: components/ProcessResultView.tsx criado. Botão 'Acompanhar este processo' e 'Petições e decisões' são placeholders visuais, sem lógica de cobrança/documentos reais.",
+        "2026-09-30: build/typecheck ok, mas teste visual ainda pendente — sem chromium-cli no ambiente e sem sessão Supabase autenticada disponível.",
+        "2026-09-30: cards 'Resumo em palavras simples' e 'Últimas movimentações' ganharam altura fixa (420px, igual ao chat) com scroll interno, evitando crescimento infinito da coluna. Movimentações agora mostram badge de classificação, descrição completa, data formatada e número do processo (antes só título+data)."
+      ]
+    },
+    {
+      "id": "monitoramento-continuo",
+      "titulo": "Monitoramento contínuo de processos (cron + diff de movimentações)",
+      "modelo": "paga / ativação por processo para não-assinante",
+      "status": "pendente",
+      "log": [
+        "2026-09-30: UI de preview criada (toggle 'Avisar quando o processo andar' no Passo 3, botão 'Acompanhar este processo' na tela de resultado). Preferência é persistida em ap_preferencias_consulta, mas nenhum job/cron reconsulta processos de fato."
+      ]
+    },
+    {
+      "id": "alertas-andamento",
+      "titulo": "Alertas de andamento (e-mail / push / WhatsApp)",
+      "modelo": "paga / ativação por processo para não-assinante (junto com monitoramento-continuo)",
+      "status": "pendente",
+      "log": [
+        "2026-09-30: UI de seleção de canal (E-mail/WhatsApp) criada no Passo 3 e persistida em ap_preferencias_consulta.canal_aviso, mas nenhum envio real é disparado."
+      ]
+    },
+    {
+      "id": "busca-numero-nome",
+      "titulo": "Busca por número de processo (CNJ) ou nome de parte, além de CPF",
+      "modelo": "Nº do processo funcional (filtra a varredura por CPF); Nome da parte é preview bloqueado para não-pagantes",
+      "status": "Implementada",
+      "log": [
+        "2026-09-30: app/api/processos/route.ts agora filtra por processNumber. Busca por nome da parte não tem endpoint real na Infosimples — fica como aba desabilitada no Passo 1, liberada apenas com o flag de dev 'pagante' (lib/devPagante.ts + aba Conta em DevMetrics.tsx)."
+      ]
+    },
+    {
+      "id": "documentos-integra",
+      "titulo": "Acesso a petições/decisões na íntegra (não só texto resumido)",
+      "modelo": "feature nova",
+      "status": "pendente",
+      "log": [
+        "2026-09-30: botão 'Petições e decisões' criado na tela de resultado, abre placeholder 'em breve'. Nenhuma integração real de documentos."
+      ]
+    },
+    {
+      "id": "cobertura-2grau-superiores",
+      "titulo": "Cobertura de 2º grau e tribunais superiores (STJ, STF)",
+      "modelo": "pesquisar APIs disponíveis e adicionar à lista de fontes",
+      "status": "pendente",
+      "log": []
+    },
+    {
+      "id": "cobertura-trabalhista-eleitoral-jec",
+      "titulo": "Cobertura de Justiça Trabalhista (TRT), Eleitoral e JEC",
+      "modelo": "implementar",
+      "status": "pendente",
+      "log": []
+    }
+  ]
+}

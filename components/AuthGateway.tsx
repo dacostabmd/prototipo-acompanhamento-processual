@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import GhostFibers from './GhostFibers';
 import { getSupabase } from '@/lib/supabase';
 
-const BLUE = '#2455b8';
-const TEXT = '#0f172a';
-const MUTED = '#64748b';
+const BLUE = '#5f5f5f';
+const TEXT = '#232323';
+const MUTED = '#7a7a7a';
 
 type Mode = 'login' | 'signup';
 
@@ -95,7 +95,7 @@ export default function AuthGateway() {
     <main className="bf-auth">
       {/* COLUNA ESQUERDA — efeito de fundo, logo e copy */}
       <section className="bf-auth-left">
-        <GhostFibers contained lineColor="#2455b8" glowColor="#8fe8ff" backdropColor="#040b20" blueBoost={1.1} />
+        <GhostFibers contained lineColor="#262626" glowColor="#555554" backdropColor="#0e0e0e" blueBoost={1.1} />
         <div
           style={{
             position: 'relative',

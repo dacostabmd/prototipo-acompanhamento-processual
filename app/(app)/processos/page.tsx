@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconFingerprint, IconGavel } from '@tabler/icons-react';
+import { Fingerprint, Gavel } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 
 interface Processo {
@@ -32,15 +32,15 @@ export default function Processos() {
 
   return (
     <div className="mx-auto max-w-6xl p-6 sm:p-10">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Meus processos</h1>
-      <p className="mt-2 text-slate-500">Processos localizados nas suas pesquisas, cada um com um hash identificador.</p>
+      <h1 className="text-3xl font-bold tracking-tight text-white">Meus processos</h1>
+      <p className="mt-2 text-white/60">Processos localizados nas suas pesquisas, cada um com um hash identificador.</p>
 
-      <div className="mt-8 overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm">
-        {lista === null && <p className="p-6 text-sm text-slate-500">Carregando…</p>}
-        {lista?.length === 0 && <p className="p-6 text-sm text-slate-500">Nenhum processo pesquisado ainda. Faça uma consulta para vê-lo aqui.</p>}
+      <div className="mt-8 overflow-x-auto rounded-3xl border border-white/10 bg-white/5 shadow-sm backdrop-blur-md">
+        {lista === null && <p className="p-6 text-sm text-white/60">Carregando…</p>}
+        {lista?.length === 0 && <p className="p-6 text-sm text-white/60">Nenhum processo pesquisado ainda. Faça uma consulta para vê-lo aqui.</p>}
         {!!lista?.length && (
           <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-white/10 bg-white/5 text-xs uppercase tracking-wide text-white/60">
               <tr>
                 <th className="px-5 py-3">Hash</th>
                 <th className="px-5 py-3">Número</th>
@@ -52,23 +52,23 @@ export default function Processos() {
             </thead>
             <tbody>
               {lista.map(p => (
-                <tr key={p.id} className="border-b border-slate-100 last:border-0">
+                <tr key={p.id} className="border-b border-white/10 last:border-0">
                   <td className="px-5 py-3">
-                    <span className="inline-flex items-center gap-1.5 font-mono text-xs text-slate-500" title={p.hash ?? ''}>
-                      <IconFingerprint size={16} stroke={1.7} />
+                    <span className="inline-flex items-center gap-1.5 font-mono text-xs text-white/60" title={p.hash ?? ''}>
+                      <Fingerprint size={16} strokeWidth={1.8} />
                       {p.hash ? `${p.hash.slice(0, 8)}…${p.hash.slice(-4)}` : '—'}
                     </span>
                   </td>
-                  <td className="px-5 py-3 font-medium text-slate-900">
+                  <td className="px-5 py-3 font-medium text-white">
                     <span className="inline-flex items-center gap-1.5">
-                      <IconGavel size={16} stroke={1.7} className="text-slate-400" />
+                      <Gavel size={16} strokeWidth={1.8} className="text-white/40" />
                       {p.numero_cnj}
                     </span>
                   </td>
-                  <td className="px-5 py-3 text-slate-600">{p.tribunal ?? '—'}</td>
-                  <td className="px-5 py-3 text-slate-600">{p.classe ?? '—'}</td>
-                  <td className="px-5 py-3 text-slate-600">{p.parte_passiva ?? '—'}</td>
-                  <td className="px-5 py-3 text-slate-600">{fmt(p.ultima_movimentacao_em)}</td>
+                  <td className="px-5 py-3 text-white/70">{p.tribunal ?? '—'}</td>
+                  <td className="px-5 py-3 text-white/70">{p.classe ?? '—'}</td>
+                  <td className="px-5 py-3 text-white/70">{p.parte_passiva ?? '—'}</td>
+                  <td className="px-5 py-3 text-white/70">{fmt(p.ultima_movimentacao_em)}</td>
                 </tr>
               ))}
             </tbody>

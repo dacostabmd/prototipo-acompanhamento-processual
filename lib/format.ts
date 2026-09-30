@@ -150,12 +150,12 @@ export function formatChatMessageHtml(raw: string, isUser: boolean = false): str
         // Cabeçalho com ### ou §
         if (/^#{1,6}\s+/.test(line) || /^§\s+/.test(line)) {
           const cleanTitle = line.replace(/^(?:#{1,6}|§)\s*/, '');
-          html += `<div style="margin: 10px 0 5px; font-weight: 700; color: #0b192c; font-size: 13.5px; display: flex; align-items: baseline; gap: 6px;"><span style="color: #2455b8; font-weight: 700; font-size: 14.5px;">§</span><span>${cleanTitle}</span></div>`;
+          html += `<div style="margin: 10px 0 5px; font-weight: 700; color: #0b192c; font-size: 13.5px; display: flex; align-items: baseline; gap: 6px;"><span style="color: #5f5f5f; font-weight: 700; font-size: 14.5px;">§</span><span>${cleanTitle}</span></div>`;
         }
         // Item de lista com - ou • ou *
         else if (/^[-•*]\s+/.test(line)) {
           const cleanItem = line.replace(/^[-•*]\s*/, '');
-          html += `<div style="margin: 3px 0 3px 8px; display: flex; align-items: flex-start; gap: 7px;"><span style="color: #2455b8; font-weight: 700; line-height: 1.5;">•</span><span style="flex: 1; line-height: 1.6;">${cleanItem}</span></div>`;
+          html += `<div style="margin: 3px 0 3px 8px; display: flex; align-items: flex-start; gap: 7px;"><span style="color: #5f5f5f; font-weight: 700; line-height: 1.5;">•</span><span style="flex: 1; line-height: 1.6;">${cleanItem}</span></div>`;
         }
         // Item numerado simples no início do bloco
         else if (/^\d+\.\s+/.test(line) && i === 0) {

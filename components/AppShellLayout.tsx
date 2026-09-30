@@ -7,16 +7,17 @@ import { usePathname, useRouter } from 'next/navigation';
 import { AppShell, Burger, Tooltip, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { motion } from 'motion/react';
-import { IconChevronLeft, IconChevronRight, IconLogout } from '@tabler/icons-react';
+import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { NAV_ITEMS, navIndex } from '@/lib/nav';
 import { getSupabase } from '@/lib/supabase';
 import { authFetch } from '@/lib/authFetch';
 import PageTransition from './PageTransition';
 import UserChip from './UserChip';
+import GhostFibers from './GhostFibers';
 
 const RAIL = 80;
 const EXPANDED = 250;
-const ICON = 22;
+const ICON = 20;
 
 export default function AppShellLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -104,7 +105,7 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
                     />
                   )}
                   <span className="bf-nav-icon">
-                    <Icon size={ICON} stroke={1.7} />
+                    <Icon size={ICON} strokeWidth={1.8} />
                   </span>
                   <span className="bf-nav-label">{item.label}</span>
                 </UnstyledButton>
@@ -117,7 +118,7 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
           <Tooltip label="Sair" position="right" offset={14} withArrow disabled={expanded || mobileOpened}>
             <UnstyledButton onClick={logout} className="bf-nav-item">
               <span className="bf-nav-icon">
-                <IconLogout size={ICON} stroke={1.7} />
+                <LogOut size={ICON} strokeWidth={1.8} />
               </span>
               <span className="bf-nav-label">Sair</span>
             </UnstyledButton>
@@ -130,7 +131,7 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
             className="bf-nav-item bf-nav-muted"
           >
             <span className="bf-nav-icon">
-              {expanded ? <IconChevronLeft size={ICON} stroke={1.7} /> : <IconChevronRight size={ICON} stroke={1.7} />}
+              {expanded ? <ChevronLeft size={ICON} strokeWidth={1.8} /> : <ChevronRight size={ICON} strokeWidth={1.8} />}
             </span>
             <span className="bf-nav-label">Recolher</span>
           </UnstyledButton>
@@ -138,7 +139,12 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
       </AppShell.Navbar>
 
       <AppShell.Main className="bf-main">
-        <PageTransition>{children}</PageTransition>
+        {/* Montado uma única vez no shell (fora do PageTransition): persiste entre navegações
+            em vez de reinicializar o contexto WebGL a cada troca de rota. */}
+        <GhostFibers lineColor="#262626" glowColor="#3d3d3d" backdropColor="#0e0e0e" speed={0.15} brightness={1.4} blueBoost={1} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <PageTransition>{children}</PageTransition>
+        </div>
       </AppShell.Main>
     </AppShell>
   );

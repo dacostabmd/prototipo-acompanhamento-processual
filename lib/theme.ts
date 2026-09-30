@@ -1,30 +1,30 @@
 import { createTheme, type MantineColorsTuple } from '@mantine/core';
 
-/** Paleta pré-definida da marca (azul Blindagem). Fonte única para Mantine, CSS e Tailwind. */
+/** Paleta pré-definida da marca (cinza Blindagem: Porcelain → Grey Olive → Charcoal → Gunmetal). Fonte única para Mantine, CSS e Tailwind. */
 export const brand: MantineColorsTuple = [
-  '#eef3fd',
-  '#dbe5f8',
-  '#b6c9f0',
-  '#8eabe8',
-  '#6d92e0',
-  '#4f7bd8',
-  '#2f63cf',
-  '#2455b8',
-  '#17347a',
-  '#0b1636'
+  '#f7f7f6',
+  '#ececea',
+  '#d4d4d2',
+  '#bdbdbb',
+  '#a8a8a6',
+  '#999999',
+  '#7a7a7a',
+  '#5f5f5f',
+  '#3d3d3d',
+  '#232323'
 ];
 
 export const navy: MantineColorsTuple = [
-  '#e7eaf3',
-  '#c9cfe2',
-  '#a3aecd',
-  '#7c8bb6',
-  '#5a6b9f',
-  '#3f5089',
-  '#2a3a70',
-  '#17265a',
-  '#0b1636',
-  '#040b20'
+  '#f0f0ef',
+  '#dadada',
+  '#b8b8b7',
+  '#969695',
+  '#7a7a79',
+  '#636362',
+  '#4e4e4d',
+  '#3d3d3d',
+  '#2a2a2a',
+  '#181818'
 ];
 
 export const theme = createTheme({
@@ -34,6 +34,6 @@ export const theme = createTheme({
   primaryColor: 'brand',
   primaryShade: 7,
   defaultRadius: 'md',
-  black: '#0f172a',
+  black: '#232323',
   cursorType: 'pointer'
 });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ComponentType } from 'react';
-import { IconGavel, IconId, IconMail, IconPhone, IconUser } from '@tabler/icons-react';
+import { User, Mail, CreditCard, Phone, Gavel, type LucideIcon } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 
 interface Dados {
@@ -40,27 +40,27 @@ export default function Perfil() {
     })();
   }, []);
 
-  const campos: { icon: ComponentType<{ size?: number; stroke?: number }>; label: string; valor: string }[] = [
-    { icon: IconUser, label: 'Nome', valor: d.nome },
-    { icon: IconMail, label: 'E-mail', valor: d.email },
-    { icon: IconId, label: 'CPF', valor: fmtCpf(d.cpf) },
-    { icon: IconPhone, label: 'Telefone', valor: fmtTel(d.telefone) },
-    { icon: IconGavel, label: 'Processos', valor: d.total ? String(d.total) : '0' }
+  const campos: { icon: LucideIcon; label: string; valor: string }[] = [
+    { icon: User, label: 'Nome', valor: d.nome },
+    { icon: Mail, label: 'E-mail', valor: d.email },
+    { icon: CreditCard, label: 'CPF', valor: fmtCpf(d.cpf) },
+    { icon: Phone, label: 'Telefone', valor: fmtTel(d.telefone) },
+    { icon: Gavel, label: 'Processos', valor: d.total ? String(d.total) : '0' }
   ];
 
   return (
     <div className="mx-auto max-w-2xl p-6 sm:p-10">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Meu perfil</h1>
-      <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h1 className="text-3xl font-bold tracking-tight text-white">Meu perfil</h1>
+      <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-sm backdrop-blur-md">
         <dl className="grid gap-5 text-sm">
           {campos.map(({ icon: Icon, label, valor }) => (
             <div key={label} className="flex items-center gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                <Icon size={20} stroke={1.7} />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/80">
+                <Icon size={20} strokeWidth={1.8} />
               </span>
               <div>
-                <dt className="text-slate-500">{label}</dt>
-                <dd className="mt-0.5 font-medium text-slate-900">{valor || '—'}</dd>
+                <dt className="text-white/60">{label}</dt>
+                <dd className="mt-0.5 font-medium text-white">{valor || '—'}</dd>
               </div>
             </div>
           ))}

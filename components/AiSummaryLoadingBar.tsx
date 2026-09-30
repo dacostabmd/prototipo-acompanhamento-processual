@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { Check } from 'lucide-react';
 
 interface Stage {
   id: number;
@@ -69,11 +70,11 @@ export default function AiSummaryLoadingBar() {
   return (
     <div
       style={{
-        background: '#ffffff',
-        border: '1px solid #e3ddd0',
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.12)',
         borderRadius: 4,
         padding: '24px 26px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
         animation: 'bf-fadein 0.4s ease both'
       }}
     >
@@ -94,8 +95,8 @@ export default function AiSummaryLoadingBar() {
               width: 10,
               height: 10,
               borderRadius: '50%',
-              background: '#2455b8',
-              boxShadow: '0 0 10px rgba(36, 85, 184, 0.8)',
+              background: '#999999',
+              boxShadow: '0 0 10px rgba(153, 153, 153, 0.8)',
               animation: 'bf-blink 1.2s ease-in-out infinite'
             }}
           />
@@ -104,7 +105,7 @@ export default function AiSummaryLoadingBar() {
               fontSize: 11,
               letterSpacing: 1.5,
               fontWeight: 700,
-              color: '#2455b8',
+              color: '#bdbdbb',
               textTransform: 'uppercase'
             }}
           >
@@ -114,12 +115,12 @@ export default function AiSummaryLoadingBar() {
 
         {/* Contador percentual */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={{ fontSize: 11, color: '#5b6b78', letterSpacing: 0.5 }}>Progresso:</span>
+          <span style={{ fontSize: 11, color: 'rgba(254,254,250,0.6)', letterSpacing: 0.5 }}>Progresso:</span>
           <span
             style={{
               fontSize: 20,
               fontWeight: 700,
-              color: '#1b2733',
+              color: '#fefefa',
               fontVariantNumeric: 'tabular-nums'
             }}
           >
@@ -133,7 +134,7 @@ export default function AiSummaryLoadingBar() {
         style={{
           width: '100%',
           height: 8,
-          background: '#ede7de',
+          background: 'rgba(255,255,255,0.1)',
           borderRadius: 999,
           overflow: 'hidden',
           position: 'relative',
@@ -144,7 +145,7 @@ export default function AiSummaryLoadingBar() {
           style={{
             height: '100%',
             width: `${progress}%`,
-            background: 'linear-gradient(90deg, #17347a 0%, #2455b8 50%, #4a8ae6 100%)',
+            background: 'linear-gradient(90deg, #3d3d3d 0%, #5f5f5f 50%, #999999 100%)',
             borderRadius: 999,
             position: 'relative',
             transition: 'width 0.15s ease-out'
@@ -188,15 +189,15 @@ export default function AiSummaryLoadingBar() {
                 padding: '12px 14px',
                 borderRadius: 4,
                 background: isActive
-                  ? 'rgba(36, 85, 184, 0.04)'
+                  ? 'rgba(153, 153, 153, 0.08)'
                   : isDone
-                  ? 'rgba(27, 107, 62, 0.03)'
-                  : '#faf8f5',
+                  ? 'rgba(27, 107, 62, 0.08)'
+                  : 'rgba(255,255,255,0.03)',
                 border: isActive
-                  ? '1px solid rgba(36, 85, 184, 0.35)'
+                  ? '1px solid rgba(153, 153, 153, 0.35)'
                   : isDone
-                  ? '1px solid rgba(27, 107, 62, 0.2)'
-                  : '1px solid #ede8de',
+                  ? '1px solid rgba(27, 107, 62, 0.3)'
+                  : '1px solid rgba(255,255,255,0.1)',
                 transition: 'all 0.3s ease'
               }}
             >
@@ -209,7 +210,7 @@ export default function AiSummaryLoadingBar() {
                       height: 22,
                       borderRadius: '50%',
                       background: '#1b6b3e',
-                      color: '#ffffff',
+                      color: '#fefefa',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -217,7 +218,7 @@ export default function AiSummaryLoadingBar() {
                       fontWeight: 700
                     }}
                   >
-                    ✓
+                    <Check size={13} strokeWidth={3} />
                   </div>
                 ) : isActive ? (
                   <div
@@ -225,7 +226,7 @@ export default function AiSummaryLoadingBar() {
                       width: 22,
                       height: 22,
                       borderRadius: '50%',
-                      border: '2px solid #2455b8',
+                      border: '2px solid #999999',
                       borderTopColor: 'transparent',
                       animation: 'bf-spin 0.8s linear infinite'
                     }}
@@ -236,8 +237,8 @@ export default function AiSummaryLoadingBar() {
                       width: 22,
                       height: 22,
                       borderRadius: '50%',
-                      background: '#e3ddd0',
-                      color: '#6c7a87',
+                      background: 'rgba(255,255,255,0.1)',
+                      color: 'rgba(254,254,250,0.6)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -265,7 +266,7 @@ export default function AiSummaryLoadingBar() {
                     style={{
                       fontSize: 12.5,
                       fontWeight: isActive || isDone ? 600 : 500,
-                      color: isDone ? '#1b6b3e' : isActive ? '#17347a' : '#5b6b78'
+                      color: isDone ? '#4fae7a' : isActive ? '#fefefa' : 'rgba(254,254,250,0.65)'
                     }}
                   >
                     {stage.title}
@@ -276,8 +277,8 @@ export default function AiSummaryLoadingBar() {
                       style={{
                         fontSize: 9.5,
                         fontWeight: 600,
-                        color: '#2455b8',
-                        background: 'rgba(36, 85, 184, 0.1)',
+                        color: '#fefefa',
+                        background: 'rgba(153, 153, 153, 0.2)',
                         padding: '2px 6px',
                         borderRadius: 3,
                         animation: 'bf-blink 1.2s ease-in-out infinite'
@@ -291,8 +292,8 @@ export default function AiSummaryLoadingBar() {
                       style={{
                         fontSize: 9.5,
                         fontWeight: 600,
-                        color: '#1b6b3e',
-                        background: 'rgba(27, 107, 62, 0.1)',
+                        color: '#4fae7a',
+                        background: 'rgba(27, 107, 62, 0.15)',
                         padding: '2px 6px',
                         borderRadius: 3
                       }}
@@ -307,7 +308,7 @@ export default function AiSummaryLoadingBar() {
                     margin: 0,
                     fontSize: 11,
                     lineHeight: 1.4,
-                    color: isActive ? '#334155' : '#718096'
+                    color: isActive ? 'rgba(254,254,250,0.8)' : 'rgba(254,254,250,0.5)'
                   }}
                 >
                   {stage.description}
@@ -323,20 +324,20 @@ export default function AiSummaryLoadingBar() {
         style={{
           marginTop: 18,
           paddingTop: 14,
-          borderTop: '1px dashed #e3ddd0',
+          borderTop: '1px dashed rgba(255,255,255,0.15)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: 8,
           fontSize: 11,
-          color: '#6c7a87'
+          color: 'rgba(254,254,250,0.55)'
         }}
       >
         <span>
           Cruzando dados processuais com jurisprudência e estratégias de defesa patrimonial...
         </span>
-        <span style={{ fontWeight: 500, color: '#2455b8' }}>Sigilo Profissional Garantido</span>
+        <span style={{ fontWeight: 500, color: '#bdbdbb' }}>Sigilo Profissional Garantido</span>
       </div>
     </div>
   );

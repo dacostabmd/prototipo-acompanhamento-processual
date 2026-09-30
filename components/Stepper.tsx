@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useState, Children, useRef, useLayoutEffect, type HTMLAttributes, type ReactNode } from 'react';
+import React, { useState, useEffect, Children, useRef, useLayoutEffect, type HTMLAttributes, type ReactNode } from 'react';
 import { motion, AnimatePresence, type Variants } from 'motion/react';
 
-const BLUE = '#2455b8';
-const BLUE_DARK = '#17347a';
-const BLUE_LIGHT = '#3b82f6';
+const BLUE = '#5f5f5f';
+const BLUE_DARK = '#3d3d3d';
+const BLUE_LIGHT = '#999999';
 const GOLD = '#c5a059';
 
 export interface StepperProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   initialStep?: number;
+  /** Quando informado e mudar, força a navegação para esse passo (ex.: botões "editar" fora do Stepper). */
+  goToStep?: number;
   onStepChange?: (step: number) => void;
   onFinalStepCompleted?: () => void;
   stepCircleContainerClassName?: string;
@@ -33,6 +35,7 @@ export interface StepperProps extends HTMLAttributes<HTMLDivElement> {
 export default function Stepper({
   children,
   initialStep = 1,
+  goToStep,
   onStepChange = () => {},
   onFinalStepCompleted = () => {},
   stepCircleContainerClassName = '',
@@ -63,6 +66,14 @@ export default function Stepper({
       onStepChange(newStep);
     }
   };
+
+  useEffect(() => {
+    if (goToStep === undefined || goToStep === currentStep) return;
+    setDirection(goToStep > currentStep ? 1 : -1);
+    setCurrentStep(goToStep);
+    // Navegação externa (ex.: botão "editar") não dispara onFinalStepCompleted mesmo se goToStep > totalSteps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goToStep]);
 
   const handleBack = () => {
     if (currentStep > 1) {
@@ -101,10 +112,12 @@ export default function Stepper({
         style={{
           width: '100%',
           maxWidth: 680,
-          background: '#ffffff',
-          borderRadius: 4,
-          boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
-          border: '1px solid #e2dbce',
+          background: 'rgba(20,20,20,0.88)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderRadius: 10,
+          boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+          border: '1px solid rgba(255,255,255,0.12)',
           overflow: 'hidden'
         }}
       >
@@ -116,8 +129,8 @@ export default function Stepper({
             width: '100%',
             alignItems: 'center',
             padding: '24px 32px 16px',
-            borderBottom: '1px solid #f0eae1',
-            background: '#faf8f5'
+            borderBottom: '1px solid rgba(255,255,255,0.1)',
+            background: 'rgba(255,255,255,0.03)'
           }}
         >
           {stepsArray.map((_, index) => {
@@ -171,8 +184,8 @@ export default function Stepper({
             className={footerClassName}
             style={{
               padding: '16px 32px 24px',
-              borderTop: '1px solid #f0eae1',
-              background: '#faf8f5'
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+              background: 'rgba(255,255,255,0.03)'
             }}
           >
             <div
@@ -188,8 +201,8 @@ export default function Stepper({
                   onClick={handleBack}
                   style={{
                     background: 'transparent',
-                    border: '1px solid #d7d0c0',
-                    color: '#5b6b78',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    color: 'rgba(226,229,245,0.75)',
                     padding: '10px 20px',
                     fontSize: 12,
                     letterSpacing: 1,
@@ -207,7 +220,7 @@ export default function Stepper({
                 onClick={isLastStep ? handleComplete : handleNext}
                 disabled={!canAdvance}
                 style={{
-                  background: canAdvance ? BLUE : '#9cb4e3',
+                  background: canAdvance ? BLUE : 'rgba(255,255,255,0.15)',
                   color: '#ffffff',
                   border: 'none',
                   padding: '12px 28px',
@@ -224,7 +237,7 @@ export default function Stepper({
                 }}
                 {...nextButtonProps}
               >
-                {isLastStep ? 'CONSULTAR E VERIFICAR PROCESSOS' : nextButtonText}
+                {nextButtonText}
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
@@ -372,7 +385,7 @@ function StepIndicator({ step, currentStep, onClickStep, disableStepIndicators =
     >
       <motion.div
         variants={{
-          inactive: { scale: 1, backgroundColor: '#ece7de', color: '#7a8a99' },
+          inactive: { scale: 1, backgroundColor: 'rgba(255,255,255,0.12)', color: 'rgba(226,229,245,0.55)' },
           active: { scale: 1.08, backgroundColor: BLUE, color: '#ffffff' },
           complete: { scale: 1, backgroundColor: BLUE, color: '#ffffff' }
         }}
@@ -417,7 +430,7 @@ function StepConnector({ isComplete }: StepConnectorProps) {
         height: 2,
         flex: 1,
         overflow: 'hidden',
-        background: '#e0d8cc'
+        background: 'rgba(255,255,255,0.14)'
       }}
     >
       <motion.div

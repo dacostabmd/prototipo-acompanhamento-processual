@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActionIcon, Badge, Group, Modal, SegmentedControl, SimpleGrid, Table, Tabs, Text, Tooltip } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconGauge, IconRefresh } from '@tabler/icons-react';
+import { Gauge, RefreshCw } from 'lucide-react';
+import { getDevPagante, setDevPagante } from '@/lib/devPagante';
 
 /** Somente desenvolvimento: painel flutuante com métricas técnicas da página. */
 
@@ -57,6 +58,11 @@ export default function DevMetrics() {
   const [vitals, setVitals] = useState<Vitals>({ cls: 0 });
   const [reqs, setReqs] = useState<Req[]>([]);
   const [filter, setFilter] = useState('heavy');
+  const [pagante, setPagante] = useState(false);
+
+  useEffect(() => {
+    setPagante(getDevPagante());
+  }, []);
 
   const refresh = useCallback(() => {
     const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
@@ -126,7 +132,7 @@ export default function DevMetrics() {
           aria-label="Abrir métricas de desenvolvimento"
           style={{ position: 'fixed', right: 20, bottom: 20, zIndex: 400, boxShadow: '0 10px 24px -8px rgba(23,52,122,.6)' }}
         >
-          <IconGauge size={22} stroke={1.7} />
+          <Gauge size={20} strokeWidth={1.8} />
         </ActionIcon>
       </Tooltip>
 
@@ -137,6 +143,7 @@ export default function DevMetrics() {
             <Tabs.Tab value="reqs" rightSection={<Badge size="xs" circle>{reqs.length}</Badge>}>
               Requisições
             </Tabs.Tab>
+            <Tabs.Tab value="conta">Conta</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="vitals">
@@ -175,7 +182,7 @@ export default function DevMetrics() {
                 ]}
               />
               <ActionIcon variant="subtle" onClick={refresh} aria-label="Atualizar">
-                <IconRefresh size={18} />
+                <RefreshCw size={16} strokeWidth={1.8} />
               </ActionIcon>
             </Group>
             <Table.ScrollContainer minWidth={520} mah={380}>
@@ -202,6 +209,28 @@ export default function DevMetrics() {
                 </Table.Tbody>
               </Table>
             </Table.ScrollContainer>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="conta">
+            <Text size="sm" fw={600} mb={4}>
+              Simular conta pagante
+            </Text>
+            <Text size="xs" c="dimmed" mb="sm">
+              Controla localmente (só neste navegador, só em dev) a visualização de features pagas ainda sem cobrança real, como a busca por nome da parte.
+            </Text>
+            <SegmentedControl
+              size="xs"
+              value={pagante ? 'pagante' : 'nao-pagante'}
+              onChange={v => {
+                const next = v === 'pagante';
+                setPagante(next);
+                setDevPagante(next);
+              }}
+              data={[
+                { label: 'Não pagante', value: 'nao-pagante' },
+                { label: 'Pagante', value: 'pagante' }
+              ]}
+            />
           </Tabs.Panel>
         </Tabs>
       </Modal>

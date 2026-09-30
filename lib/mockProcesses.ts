@@ -34,10 +34,10 @@ export interface CaseData {
 }
 
 export const TAG_META: Record<MovementTag, { label: string; color: string }> = {
-  urgente: { label: 'URGENTE', color: '#8a3a3a' },
-  andamento: { label: 'EM ANDAMENTO', color: '#3a6b8a' },
-  informativo: { label: 'INFORMATIVO', color: '#4a5a6a' },
-  positivo: { label: 'FAVORÁVEL', color: '#4a7a5c' }
+  urgente: { label: 'URGENTE', color: '#a85c5c' },
+  andamento: { label: 'EM ANDAMENTO', color: '#8a8a8a' },
+  informativo: { label: 'INFORMATIVO', color: '#6c7a87' },
+  positivo: { label: 'FAVORÁVEL', color: '#4fae7a' }
 };
 
 /**
