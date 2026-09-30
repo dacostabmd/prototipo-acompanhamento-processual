@@ -15,8 +15,14 @@ export interface LegalProcess {
   valorCausa: string;
   distribuicao: string;
   movimentos: Movement[];
-  /** true quando movimentações adicionais foram mescladas a partir da API pública DataJud (CNJ). */
+  /** true quando dados adicionais foram mesclados a partir da API pública DataJud (CNJ). */
   enriquecidoDataJud?: boolean;
+  /** Assuntos do processo conforme Tabela Processual Unificada (DataJud). */
+  assuntosDataJud?: string[];
+  /** Órgão julgador (vara/serventia) atual informado pelo DataJud. */
+  orgaoJulgadorDataJud?: string;
+  /** Grau de jurisdição (G1, G2, JE, etc.) informado pelo DataJud. */
+  grauDataJud?: string;
 }
 
 export interface TimelineItem {

@@ -239,11 +239,17 @@ export default function ProcessResultView({
             </div>
           </div>
 
-          {/* 3 cards de dados-chave */}
+          {/* Cards de dados-chave: 3 fixos (Infosimples) + extras do DataJud (CNJ) quando disponíveis */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
             <DataCard label="Valor da causa" value={principal?.valorCausa || 'Não informado'} />
             <DataCard label="Parte contrária" value={principal?.parteContraria || 'Não informada'} />
             <DataCard label="Tribunal / Vara" value={principal?.tribunal || tribunaisConsultados.join(', ') || '—'} />
+            {principal?.orgaoJulgadorDataJud && <DataCard label="Órgão julgador (CNJ)" value={principal.orgaoJulgadorDataJud} />}
+            {principal?.grauDataJud && <DataCard label="Grau" value={principal.grauDataJud} />}
+            {principal?.assuntosDataJud && principal.assuntosDataJud.length > 0 && (
+              <DataCard label="Assunto (CNJ)" value={principal.assuntosDataJud.join(', ')} />
+            )}
+            {principal?.distribuicao && <DataCard label="Distribuição" value={principal.distribuicao} />}
           </div>
 
           {/* Últimas movimentações */}
@@ -266,7 +272,7 @@ export default function ProcessResultView({
               </span>
               {caseData.processes.some(p => p.enriquecidoDataJud) && (
                 <span
-                  title="Movimentações complementadas com dados oficiais do DataJud (CNJ)"
+                  title="Dados complementados com informações oficiais do DataJud (CNJ): movimentações, assuntos, órgão julgador, grau e/ou data de ajuizamento"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',

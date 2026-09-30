@@ -30,7 +30,9 @@
       "titulo": "Resumo executivo dos processos por IA",
       "modelo": "OpenAI gpt-4o-mini com fallback Anthropic claude-haiku-4-5",
       "status": "Implementada",
-      "log": []
+      "log": [
+        "2026-09-30: cor de destaque de alertas/riscos (execuções, penhoras, cobranças) no prompt do sistema (app/api/ai/summary/route.ts) trocada de vermelho escuro (#8a2b2b) para o azul da paleta anterior (#2455b8, mesmo tom usado nos estados ativos do Stepper/Stepper.tsx). Verde escuro (#1b6b3e) para itens favoráveis não foi alterado."
+      ]
     },
     {
       "id": "chat-juridico-ia",
@@ -172,7 +174,8 @@
         "2026-09-30: migration ap_perfis_documento_pf_pj adiciona documento/documento_tipo em ap_perfis, atualiza ap_handle_new_user() para gravar role/documento a partir do metadata do signUp, e trigger ap_perfis_documento_imutavel bloqueia updates depois de definido.",
         "2026-09-30: AuthGateway.tsx ganhou abas 'Advogado'/'Consultante' no cadastro; consultante preenche CPF ou CNPJ (validado com isValidCpf/isValidCnpj novos em lib/format.ts) que vai no metadata do signUp. Modo demo (sem Supabase) simula role/documento via localStorage.",
         "2026-09-30: novo lib/useProfile.ts (hook) carrega role/documento do usuário logado, com fallback ao modo demo. ProcessTracker.tsx usa o hook: consultante tem o Passo 1 do Stepper simplificado (sem SegmentedControl de modo de busca, campo de documento pré-preenchido e travado). Busca por CNPJ ainda é bloqueada no submit — Infosimples só aceita CPF hoje (gap registrado, não implementado).",
-        "2026-09-30: perfil/page.tsx exibe o documento como campo travado ('Não pode ser alterado') para consultante; processos/page.tsx ajusta copy condicional por role. supabase/seed_demo.sql criado com 2 contas mock (advogado.teste@prosec.dev / consultante.teste@prosec.dev, senha Prosec#Teste1)."
+        "2026-09-30: perfil/page.tsx exibe o documento como campo travado ('Não pode ser alterado') para consultante; processos/page.tsx ajusta copy condicional por role. supabase/seed_demo.sql criado com 2 contas mock (advogado.teste@prosec.dev / consultante.teste@prosec.dev, senha Prosec#Teste1).",
+        "2026-09-30: BUG encontrado em produção — a migration ap_perfis_documento_pf_pj só existia como arquivo no repo, nunca tinha sido aplicada ao banco Supabase remoto (projeto 'prosec', dacmowumnuzjrvzdfeff). Isso causava erro 400 em toda query de useProfile.ts (select nome,role,documento,documento_tipo em ap_perfis — colunas inexistentes no banco real). Corrigido aplicando a migration via MCP Supabase (apply_migration) direto no projeto remoto; confirmado com list_tables que as colunas agora existem. Também corrigido de saída um WARN novo do advisor de segurança (function_search_path_mutable) fixando search_path da function ap_perfis_bloquear_troca_documento."
       ]
     },
     {
@@ -199,13 +202,15 @@
       "id": "enriquecimento-datajud-cnj",
       "titulo": "Enriquecimento de processos já encontrados via API pública DataJud (CNJ)",
       "modelo": "branch feature/datajud-integracao (a partir de homologacao) para avaliação antes de ir pra main; DataJud só busca por número de processo (não por CPF/CNPJ), então entra como enriquecimento pós-Infosimples, não como busca alternativa",
-      "status": "Implementada (em branch separada, não mesclada na main)",
+      "status": "Implementada",
       "log": [
         "2026-09-30: pesquisa de mercado (subagente) mapeou fontes de enriquecimento; DataJud escolhido como próximo passo por ser gratuito, oficial e cobrir 2º grau/TRTs/Eleitoral/tribunais superiores que faltam hoje. Tutorial oficial do CNJ (PDF) lido nesta sessão confirmou: API só busca por numeroProcesso/classe/orgaoJulgador (sem CPF/CNPJ), auth via header 'Authorization: APIKey' com chave pública que pode mudar a qualquer momento, resposta em hits.hits[]._source com movimentos[].",
         "2026-09-30: decisão registrada em conversa — DataJud entra como enriquecimento dos processos já achados pela Infosimples por CPF (não substitui a busca), numa branch separada (feature/datajud-integracao, a partir de homologacao) para avaliação antes de decidir levar pra main.",
         "2026-09-30: novo lib/datajud.ts (mapa de ~14 labels de tribunal já usados no projeto para os aliases oficiais do DataJud, cliente HTTP com timeout de 5s via AbortController, parser de movimentos). lib/classify.ts extraído de app/api/processos/route.ts (classifyTag) para lib/ próprio, pois Next.js não permite exportar valores arbitrários de um route.ts (causava erro de build por import circular). app/api/processos/route.ts: após a Infosimples encontrar os processos, para cada um consulta o DataJud em paralelo (Promise.allSettled) pelo número CNJ e mescla movimentações novas (dedupe por descrição); LegalProcess ganhou campo opcional enriquecidoDataJud. Sem DATAJUD_API_KEY configurada, é no-op silencioso — fluxo por CPF continua idêntico ao atual.",
         "2026-09-30: ProcessResultView.tsx ganhou selo 'DATAJUD (CNJ)' ao lado do título 'Últimas movimentações' quando algum processo do resultado foi enriquecido.",
-        "2026-09-30: tentativa de usar o Vercel MCP para trocar a Production Branch do projeto para 'homologacao' falhou com 403 — o token MCP conectado só tem acesso ao team 'dacostabmds-projects', mas o projeto real (prj_KjVPRKmV3SXEGroCuPaRlgUBQCPv) está no workspace 'l0st-archive' (team_OMDIenLmZSojwfqTiVPFVwuJ), inacessível com esse login. Configuração do Production Branch precisa ser feita manualmente no painel Vercel ou com reautenticação do MCP nesse workspace."
+        "2026-09-30: tentativa de usar o Vercel MCP para trocar a Production Branch do projeto para 'homologacao' falhou com 403 — o token MCP conectado só tem acesso ao team 'dacostabmds-projects', mas o projeto real (prj_KjVPRKmV3SXEGroCuPaRlgUBQCPv) está no workspace 'l0st-archive' (team_OMDIenLmZSojwfqTiVPFVwuJ), inacessível com esse login. Configuração do Production Branch precisa ser feita manualmente no painel Vercel ou com reautenticação do MCP nesse workspace. Resolvido posteriormente: branch feature/datajud-integracao mesclada direto na main (decisão do usuário, sem usar Production Branch separada).",
+        "2026-09-30: DATAJUD_API_KEY configurada em .env.local com a chave pública atual (confirmada por teste direto contra a API: retornou 429/es_rejected_execution_exception — erro de carga do servidor do CNJ, não de autenticação, confirmando que a chave é aceita). Usuário reportou ver 'menos informação' nos processos — investigado e descartado como causa do DataJud (a chave nunca havia sido configurada antes, então o enriquecimento era 100% no-op; a percepção de perda veio de outra mudança concorrente no repo).",
+        "2026-09-30: enriquecimento expandido além de movimentos — LegalProcess ganhou assuntosDataJud (Tabela Processual Unificada), orgaoJulgadorDataJud, grauDataJud; route.ts só complementa campos ausentes (nunca sobrescreve dado já trazido pela Infosimples), e completa 'distribuicao' com dataAjuizamento do DataJud quando a Infosimples não informou. lib/datajud.ts também passou a incluir o órgão julgador de cada movimento na descrição (movimentos[].orgaoJulgador.nomeOrgao, campo do schema oficial que estava sendo ignorado). ProcessResultView.tsx ganhou cards extras (Grau, Assunto CNJ, Distribuição) exibidos só quando o DataJud retorna o dado."
       ]
     }
   ]

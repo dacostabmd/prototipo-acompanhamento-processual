@@ -305,9 +305,11 @@ export async function POST(request: Request) {
           : allProcesses;
 
         // Enriquecimento via DataJud (CNJ): por processo já encontrado pela Infosimples (não por
-        // tribunal da varredura), busca movimentações adicionais pelo número CNJ. DataJud não tem
-        // busca por CPF/CNPJ, só por número de processo — por isso entra aqui, depois da Infosimples
-        // já ter localizado os processos. No-op silencioso sem DATAJUD_API_KEY configurada.
+        // tribunal da varredura), busca dados complementares pelo número CNJ — movimentações,
+        // assuntos (TPU), órgão julgador, grau de jurisdição e data de ajuizamento. DataJud não
+        // tem busca por CPF/CNPJ, só por número de processo — por isso entra aqui, depois da
+        // Infosimples já ter localizado os processos. No-op silencioso sem DATAJUD_API_KEY configurada.
+        // Só complementa campos que a Infosimples não trouxe (nunca sobrescreve um dado já presente).
         await Promise.allSettled(
           filteredProcesses.map(async p => {
             const tribunalLabel = p.tribunal.split(' · ')[0];
@@ -315,12 +317,33 @@ export async function POST(request: Request) {
             const enriquecido = await consultarDataJud(tribunalLabel, numeroDigits);
             if (!enriquecido) return;
 
+            let mudou = false;
+
             const descricoesExistentes = new Set(p.movimentos.map(m => m.descricao));
             const movimentosNovos = enriquecido.movimentos.filter(m => !descricoesExistentes.has(m.descricao));
             if (movimentosNovos.length > 0) {
               p.movimentos = [...movimentosNovos, ...p.movimentos].sort((a, b) => (a.data < b.data ? 1 : -1));
-              p.enriquecidoDataJud = true;
+              mudou = true;
             }
+
+            if (enriquecido.assuntos.length > 0) {
+              p.assuntosDataJud = enriquecido.assuntos;
+              mudou = true;
+            }
+            if (enriquecido.orgaoJulgador) {
+              p.orgaoJulgadorDataJud = enriquecido.orgaoJulgador;
+              mudou = true;
+            }
+            if (enriquecido.grau) {
+              p.grauDataJud = enriquecido.grau;
+              mudou = true;
+            }
+            if ((!p.distribuicao || p.distribuicao === 'Não informada') && enriquecido.dataAjuizamento) {
+              p.distribuicao = enriquecido.dataAjuizamento;
+              mudou = true;
+            }
+
+            if (mudou) p.enriquecidoDataJud = true;
           })
         );
 

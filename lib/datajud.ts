@@ -28,20 +28,41 @@ interface DataJudMovimento {
   nome?: string;
   dataHora?: string;
   complementosTabelados?: { nome?: string; descricao?: string }[];
+  // A doc oficial do CNJ lista este campo como "nomeOrgao", mas a resposta real da API usa "nome"
+  // (confirmado por teste direto) — aceita ambos por segurança.
+  orgaoJulgador?: { nome?: string; nomeOrgao?: string };
 }
 
 interface DataJudSource {
   numeroProcesso?: string;
+  dataAjuizamento?: string;
+  grau?: string;
   classe?: { nome?: string };
+  assuntos?: { nome?: string }[];
+  orgaoJulgador?: { nome?: string };
   movimentos?: DataJudMovimento[];
 }
 
 export interface DataJudResultado {
   movimentos: Movement[];
   classe?: string;
+  assuntos: string[];
+  orgaoJulgador?: string;
+  grau?: string;
+  dataAjuizamento?: string;
 }
 
 const TIMEOUT_MS = 5000;
+
+/**
+ * dataAjuizamento do processo vem em dois formatos observados na API: ISO ("2018-10-29T00:00:00Z")
+ * ou compacto sem separadores ("20181029000000", AAAAMMDDhhmmss). Normaliza para "AAAA-MM-DD".
+ */
+function parseDataAjuizamento(raw: string): string | undefined {
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  if (/^\d{14}$/.test(raw)) return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+  return undefined;
+}
 
 /**
  * Consulta a API pública do DataJud (CNJ) por número de processo, para enriquecer um processo
@@ -78,16 +99,26 @@ export async function consultarDataJud(tribunalLabel: string, numeroProcessoDigi
       .filter(m => m.nome)
       .map(m => {
         const complementos = (m.complementosTabelados ?? []).map(c => c.nome || c.descricao).filter(Boolean).join(', ');
-        const descricao = complementos ? `${m.nome} (${complementos})` : m.nome || '';
+        const orgaoMovimento = m.orgaoJulgador?.nome || m.orgaoJulgador?.nomeOrgao;
+        const partes = [m.nome, complementos && `(${complementos})`, orgaoMovimento && `— ${orgaoMovimento}`]
+          .filter(Boolean)
+          .join(' ');
         return {
           data: (m.dataHora || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
           titulo: (m.nome || '').slice(0, 70),
-          descricao: descricao || 'Sem descrição detalhada.',
-          tag: classifyTag(descricao)
+          descricao: partes || 'Sem descrição detalhada.',
+          tag: classifyTag(partes)
         };
       });
 
-    return { movimentos, classe: source.classe?.nome };
+    return {
+      movimentos,
+      classe: source.classe?.nome,
+      assuntos: (source.assuntos ?? []).map(a => a.nome).filter((n): n is string => !!n),
+      orgaoJulgador: source.orgaoJulgador?.nome,
+      grau: source.grau,
+      dataAjuizamento: source.dataAjuizamento ? parseDataAjuizamento(source.dataAjuizamento) : undefined
+    };
   } catch (e) {
     console.error(`[datajud] falha ao consultar ${tribunalLabel} (${alias})`, e);
     return null;
