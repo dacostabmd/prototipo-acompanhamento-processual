@@ -8,7 +8,7 @@ const SYSTEM_PROMPT =
   'negociação de dívidas e defesas em execuções judiciais. Seu objetivo é redigir um resumo executivo ' +
   'do andamento processual do cliente de forma acolhedora, objetiva, humana e com excelente escaneabilidade visual.\n\n' +
   'DIRETRIZES DE FORMATAÇÃO E CORES (OBRIGATÓRIO):\n' +
-  '1. Use <span style="color: #8a2b2b; font-weight: 700;">texto</span> (VERMELHO ESCURO) para ressaltar dados e alertas de risco:\n' +
+  '1. Use <span style="color: #2455b8; font-weight: 700;">texto</span> (AZUL) para ressaltar dados e alertas de risco:\n' +
   '   - Execuções ativas, execuções fiscais e cobranças judiciais.\n' +
   '   - Penhoras, bloqueios de contas (Sisbajud), leilões, penhora de bens ou riscos iminentes.\n' +
   '   - Valores em cobrança ou débitos pendentes.\n' +
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
     const promptUser =
       `Nome do cliente: ${fullName}\nProcessos encontrados:\n${procText}\n\n` +
-      'Escreva um resumo executivo claro, aplicando rigorosamente as cores vermelho escuro (#8a2b2b), verde escuro (#1b6b3e) e negrito (<strong>) para ressaltar as informações importantes.';
+      'Escreva um resumo executivo claro, aplicando rigorosamente as cores azul (#2455b8), verde escuro (#1b6b3e) e negrito (<strong>) para ressaltar as informações importantes.';
 
     if (process.env.OPENAI_API_KEY) {
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

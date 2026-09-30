@@ -1,10 +1,10 @@
 'use client';
 
 import { authFetch } from '@/lib/authFetch';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { SegmentedControl, Switch, Checkbox, Tooltip } from '@mantine/core';
-import { Lock, Check, X, Info } from 'lucide-react';
+import { Lock, Check, X, Info, XCircle } from 'lucide-react';
 import Stepper, { Step } from './Stepper';
 import ProcessResultView from './ProcessResultView';
 import {
@@ -51,7 +51,7 @@ export interface ProcessTrackerProps {
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
-type ScanStatus = 'pending' | 'loading' | 'found' | 'not-found';
+type ScanStatus = 'pending' | 'loading' | 'found' | 'not-found' | 'cancelled';
 type ScanItem = { label: string; status: ScanStatus; startedAt?: number; elapsedMs?: number };
 
 const MOSS_GREEN = '#3d6b4f';
@@ -138,6 +138,10 @@ export default function ProcessTracker({
   const [custoEstimado, setCustoEstimado] = useState<number>(0);
   const [scanItems, setScanItems] = useState<ScanItem[]>([]);
   const [scanClockTick, setScanClockTick] = useState(0);
+  // Id da consulta em andamento (recebido no evento 'started' do streaming), usado para cancelar
+  // um tribunal específico via POST /api/processos/cancelar sem afetar os demais.
+  const consultaIdRef = useRef<string | null>(null);
+  const [cancelingLabels, setCancelingLabels] = useState<Set<string>>(new Set());
 
   // Atualiza o cronômetro/% estimado de cada card de tribunal enquanto a varredura está em curso.
   useEffect(() => {
@@ -262,6 +266,8 @@ export default function ProcessTracker({
     const targets = getTargetTribunals(extractDdd(phoneDigits), buscarTodosTribunais ? null : tribunaisSelecionados);
     const scanStartedAt = Date.now();
     setScanItems(targets.map(label => ({ label, status: 'loading', startedAt: scanStartedAt })));
+    consultaIdRef.current = null;
+    setCancelingLabels(new Set());
 
     try {
       // 1. Busca processual multi-tribunal
@@ -314,13 +320,16 @@ export default function ProcessTracker({
           if (!line) continue;
 
           const evt = JSON.parse(line);
-          if (evt.type === 'progress') {
+          if (evt.type === 'started') {
+            consultaIdRef.current = evt.consultaId;
+          } else if (evt.type === 'progress') {
             setScanItems(prev =>
               prev.map(item => {
                 if (item.label !== evt.label) return item;
                 const elapsedMs = item.startedAt ? Date.now() - item.startedAt : undefined;
-                if (elapsedMs) recordSample(item.label, elapsedMs);
-                return { ...item, status: evt.found ? 'found' : 'not-found', elapsedMs };
+                // Tribunal cancelado pelo usuário não entra na média histórica (não é um tempo real de resposta).
+                if (elapsedMs && !evt.cancelado) recordSample(item.label, elapsedMs);
+                return { ...item, status: evt.cancelado ? 'cancelled' : evt.found ? 'found' : 'not-found', elapsedMs };
               })
             );
           } else if (evt.type === 'done') {
@@ -387,6 +396,29 @@ export default function ProcessTracker({
       setHasSearched(false);
     } finally {
       setSearching(false);
+    }
+  };
+
+  // Cancela a consulta de um tribunal específico em andamento (card individual na tela de
+  // varredura), sem afetar os demais — usa o consultaId recebido no evento 'started' do streaming.
+  const handleCancelarTribunal = async (label: string) => {
+    const consultaId = consultaIdRef.current;
+    if (!consultaId) return;
+    setCancelingLabels(prev => new Set(prev).add(label));
+    try {
+      await authFetch('/api/processos/cancelar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consultaId, label })
+      });
+    } catch (err) {
+      console.error('[ProcessTracker cancelar tribunal error]', err);
+    } finally {
+      setCancelingLabels(prev => {
+        const next = new Set(prev);
+        next.delete(label);
+        return next;
+      });
     }
   };
 
@@ -573,7 +605,7 @@ export default function ProcessTracker({
                 </p>
 
                 {(() => {
-                  const doneCount = scanItems.filter(i => i.status === 'found' || i.status === 'not-found').length;
+                  const doneCount = scanItems.filter(i => i.status === 'found' || i.status === 'not-found' || i.status === 'cancelled').length;
                   const totalCount = scanItems.length || 1;
                   const pct = Math.round((doneCount / totalCount) * 100);
                   return (
@@ -683,7 +715,7 @@ export default function ProcessTracker({
                               {item.status === 'found' && (
                                 <Check size={16} strokeWidth={2.5} style={{ color: MOSS_GREEN }} />
                               )}
-                              {item.status === 'not-found' && (
+                              {(item.status === 'not-found' || item.status === 'cancelled') && (
                                 <X size={16} strokeWidth={2.5} style={{ color: RUBY_RED }} />
                               )}
                             </span>
@@ -700,7 +732,7 @@ export default function ProcessTracker({
                             </span>
                             <span
                               style={{
-                                marginLeft: 'auto',
+                                marginLeft: item.status === 'loading' ? undefined : 'auto',
                                 fontSize: 11,
                                 fontWeight: 600,
                                 flexShrink: 0,
@@ -708,7 +740,7 @@ export default function ProcessTracker({
                                 color:
                                   item.status === 'found'
                                     ? MOSS_GREEN
-                                    : item.status === 'not-found'
+                                    : item.status === 'not-found' || item.status === 'cancelled'
                                     ? RUBY_RED
                                     : MUTED
                               }}
@@ -717,7 +749,32 @@ export default function ProcessTracker({
                               {item.status === 'loading' && `${estimatedPct}% · ${elapsedLabel}`}
                               {item.status === 'found' && `Encontrado · ${elapsedLabel}`}
                               {item.status === 'not-found' && `Sem processos · ${elapsedLabel}`}
+                              {item.status === 'cancelled' && 'Cancelado'}
                             </span>
+                            {item.status === 'loading' && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelarTribunal(item.label)}
+                                disabled={cancelingLabels.has(item.label)}
+                                title={`Cancelar consulta a ${item.label}`}
+                                aria-label={`Cancelar consulta a ${item.label}`}
+                                style={{
+                                  marginLeft: 'auto',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  padding: 2,
+                                  cursor: cancelingLabels.has(item.label) ? 'default' : 'pointer',
+                                  opacity: cancelingLabels.has(item.label) ? 0.4 : 0.7,
+                                  color: MUTED,
+                                  flexShrink: 0
+                                }}
+                              >
+                                <XCircle size={14} strokeWidth={2} />
+                              </button>
+                            )}
                           </div>
 
                           <div
@@ -742,7 +799,7 @@ export default function ProcessTracker({
                                 }}
                               />
                             )}
-                            {(item.status === 'found' || item.status === 'not-found') && (
+                            {(item.status === 'found' || item.status === 'not-found' || item.status === 'cancelled') && (
                               <div
                                 style={{
                                   height: '100%',
@@ -940,23 +997,30 @@ export default function ProcessTracker({
                           style={{
                             marginTop: 12,
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
                             gap: 8
                           }}
                           onClick={e => e.stopPropagation()}
                         >
-                          {ALL_TRIBUNAL_LABELS.map(label => (
+                          {ALL_TRIBUNAIS.map(({ label, service }) => (
                             <Checkbox
                               key={label}
-                              label={label}
+                              label={
+                                <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, width: '100%' }}>
+                                  <span>{label}</span>
+                                  <span style={{ color: MUTED, fontWeight: 400 }}>
+                                    R$ {custoServico(service).toFixed(2).replace('.', ',')}
+                                  </span>
+                                </span>
+                              }
                               size="xs"
                               checked={tribunaisSelecionados.includes(label)}
                               onChange={e =>
                                 setTribunaisSelecionados(prev =>
-                                  e.currentTarget.checked ? [...prev, label] : prev.filter(l => l !== label)
+                                  e.target.checked ? [...prev, label] : prev.filter(l => l !== label)
                                 )
                               }
-                              styles={{ label: { color: TEXT, fontSize: 12 } }}
+                              styles={{ label: { color: TEXT, fontSize: 12, flex: 1 }, body: { alignItems: 'center' } }}
                             />
                           ))}
                         </div>

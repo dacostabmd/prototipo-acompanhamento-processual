@@ -27,7 +27,7 @@ const DATAJUD_ALIAS_BY_TRIBUNAL_LABEL: Record<string, string> = {
 interface DataJudMovimento {
   nome?: string;
   dataHora?: string;
-  complementosTabelados?: { nome?: string; descricao?: string }[];
+  complementosTabelados?: { codigo?: number; valor?: number; nome?: string; descricao?: string }[];
   // A doc oficial do CNJ lista este campo como "nomeOrgao", mas a resposta real da API usa "nome"
   // (confirmado por teste direto) — aceita ambos por segurança.
   orgaoJulgador?: { nome?: string; nomeOrgao?: string };
@@ -98,7 +98,16 @@ export async function consultarDataJud(tribunalLabel: string, numeroProcessoDigi
     const movimentos: Movement[] = (source.movimentos ?? [])
       .filter(m => m.nome)
       .map(m => {
-        const complementos = (m.complementosTabelados ?? []).map(c => c.nome || c.descricao).filter(Boolean).join(', ');
+        // Complemento tabelado da TPU pode trazer só um rótulo (nome/descrição) ou também um valor
+        // monetário/numérico associado (ex.: valor de uma penhora, percentual de uma multa).
+        const complementos = (m.complementosTabelados ?? [])
+          .map(c => {
+            const label = c.nome || c.descricao;
+            if (!label) return null;
+            return c.valor !== undefined ? `${label}: ${c.valor.toLocaleString('pt-BR')}` : label;
+          })
+          .filter(Boolean)
+          .join(', ');
         const orgaoMovimento = m.orgaoJulgador?.nome || m.orgaoJulgador?.nomeOrgao;
         const partes = [m.nome, complementos && `(${complementos})`, orgaoMovimento && `— ${orgaoMovimento}`]
           .filter(Boolean)

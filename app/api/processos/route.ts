@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { getAdminClient, getUserId, trackEvento } from '@/lib/track';
 import { requireUser } from '@/lib/requireUser';
 import { NextResponse } from 'next/server';
@@ -8,6 +8,7 @@ import { invalidateProcessosCache } from '@/lib/redis';
 import { consultarDataJud } from '@/lib/datajud';
 import { classifyTag } from '@/lib/classify';
 import { custoTotal } from '@/lib/infosimplesPricing';
+import { criarRegistroConsulta, limparRegistroConsulta } from '@/lib/consultaAbort';
 
 function convertBrDateToIso(dateStr?: string): string {
   if (!dateStr) return new Date().toISOString().split('T')[0];
@@ -20,7 +21,7 @@ function convertBrDateToIso(dateStr?: string): string {
   return dateStr;
 }
 
-async function fetchInfosimples(service: string, token: string, cleanCpf: string) {
+async function fetchInfosimples(service: string, token: string, cleanCpf: string, signal: AbortSignal) {
   try {
     const form = new URLSearchParams();
     form.append('token', token);
@@ -29,13 +30,16 @@ async function fetchInfosimples(service: string, token: string, cleanCpf: string
     const res = await fetch(`https://api.infosimples.com/api/v2/consultas/${service}`, {
       method: 'POST',
       body: form,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      signal
     });
 
     if (!res.ok) return null;
     return await res.json().catch(() => null);
   } catch (err) {
-    console.error(`[api/processos] Erro ao consultar ${service}:`, err);
+    if ((err as { name?: string })?.name !== 'AbortError') {
+      console.error(`[api/processos] Erro ao consultar ${service}:`, err);
+    }
     return null;
   }
 }
@@ -192,13 +196,28 @@ export async function POST(request: Request) {
     const seenProcessos = new Set<string>();
     const tribunaisConsultados: string[] = [];
 
+    // Id exposto ao cliente (evento 'started') para permitir cancelar um tribunal específico em
+    // andamento via POST /api/processos/cancelar, sem afetar os demais tribunais da mesma consulta.
+    const consultaId = randomUUID();
+    const abortControllers = criarRegistroConsulta(consultaId);
+
     const stream = new ReadableStream({
       async start(controller) {
         const emit = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
+        emit({ type: 'started', consultaId });
 
         const perTribunalPromises = targets.map(async target => {
           tribunaisConsultados.push(target.label);
-          const result = await fetchInfosimples(target.service, token, cleanCpf);
+          const abortController = new AbortController();
+          abortControllers.set(target.label, abortController);
+          const result = await fetchInfosimples(target.service, token, cleanCpf, abortController.signal);
+          const cancelado = abortController.signal.aborted;
+          abortControllers.delete(target.label);
+
+          if (cancelado) {
+            emit({ type: 'progress', label: target.label, found: false, cancelado: true });
+            return;
+          }
 
           let foundInThisTribunal = false;
           if (result) {
@@ -238,10 +257,20 @@ export async function POST(request: Request) {
                   if (titulo.length < fullText.length && !titulo.endsWith('...')) {
                     titulo += '...';
                   }
+                  // Além do texto do próprio evento, a Infosimples às vezes traz campos extras
+                  // específicos da movimentação (responsável pelo ato, complemento, anexos) sob
+                  // nomes distintos por tribunal — agrega os que existirem em vez de descartar.
+                  const responsavel = m.responsavel || m.magistrado || m.orgao_julgador || m.orgao;
+                  const complemento = m.complemento || m.observacao || m.detalhe;
+                  const extras = [
+                    responsavel && `Responsável: ${responsavel}`,
+                    complemento && complemento !== fullText && complemento
+                  ].filter(Boolean);
+                  const descricaoCompleta = extras.length > 0 ? `${fullText} — ${extras.join(' · ')}` : fullText;
                   movs.push({
                     data: convertBrDateToIso(m.data || m.data_evento || m.data_hora_movimentacao),
                     titulo: titulo || 'Movimentação processual',
-                    descricao: fullText || 'Sem descrição detalhada.',
+                    descricao: descricaoCompleta || 'Sem descrição detalhada.',
                     tag: classifyTag(fullText)
                   });
                 });
@@ -251,24 +280,30 @@ export async function POST(request: Request) {
                 // A Infosimples nem sempre retorna a lista de movimentações (processo muito recente,
                 // sigilo parcial, ou o próprio tribunal não expõe histórico detalhado nesse serviço).
                 // Nesses casos, monta uma descrição com todos os outros campos do processo já
-                // disponíveis na resposta (classe, vara, valor) em vez de deixar só "Processo distribuído".
+                // disponíveis na resposta (classe, vara, valor, partes) em vez de deixar só "Processo distribuído".
                 const classeInfo = p.classe || p.classe_acao || p.assunto;
                 const varaInfo = p.vara || p.foro || p.orgao_julgador;
                 const valorInfo = p.valor_acao || p.valor_causa;
+                const partesInfo = [p.reqte || p.autor, p.reqdo || p.reu || p.exectdo].filter(Boolean).join(' x ');
+                const situacaoInfo = p.situacao || p.status || p.fase;
                 const detalhes = [
                   classeInfo && `Classe: ${classeInfo}`,
                   varaInfo && `Órgão: ${varaInfo}`,
-                  valorInfo && `Valor da causa: ${valorInfo}`
+                  valorInfo && `Valor da causa: ${valorInfo}`,
+                  partesInfo && `Partes: ${partesInfo}`,
+                  situacaoInfo && `Situação: ${situacaoInfo}`
                 ].filter(Boolean);
 
                 movs.push({
                   data: convertBrDateToIso(p.distribuicao || p.data_autuacao),
                   titulo: p.ultimo_evento ? (p.ultimo_evento.slice(0, 70) + '...') : 'Processo distribuído',
                   descricao:
-                    p.ultimo_evento ||
-                    (detalhes.length > 0
-                      ? `Processo autuado em ${p.distribuicao || p.data_autuacao || 'data não informada'}. ${detalhes.join(' · ')}.`
-                      : `Processo autuado no tribunal: ${p.distribuicao || p.data_autuacao || 'Data não informada'}. O tribunal ainda não disponibilizou o histórico de movimentações para este processo.`),
+                    p.ultimo_evento && detalhes.length > 0
+                      ? `${p.ultimo_evento} — ${detalhes.join(' · ')}.`
+                      : p.ultimo_evento ||
+                        (detalhes.length > 0
+                          ? `Processo autuado em ${p.distribuicao || p.data_autuacao || 'data não informada'}. ${detalhes.join(' · ')}.`
+                          : `Processo autuado no tribunal: ${p.distribuicao || p.data_autuacao || 'Data não informada'}. O tribunal ainda não disponibilizou o histórico de movimentações para este processo.`),
                   tag: 'informativo'
                 });
               }
@@ -401,6 +436,7 @@ export async function POST(request: Request) {
           });
         }
 
+        limparRegistroConsulta(consultaId);
         controller.close();
       }
     });
