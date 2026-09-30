@@ -26,6 +26,7 @@ import { useDevPagante } from '@/lib/devPagante';
 import { extractDdd, prioritizeByDdd } from '@/lib/ddd';
 import { useProfile } from '@/lib/useProfile';
 import { getAvgMs, recordSample } from '@/lib/tribunalTiming';
+import { custoServico, custoTotal } from '@/lib/infosimplesPricing';
 
 /* ── Design tokens (tema dark/glass) ─────────────────────────────────── */
 const BLUE = '#5f5f5f';
@@ -56,19 +57,35 @@ type ScanItem = { label: string; status: ScanStatus; startedAt?: number; elapsed
 const MOSS_GREEN = '#3d6b4f';
 const RUBY_RED = '#9b2c3f';
 
-// Espelha a lógica multi-tribunal do backend (app/api/processos/route.ts) para exibir o progresso real da varredura
-const ALL_TRIBUNAL_LABELS = [
-  'TJSP', 'TJSP (eproc)', 'TJRJ', 'TJMG', 'TJPR', 'TJBA', 'TJRS', 'TJSC',
-  'TRF1', 'TRF2', 'TRF2 (eproc)', 'TRF3', 'TRF5', 'TRF6'
+// Espelha a lógica multi-tribunal do backend (app/api/processos/route.ts) para exibir o progresso real
+// da varredura e o custo estimado (services usados em lib/infosimplesPricing.ts para o cálculo).
+const ALL_TRIBUNAIS: { service: string; label: string }[] = [
+  { service: 'tribunal/tjsp/primeiro-grau', label: 'TJSP' },
+  { service: 'tribunal/tjsp/eproc-lista', label: 'TJSP (eproc)' },
+  { service: 'tribunal/tjrj/processo-eproc', label: 'TJRJ' },
+  { service: 'tribunal/tjmg/processo', label: 'TJMG' },
+  { service: 'tribunal/tjpr/processo', label: 'TJPR' },
+  { service: 'tribunal/tjba/primeiro-grau', label: 'TJBA' },
+  { service: 'tribunal/tjrs/primeiro-grau', label: 'TJRS' },
+  { service: 'tribunal/tjsc/processo', label: 'TJSC' },
+  { service: 'tribunal/trf1/processo', label: 'TRF1' },
+  { service: 'tribunal/trf2/processo', label: 'TRF2' },
+  { service: 'tribunal/trf2/processo-eproc', label: 'TRF2 (eproc)' },
+  { service: 'tribunal/trf3/consulta-publica', label: 'TRF3' },
+  { service: 'tribunal/trf5/processo', label: 'TRF5' },
+  { service: 'tribunal/trf6/processo', label: 'TRF6' }
 ];
+const ALL_TRIBUNAL_LABELS = ALL_TRIBUNAIS.map(t => t.label);
+const SERVICE_BY_LABEL = new Map(ALL_TRIBUNAIS.map(t => [t.label, t.service]));
 
-const CUSTO_POR_CONSULTA = 0.2; // R$ por chamada à Infosimples (mantido em sincronia com app/api/processos/route.ts)
+/** Custo estimado (R$) de consultar os tribunais dados pelos labels (ou todos, se null/vazio). */
+function custoEstimadoLabels(labels: string[] | null): number {
+  const targets = !labels || labels.length === 0 ? ALL_TRIBUNAL_LABELS : labels;
+  return custoTotal(targets.map(l => SERVICE_BY_LABEL.get(l) ?? '').filter(Boolean));
+}
 
 function getTargetTribunals(ddd: number, tribunaisFiltro: string[] | null): string[] {
-  const base = prioritizeByDdd(
-    ALL_TRIBUNAL_LABELS.map(label => ({ label })),
-    ddd
-  ).map(t => t.label);
+  const base = prioritizeByDdd(ALL_TRIBUNAIS, ddd).map(t => t.label);
   if (!tribunaisFiltro || tribunaisFiltro.length === 0) return base;
   return base.filter(label => tribunaisFiltro.includes(label));
 }
@@ -898,7 +915,7 @@ export default function ProcessTracker({
                         Todos os tribunais <span style={{ color: MUTED, fontWeight: 400 }}>(recomendado — 14 fontes)</span>
                       </span>
                       <span style={{ fontSize: 12, color: MUTED }}>
-                        R$ {(ALL_TRIBUNAL_LABELS.length * CUSTO_POR_CONSULTA).toFixed(2).replace('.', ',')}
+                        R$ {custoEstimadoLabels(null).toFixed(2).replace('.', ',')}
                       </span>
                     </div>
 
@@ -915,7 +932,7 @@ export default function ProcessTracker({
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: 13.5, color: TEXT, fontWeight: 600 }}>Escolher tribunais</span>
                         <span style={{ fontSize: 12, color: MUTED }}>
-                          a partir de R$ {CUSTO_POR_CONSULTA.toFixed(2).replace('.', ',')}
+                          a partir de R$ {Math.min(...ALL_TRIBUNAIS.map(t => custoServico(t.service))).toFixed(2).replace('.', ',')}
                         </span>
                       </div>
                       {!buscarTodosTribunais && (
@@ -1074,9 +1091,7 @@ export default function ProcessTracker({
                       <span style={{ fontSize: 12.5, color: MUTED }}>CUSTO DESTA CONSULTA</span>
                       <span style={{ fontSize: 15, color: TEXT, fontWeight: 700 }}>
                         R${' '}
-                        {(
-                          (buscarTodosTribunais ? ALL_TRIBUNAL_LABELS.length : tribunaisSelecionados.length || 1) * CUSTO_POR_CONSULTA
-                        )
+                        {custoEstimadoLabels(buscarTodosTribunais ? null : tribunaisSelecionados)
                           .toFixed(2)
                           .replace('.', ',')}
                       </span>

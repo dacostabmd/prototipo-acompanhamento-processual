@@ -14,7 +14,9 @@
       "titulo": "Exibição de custo estimado por consulta (R$/tribunal)",
       "modelo": "transparência de custo Infosimples",
       "status": "Implementada",
-      "log": []
+      "log": [
+        "2026-09-30: cálculo trocado de valor único R$0,20/chamada para o modelo real da Infosimples (lib/infosimplesPricing.ts) — preço base por faixa de volume mensal (assumida a faixa 1-500/mês, R$0,20, já que o app não tem acesso ao volume real da conta) + adicional fixo por serviço (R$0,04 em TJSC, TRF1, TRF2 e TRF2 eproc; demais serviços sem adicional). Usado tanto no custo real pós-consulta (app/api/processos/route.ts) quanto nas estimativas pré-consulta no Stepper (ProcessTracker.tsx, Passos 2 e 4). Franquia mínima mensal de R$100 da conta não é modelada (é por conta, não por consulta)."
+      ]
     },
     {
       "id": "exibicao-dados-processo",

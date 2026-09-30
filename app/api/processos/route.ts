@@ -7,6 +7,7 @@ import { extractDdd, prioritizeByDdd } from '@/lib/ddd';
 import { invalidateProcessosCache } from '@/lib/redis';
 import { consultarDataJud } from '@/lib/datajud';
 import { classifyTag } from '@/lib/classify';
+import { custoTotal } from '@/lib/infosimplesPricing';
 
 function convertBrDateToIso(dateStr?: string): string {
   if (!dateStr) return new Date().toISOString().split('T')[0];
@@ -173,8 +174,10 @@ export async function POST(request: Request) {
       ? orderedTargets.filter(t => tribunaisSelecionados.includes(t.label))
       : orderedTargets;
 
-    const CUSTO_POR_CONSULTA = 0.2; // R$ por chamada à Infosimples (valor estimado, confirmar no painel da conta)
-    const custoEstimado = Number((targets.length * CUSTO_POR_CONSULTA).toFixed(2));
+    // Preço base (faixa de menor volume, 1–500 consultas/mês) + adicional fixo por serviço,
+    // conforme tabela pública da Infosimples (ver lib/infosimplesPricing.ts) — mais fiel que
+    // um valor único cravado para todos os tribunais.
+    const custoEstimado = custoTotal(targets.map(t => t.service));
 
     console.log(
       `[api/processos] Consulta multi-tribunal para ${fullName || 'Cliente'} (CPF: ${cleanCpf}, Estado: ${state || 'Auto'}, DDD: ${ddd || 'N/I'}) nos tribunais:`,
