@@ -2,9 +2,11 @@ import { createHash } from 'crypto';
 import { getAdminClient, getUserId, trackEvento } from '@/lib/track';
 import { requireUser } from '@/lib/requireUser';
 import { NextResponse } from 'next/server';
-import type { LegalProcess, Movement, MovementTag } from '@/lib/mockProcesses';
+import type { LegalProcess, Movement } from '@/lib/mockProcesses';
 import { extractDdd, prioritizeByDdd } from '@/lib/ddd';
 import { invalidateProcessosCache } from '@/lib/redis';
+import { consultarDataJud } from '@/lib/datajud';
+import { classifyTag } from '@/lib/classify';
 
 function convertBrDateToIso(dateStr?: string): string {
   if (!dateStr) return new Date().toISOString().split('T')[0];
@@ -15,20 +17,6 @@ function convertBrDateToIso(dateStr?: string): string {
     return `${y.padStart(4, '20')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
   return dateStr;
-}
-
-function classifyTag(text: string): MovementTag {
-  const t = text.toLowerCase();
-  if (/penhora|bloqueio|sisbajud|pris[aã]o|busca e apreens[aã]o|leil[aã]o|arresto|execu[cç][aã]o|bacenjud/i.test(t)) {
-    return 'urgente';
-  }
-  if (/deferid|procedente|acolhid|extin|baix|cancelad|acordo|favor[aá]vel/i.test(t)) {
-    return 'positivo';
-  }
-  if (/andamento|peti[cç][aã]o|audi[eê]ncia|per[ií]cia|cita[cç][aã]o|despacho|conclus|juntad|intima[cç][aã]o/i.test(t)) {
-    return 'andamento';
-  }
-  return 'informativo';
 }
 
 async function fetchInfosimples(service: string, token: string, cleanCpf: string) {
@@ -312,6 +300,26 @@ export async function POST(request: Request) {
         const filteredProcesses = cleanProcessNumber
           ? allProcesses.filter(p => p.numero.replace(/\D/g, '').includes(cleanProcessNumber))
           : allProcesses;
+
+        // Enriquecimento via DataJud (CNJ): por processo já encontrado pela Infosimples (não por
+        // tribunal da varredura), busca movimentações adicionais pelo número CNJ. DataJud não tem
+        // busca por CPF/CNPJ, só por número de processo — por isso entra aqui, depois da Infosimples
+        // já ter localizado os processos. No-op silencioso sem DATAJUD_API_KEY configurada.
+        await Promise.allSettled(
+          filteredProcesses.map(async p => {
+            const tribunalLabel = p.tribunal.split(' · ')[0];
+            const numeroDigits = p.numero.replace(/\D/g, '');
+            const enriquecido = await consultarDataJud(tribunalLabel, numeroDigits);
+            if (!enriquecido) return;
+
+            const descricoesExistentes = new Set(p.movimentos.map(m => m.descricao));
+            const movimentosNovos = enriquecido.movimentos.filter(m => !descricoesExistentes.has(m.descricao));
+            if (movimentosNovos.length > 0) {
+              p.movimentos = [...movimentosNovos, ...p.movimentos].sort((a, b) => (a.data < b.data ? 1 : -1));
+              p.enriquecidoDataJud = true;
+            }
+          })
+        );
 
         const userId = await getUserId(request);
         await trackEvento(request, userId, {

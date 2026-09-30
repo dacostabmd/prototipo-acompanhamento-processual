@@ -15,6 +15,8 @@ export interface LegalProcess {
   valorCausa: string;
   distribuicao: string;
   movimentos: Movement[];
+  /** true quando movimentações adicionais foram mescladas a partir da API pública DataJud (CNJ). */
+  enriquecidoDataJud?: boolean;
 }
 
 export interface TimelineItem {

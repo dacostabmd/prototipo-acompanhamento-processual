@@ -191,6 +191,19 @@
         "2026-09-30: decisão registrada em conversa — usuário confirmou querer % estimado por tempo médio histórico (não só tempo decorrido cru), ciente de que não existe progresso real intermediário por tribunal na API da Infosimples.",
         "2026-09-30: novo lib/tribunalTiming.ts guarda média móvel (até 20 amostras) do tempo de resposta por tribunal em localStorage (chave bf:tribunalTiming), com fallback de 4000ms para tribunais sem histórico. ProcessTracker.tsx: ScanItem ganhou startedAt/elapsedMs; um interval de 150ms (só enquanto searching=true) re-renderiza os cards para animar % e cronômetro; ao receber o evento 'progress' do streaming NDJSON, registra a amostra real via recordSample(). Barra por tribunal deixou de ser indeterminada (sweep) e passou a refletir a largura do % estimado; label mostra '{pct}% · {tempo}s' durante a consulta e '{tempo}s' final ao concluir."
       ]
+    },
+    {
+      "id": "enriquecimento-datajud-cnj",
+      "titulo": "Enriquecimento de processos já encontrados via API pública DataJud (CNJ)",
+      "modelo": "branch feature/datajud-integracao (a partir de homologacao) para avaliação antes de ir pra main; DataJud só busca por número de processo (não por CPF/CNPJ), então entra como enriquecimento pós-Infosimples, não como busca alternativa",
+      "status": "Implementada (em branch separada, não mesclada na main)",
+      "log": [
+        "2026-09-30: pesquisa de mercado (subagente) mapeou fontes de enriquecimento; DataJud escolhido como próximo passo por ser gratuito, oficial e cobrir 2º grau/TRTs/Eleitoral/tribunais superiores que faltam hoje. Tutorial oficial do CNJ (PDF) lido nesta sessão confirmou: API só busca por numeroProcesso/classe/orgaoJulgador (sem CPF/CNPJ), auth via header 'Authorization: APIKey' com chave pública que pode mudar a qualquer momento, resposta em hits.hits[]._source com movimentos[].",
+        "2026-09-30: decisão registrada em conversa — DataJud entra como enriquecimento dos processos já achados pela Infosimples por CPF (não substitui a busca), numa branch separada (feature/datajud-integracao, a partir de homologacao) para avaliação antes de decidir levar pra main.",
+        "2026-09-30: novo lib/datajud.ts (mapa de ~14 labels de tribunal já usados no projeto para os aliases oficiais do DataJud, cliente HTTP com timeout de 5s via AbortController, parser de movimentos). lib/classify.ts extraído de app/api/processos/route.ts (classifyTag) para lib/ próprio, pois Next.js não permite exportar valores arbitrários de um route.ts (causava erro de build por import circular). app/api/processos/route.ts: após a Infosimples encontrar os processos, para cada um consulta o DataJud em paralelo (Promise.allSettled) pelo número CNJ e mescla movimentações novas (dedupe por descrição); LegalProcess ganhou campo opcional enriquecidoDataJud. Sem DATAJUD_API_KEY configurada, é no-op silencioso — fluxo por CPF continua idêntico ao atual.",
+        "2026-09-30: ProcessResultView.tsx ganhou selo 'DATAJUD (CNJ)' ao lado do título 'Últimas movimentações' quando algum processo do resultado foi enriquecido.",
+        "2026-09-30: tentativa de usar o Vercel MCP para trocar a Production Branch do projeto para 'homologacao' falhou com 403 — o token MCP conectado só tem acesso ao team 'dacostabmds-projects', mas o projeto real (prj_KjVPRKmV3SXEGroCuPaRlgUBQCPv) está no workspace 'l0st-archive' (team_OMDIenLmZSojwfqTiVPFVwuJ), inacessível com esse login. Configuração do Production Branch precisa ser feita manualmente no painel Vercel ou com reautenticação do MCP nesse workspace."
+      ]
     }
   ]
 }

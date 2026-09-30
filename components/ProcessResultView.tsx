@@ -4,7 +4,7 @@ import { authFetch } from '@/lib/authFetch';
 import React, { useRef, useState, useEffect } from 'react';
 import { formatChatMessageHtml, formatDateLabel } from '@/lib/format';
 import { TAG_META, type CaseData } from '@/lib/mockProcesses';
-import { Check, FileText } from 'lucide-react';
+import { Check, FileText, ShieldCheck } from 'lucide-react';
 import AiSummaryLoadingBar from './AiSummaryLoadingBar';
 
 const BLUE = '#5f5f5f';
@@ -260,8 +260,30 @@ export default function ProcessResultView({
               flexDirection: 'column'
             }}
           >
-            <div style={{ fontSize: 10, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 14, flexShrink: 0 }}>
-              ÚLTIMAS MOVIMENTAÇÕES
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexShrink: 0 }}>
+              <span style={{ fontSize: 10, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700 }}>
+                ÚLTIMAS MOVIMENTAÇÕES
+              </span>
+              {caseData.processes.some(p => p.enriquecidoDataJud) && (
+                <span
+                  title="Movimentações complementadas com dados oficiais do DataJud (CNJ)"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: 0.5,
+                    color: '#8fb99a',
+                    border: '1px solid #8fb99a',
+                    borderRadius: 10,
+                    padding: '1px 7px'
+                  }}
+                >
+                  <ShieldCheck size={10} strokeWidth={2.5} />
+                  DATAJUD (CNJ)
+                </span>
+              )}
             </div>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {ultimasMovimentacoes.length === 0 && (

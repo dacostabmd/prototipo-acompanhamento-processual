@@ -604,6 +604,7 @@ export default function ProcessTracker({
                       const liveElapsedMs =
                         item.status === 'loading' && item.startedAt ? Date.now() - item.startedAt : item.elapsedMs ?? 0;
                       const avgMs = getAvgMs(item.label);
+                      const isOverdue = item.status === 'loading' && liveElapsedMs > avgMs;
                       const estimatedPct =
                         item.status === 'found' || item.status === 'not-found'
                           ? 100
@@ -611,6 +612,18 @@ export default function ProcessTracker({
                           ? Math.min(96, Math.round((liveElapsedMs / avgMs) * 100))
                           : 0;
                       const elapsedLabel = liveElapsedMs > 0 ? `${(liveElapsedMs / 1000).toFixed(1)}s` : null;
+
+                      // Subtítulo explicando em que ponto a consulta está: qual etapa da chamada
+                      // à Infosimples e, se passou do tempo médio histórico, um aviso de que o
+                      // tribunal está demorando mais que o normal (em vez da barra parecer travada).
+                      const stageLabel =
+                        item.status === 'loading'
+                          ? isOverdue
+                            ? `Demorando mais que o normal (média ${(avgMs / 1000).toFixed(1)}s) — sistema pode estar lento`
+                            : liveElapsedMs < 400
+                            ? 'Enviando requisição à Infosimples...'
+                            : 'Aguardando resposta do tribunal...'
+                          : null;
 
                       return (
                         <div
@@ -707,7 +720,8 @@ export default function ProcessTracker({
                                   width: `${estimatedPct}%`,
                                   background: BLUE,
                                   borderRadius: 2,
-                                  transition: 'width 0.15s linear'
+                                  transition: 'width 0.15s linear',
+                                  animation: isOverdue ? 'bf-blink 1s ease-in-out infinite' : undefined
                                 }}
                               />
                             )}
@@ -722,6 +736,12 @@ export default function ProcessTracker({
                               />
                             )}
                           </div>
+
+                          {stageLabel && (
+                            <div style={{ fontSize: 10.5, color: isOverdue ? '#d4a65f' : MUTED, lineHeight: 1.3 }}>
+                              {stageLabel}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
