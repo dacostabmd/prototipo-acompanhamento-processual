@@ -115,7 +115,7 @@ export function formatChatMessageHtml(raw: string, isUser: boolean = false): str
   );
 
   // 3. Normaliza negrito em markdown **texto**
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #0b192c; font-weight: 600;">$1</strong>');
+  text = text.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #ffffff; font-weight: 600;">$1</strong>');
 
   // 4. Normaliza itálico *texto*
   text = text.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
@@ -142,7 +142,7 @@ export function formatChatMessageHtml(raw: string, isUser: boolean = false): str
 
   dangerTerms.forEach(term => {
     const reg = new RegExp(`(?<!<[^>]*)\\b(${term})\\b(?![^<]*>)`, 'gi');
-    text = text.replace(reg, '<span style="color: #8a2b2b; font-weight: 600;">$1</span>');
+    text = text.replace(reg, '<span style="color: #e08a8a; font-weight: 600;">$1</span>');
   });
 
   // 6. Destaca termos favoráveis e defesas
@@ -161,7 +161,7 @@ export function formatChatMessageHtml(raw: string, isUser: boolean = false): str
 
   successTerms.forEach(term => {
     const reg = new RegExp(`(?<!<[^>]*)\\b(${term})\\b(?![^<]*>)`, 'gi');
-    text = text.replace(reg, '<span style="color: #1b6b3e; font-weight: 600;">$1</span>');
+    text = text.replace(reg, '<span style="color: #7dd4a5; font-weight: 600;">$1</span>');
   });
 
   // 7. Quebra em parágrafos e sub-blocos estilizados
@@ -183,16 +183,16 @@ export function formatChatMessageHtml(raw: string, isUser: boolean = false): str
         // Cabeçalho com ### ou §
         if (/^#{1,6}\s+/.test(line) || /^§\s+/.test(line)) {
           const cleanTitle = line.replace(/^(?:#{1,6}|§)\s*/, '');
-          html += `<div style="margin: 10px 0 5px; font-weight: 700; color: #0b192c; font-size: 13.5px; display: flex; align-items: baseline; gap: 6px;"><span style="color: #5f5f5f; font-weight: 700; font-size: 14.5px;">§</span><span>${cleanTitle}</span></div>`;
+          html += `<div style="margin: 10px 0 5px; font-weight: 700; color: #ffffff; font-size: 13.5px; display: flex; align-items: baseline; gap: 6px;"><span style="color: #bdbdbb; font-weight: 700; font-size: 14.5px;">§</span><span>${cleanTitle}</span></div>`;
         }
         // Item de lista com - ou • ou *
         else if (/^[-•*]\s+/.test(line)) {
           const cleanItem = line.replace(/^[-•*]\s*/, '');
-          html += `<div style="margin: 3px 0 3px 8px; display: flex; align-items: flex-start; gap: 7px;"><span style="color: #5f5f5f; font-weight: 700; line-height: 1.5;">•</span><span style="flex: 1; line-height: 1.6;">${cleanItem}</span></div>`;
+          html += `<div style="margin: 3px 0 3px 8px; display: flex; align-items: flex-start; gap: 7px;"><span style="color: #bdbdbb; font-weight: 700; line-height: 1.5;">•</span><span style="flex: 1; line-height: 1.6;">${cleanItem}</span></div>`;
         }
         // Item numerado simples no início do bloco
         else if (/^\d+\.\s+/.test(line) && i === 0) {
-          html += `<p style="margin: 8px 0 4px; line-height: 1.6; font-weight: 600; color: #0b192c;">${line}</p>`;
+          html += `<p style="margin: 8px 0 4px; line-height: 1.6; font-weight: 600; color: #ffffff;">${line}</p>`;
         }
         // Parágrafo normal dentro do bloco
         else {
