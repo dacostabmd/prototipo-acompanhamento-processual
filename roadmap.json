@@ -62,7 +62,9 @@
         "2026-09-30: paleta trocada de azul/roxo para cinza monocromático (Grey Olive #999999 / Charcoal #5F5F5F / Gunmetal #3D3D3D / Porcelain #FEFEFA) em todos os arquivos ativos (globals.css, lib/theme.ts, AuthGateway, Stepper, ProcessTracker, ProcessResultView, AiSummaryLoadingBar, lib/format.ts).",
         "2026-09-30: GhostFibers (fundo animado WebGL) movido para dentro do AppShellLayout — monta uma única vez e persiste entre navegações, presente em todas as rotas autenticadas com a nova paleta; removida a instância duplicada dentro de ProcessTracker que ainda usava cores antigas.",
         "2026-09-30: topbar (.bf-topbar) ficou sem background nem border-bottom, a pedido do usuário. Fundo animado escurecido em duas rodadas (~20% e depois mais ~50%) para melhorar contraste.",
-        "2026-09-30: ícones migrados de @tabler/icons-react/emojis para lucide-react em todo o app, por nova regra no CLAUDE.md (trabalho de outra sessão concorrente, verificado e sem regressões)."
+        "2026-09-30: ícones migrados de @tabler/icons-react/emojis para lucide-react em todo o app, por nova regra no CLAUDE.md (trabalho de outra sessão concorrente, verificado e sem regressões).",
+        "2026-09-30: botão 'Recolher' da sidebar (AppShellLayout.tsx) movido do rodapé para o topo, acima da logo — mesmo ícone chevron-left/chevron-right, só reposicionado a pedido do usuário.",
+        "2026-09-30: investigação de performance (2 agentes em paralelo) apontou causa raiz da lentidão em /consulta e /processos: AuthGuard.tsx + AppShellLayout.tsx são 'use client' e envolvem todas as rotas autenticadas, bloqueando render até checagem de sessão Supabase no client (tela em branco); GhostFibers (WebGL/ogl) monta em toda rota mesmo sem necessidade visual; nenhuma rota usa loading.tsx/Suspense; ProcessTracker.tsx (1444 linhas, ~30 useState) re-renderiza tudo a cada tecla do chat, que fica sempre montado no DOM; ProcessDashboardSplit.tsx (1226 linhas) é código morto sem importadores; @tabler/icons-react no package.json sem uso. Nenhuma correção de performance aplicada ainda — só diagnóstico."
       ]
     },
     {
@@ -86,7 +88,8 @@
       "log": [
         "2026-09-30: components/ProcessResultView.tsx criado. Botão 'Acompanhar este processo' e 'Petições e decisões' são placeholders visuais, sem lógica de cobrança/documentos reais.",
         "2026-09-30: build/typecheck ok, mas teste visual ainda pendente — sem chromium-cli no ambiente e sem sessão Supabase autenticada disponível.",
-        "2026-09-30: cards 'Resumo em palavras simples' e 'Últimas movimentações' ganharam altura fixa (420px, igual ao chat) com scroll interno, evitando crescimento infinito da coluna. Movimentações agora mostram badge de classificação, descrição completa, data formatada e número do processo (antes só título+data)."
+        "2026-09-30: cards 'Resumo em palavras simples' e 'Últimas movimentações' ganharam altura fixa (420px, igual ao chat) com scroll interno, evitando crescimento infinito da coluna. Movimentações agora mostram badge de classificação, descrição completa, data formatada e número do processo (antes só título+data).",
+        "2026-09-30: contraste dos cards de vidro (GLASS) escurecido de rgba(255,255,255,0.05) para rgba(20,20,22,0.55) — fundo estava lavado/esbranquiçado sobre o tema escuro; TEXT passou a #ffffff puro e MUTED/BLUE_LIGHT ganharam mais opacidade para melhorar legibilidade."
       ]
     },
     {
