@@ -24,6 +24,39 @@ export const isValidCpf = (digits: string): boolean => {
   return d2 === parseInt(digits[10], 10);
 };
 
+export const formatCnpj = (value: string): string => {
+  const d = cleanDigits(value).slice(0, 14);
+  if (d.length > 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+  if (d.length > 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
+  if (d.length > 5) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
+  if (d.length > 2) return `${d.slice(0, 2)}.${d.slice(2)}`;
+  return d;
+};
+
+/** Formata CPF (11 dígitos) ou CNPJ (14 dígitos) automaticamente pelo tamanho. */
+export const formatDocumento = (value: string): string => {
+  const d = cleanDigits(value);
+  return d.length > 11 ? formatCnpj(value) : formatCpf(value);
+};
+
+/** Validação real de CNPJ (dígitos verificadores mod 11). */
+export const isValidCnpj = (digits: string): boolean => {
+  if (digits.length !== 14) return false;
+  if (/^(\d)\1{13}$/.test(digits)) return false;
+
+  const calc = (base: string) => {
+    const weights = base.length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const sum = base.split('').reduce((acc, digit, i) => acc + parseInt(digit, 10) * weights[i], 0);
+    const rev = sum % 11;
+    return rev < 2 ? 0 : 11 - rev;
+  };
+
+  const d1 = calc(digits.slice(0, 12));
+  if (d1 !== parseInt(digits[12], 10)) return false;
+  const d2 = calc(digits.slice(0, 13));
+  return d2 === parseInt(digits[13], 10);
+};
+
 /** Máscara de telefone brasileiro: (00) 0000-0000 / (00) 00000-0000 */
 export const formatPhone = (value: string): string => {
   const d = cleanDigits(value).slice(0, 11);

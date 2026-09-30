@@ -73,7 +73,9 @@
       "log": [
         "2026-09-30: ProcessTracker.tsx reescrito; Stepper.tsx ganhou goToStep (navegação externa) e nextButtonText no passo final.",
         "2026-09-30: tela de 'Varrendo bases judiciais' corrigida — removida a animação de progresso sequencial falsa (parecia consultar 2x); agora todos os tribunais ficam 'Consultando...' até a resposta real da Infosimples chegar e são marcados de uma vez. Layout mudou de lista vertical para grid responsivo de 2 colunas, com fundo escurecido para legibilidade.",
-        "2026-09-30: card do Stepper e inputs escurecidos (fundo translúcido claro trocado por cinza sólido escuro) para melhorar contraste de texto/placeholder."
+        "2026-09-30: card do Stepper e inputs escurecidos (fundo translúcido claro trocado por cinza sólido escuro) para melhorar contraste de texto/placeholder.",
+        "2026-09-30: corrigida a causa real da demora na tela de varredura — app/api/processos/route.ts esperava as 14 chamadas paralelas à Infosimples (Promise.allSettled) terminarem todas para só então responder, travado pelo tribunal mais lento sem nenhum feedback incremental. Convertido para streaming NDJSON: cada tribunal emite sua própria linha de progresso assim que responde, e o card correspondente na UI atualiza individualmente em tempo real. Texto da tela também ajustado para explicar a consulta paralela real ao usuário.",
+        "2026-09-30: novo lib/ddd.ts mapeia DDD do celular (Passo 4) para o tribunal estadual correspondente (8 TJs hoje cobertos); a varredura multi-tribunal (backend e UI) agora prioriza esse tribunal como primeira consulta, substituindo a regra fixa antiga que só priorizava TJRJ. Spinners circulares (geral e por card) trocados por progress bar linear: uma barra de progresso geral (X/14 tribunais consultados) e uma barra por tribunal (indeterminada durante 'Consultando...', preenchida em verde/vermelho ao concluir)."
       ]
     },
     {
@@ -136,6 +138,56 @@
       "modelo": "implementar",
       "status": "pendente",
       "log": []
+    },
+    {
+      "id": "analise-carteira",
+      "titulo": "Análise de carteira / due diligence em lote de processos e precatórios",
+      "modelo": "terceiro card na Visão geral, ao lado de Consultar processos/Meus processos; consulta em lote de múltiplos CNJs para avaliar créditos/precatórios antes da compra (status ativo/baixado, penhora, valor atualizado); depende de documentos-integra e cobertura-2grau-superiores",
+      "status": "pendente",
+      "log": [
+        "2026-09-30: decisão registrada em conversa — foco é uso interno da operação de compra/venda de processos e precatórios, não acompanhamento do cliente final."
+      ]
+    },
+    {
+      "id": "billing-uso-api-por-conta",
+      "titulo": "Painel admin de consumo de API por conta/login, com custo estimado (preço Infosimples x100)",
+      "modelo": "painel interno restrito a admin/operação, exibindo nº de chamadas e custo por usuário; reaproveita lógica de custo-estimado-consulta já implementada, gravando valor por chamada e por tribunal",
+      "status": "pendente",
+      "log": [
+        "2026-09-30: decisão registrada em conversa — exibição em painel admin interno (não no perfil do usuário); precificação = preço real Infosimples por tribunal x 100."
+      ]
+    },
+    {
+      "id": "perfis-advogado-consultante",
+      "titulo": "Separação de login/perfil em duas abas: Advogado (busca livre, múltiplos processos) e Consultante (só o próprio CPF/CNPJ, fixo no cadastro)",
+      "modelo": "reaproveita ap_perfis.role existente ('cliente' = consultante); documento fixado no signup e imutável por trigger",
+      "status": "Implementada",
+      "log": [
+        "2026-09-30: migration ap_perfis_documento_pf_pj adiciona documento/documento_tipo em ap_perfis, atualiza ap_handle_new_user() para gravar role/documento a partir do metadata do signUp, e trigger ap_perfis_documento_imutavel bloqueia updates depois de definido.",
+        "2026-09-30: AuthGateway.tsx ganhou abas 'Advogado'/'Consultante' no cadastro; consultante preenche CPF ou CNPJ (validado com isValidCpf/isValidCnpj novos em lib/format.ts) que vai no metadata do signUp. Modo demo (sem Supabase) simula role/documento via localStorage.",
+        "2026-09-30: novo lib/useProfile.ts (hook) carrega role/documento do usuário logado, com fallback ao modo demo. ProcessTracker.tsx usa o hook: consultante tem o Passo 1 do Stepper simplificado (sem SegmentedControl de modo de busca, campo de documento pré-preenchido e travado). Busca por CNPJ ainda é bloqueada no submit — Infosimples só aceita CPF hoje (gap registrado, não implementado).",
+        "2026-09-30: perfil/page.tsx exibe o documento como campo travado ('Não pode ser alterado') para consultante; processos/page.tsx ajusta copy condicional por role. supabase/seed_demo.sql criado com 2 contas mock (advogado.teste@prosec.dev / consultante.teste@prosec.dev, senha Prosec#Teste1)."
+      ]
+    },
+    {
+      "id": "tabela-mantine-cache-redis-meus-processos",
+      "titulo": "Tabela Mantine com filtro por coluna em 'Meus processos' + cache Redis (Upstash) para leitura rápida dos dados coletados pela API",
+      "modelo": "Table do @mantine/core substitui a tabela HTML; coluna Hash removida (dado interno); Redis Upstash como cache de leitura por cima de ap_processos_pesquisados, Postgres continua fonte da verdade",
+      "status": "Implementada",
+      "log": [
+        "2026-09-30: novo lib/redis.ts (cliente Upstash via @upstash/redis, no-op sem UPSTASH_REDIS_REST_URL/TOKEN) e novo endpoint GET /api/processos/listar: tenta cache (chave ap:processos:{userId}, TTL 300s), em miss consulta Postgres e popula o cache. app/api/processos/route.ts invalida o cache do usuário após salvar novos processos pesquisados.",
+        "2026-09-30: processos/page.tsx agora busca via authFetch('/api/processos/listar') em vez de ler o Supabase direto do client; tabela HTML trocada pelo componente Table do Mantine; coluna Hash removida da UI e da query; adicionada linha de filtros (TextInput/Select do Mantine) acima da tabela na mesma div, um por coluna (Número, Tribunal, Classe, Parte contrária, Últ. mov.), filtrando client-side a lista já carregada."
+      ]
+    },
+    {
+      "id": "progresso-percentual-tempo-scan-tribunais",
+      "titulo": "% estimado e cronômetro por tribunal na tela 'Varrendo bases judiciais'",
+      "modelo": "cada chamada à Infosimples é atômica (sem etapas internas reportadas); % é uma estimativa baseada no tempo médio histórico de resposta daquele tribunal, refinada a cada consulta feita no navegador (localStorage, não é progresso real do servidor)",
+      "status": "Implementada",
+      "log": [
+        "2026-09-30: decisão registrada em conversa — usuário confirmou querer % estimado por tempo médio histórico (não só tempo decorrido cru), ciente de que não existe progresso real intermediário por tribunal na API da Infosimples.",
+        "2026-09-30: novo lib/tribunalTiming.ts guarda média móvel (até 20 amostras) do tempo de resposta por tribunal em localStorage (chave bf:tribunalTiming), com fallback de 4000ms para tribunais sem histórico. ProcessTracker.tsx: ScanItem ganhou startedAt/elapsedMs; um interval de 150ms (só enquanto searching=true) re-renderiza os cards para animar % e cronômetro; ao receber o evento 'progress' do streaming NDJSON, registra a amostra real via recordSample(). Barra por tribunal deixou de ser indeterminada (sweep) e passou a refletir a largura do % estimado; label mostra '{pct}% · {tempo}s' durante a consulta e '{tempo}s' final ao concluir."
+      ]
     }
   ]
 }

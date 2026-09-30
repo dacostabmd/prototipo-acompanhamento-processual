@@ -8,11 +8,11 @@ import { Check, FileText } from 'lucide-react';
 import AiSummaryLoadingBar from './AiSummaryLoadingBar';
 
 const BLUE = '#5f5f5f';
-const BLUE_LIGHT = '#bdbdbb';
-const TEXT = '#fefefa';
-const MUTED = 'rgba(226,229,245,0.65)';
+const BLUE_LIGHT = '#d4d4d2';
+const TEXT = '#ffffff';
+const MUTED = 'rgba(229,231,235,0.75)';
 const BORDER = 'rgba(255,255,255,0.12)';
-const GLASS = 'rgba(255,255,255,0.05)';
+const GLASS = 'rgba(20,20,22,0.55)';
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
@@ -217,7 +217,16 @@ export default function ProcessResultView({
                 {aiSummaryLoading ? 'GERANDO...' : 'RECRIAR'}
               </button>
             </div>
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: aiSummaryLoading ? 'center' : 'flex-start'
+              }}
+            >
               {aiSummaryLoading ? (
                 <AiSummaryLoadingBar />
               ) : aiSummary ? (

@@ -3,6 +3,8 @@ import { getAdminClient, getUserId, trackEvento } from '@/lib/track';
 import { requireUser } from '@/lib/requireUser';
 import { NextResponse } from 'next/server';
 import type { LegalProcess, Movement, MovementTag } from '@/lib/mockProcesses';
+import { extractDdd, prioritizeByDdd } from '@/lib/ddd';
+import { invalidateProcessosCache } from '@/lib/redis';
 
 function convertBrDateToIso(dateStr?: string): string {
   if (!dateStr) return new Date().toISOString().split('T')[0];
@@ -108,6 +110,7 @@ async function salvarProcessos(userId: string, cpf: string, phone: string | unde
     if (rows.length) {
       const r = await db.from('ap_processos_pesquisados').upsert(rows, { onConflict: 'user_id,numero_cnj' });
       if (r.error) console.error('[api/processos] salvar:', r.error.message);
+      else await invalidateProcessosCache(userId);
     }
   } catch (e) {
     console.error('[api/processos] falha ao salvar processos', e);
@@ -147,9 +150,8 @@ export async function POST(request: Request) {
     }
 
     const cleanPhone = (phone || '').replace(/\D/g, '');
-    const ddd = cleanPhone.length >= 10 ? parseInt(cleanPhone.slice(0, 2), 10) : 0;
+    const ddd = extractDdd(cleanPhone);
     const selectedState = (state || '').toUpperCase();
-    const isRj = selectedState.includes('RJ') || selectedState.includes('RIO') || ddd === 21 || ddd === 22 || ddd === 24;
 
     // Multi-tribunal: consulta todos os tribunais com API de busca por CPF (lista de processos) na Infosimples.
     // TJBA/TJRS/TJSC/TRF6 têm formato de resposta não confirmado na documentação pública — o parser abaixo
@@ -172,10 +174,9 @@ export async function POST(request: Request) {
       { service: 'tribunal/trf6/processo', label: 'TRF6' }
     ];
 
-    // Prioriza SP/RJ primeiro para a animação de progresso, mas consulta todos os tribunais disponíveis
-    const orderedTargets = isRj
-      ? [...ALL_TARGETS].sort((a, b) => (a.label === 'TJRJ' ? -1 : b.label === 'TJRJ' ? 1 : 0))
-      : ALL_TARGETS;
+    // Prioriza o tribunal do estado do DDD informado (ex.: DDD 11 -> TJSP primeiro), mas consulta
+    // todos os tribunais disponíveis do mesmo jeito — é só a ordem/animação de progresso que muda.
+    const orderedTargets = prioritizeByDdd(ALL_TARGETS, ddd);
 
     // Passo "Onde procurar": se o usuário restringiu a busca a tribunais específicos, filtra a varredura.
     // null/vazio (ou ausência do campo) mantém o comportamento padrão de consultar todos os tribunais.

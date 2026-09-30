@@ -2,28 +2,36 @@
 
 import { useState, useEffect, type CSSProperties, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { SegmentedControl } from '@mantine/core';
 import GhostFibers from './GhostFibers';
 import { getSupabase } from '@/lib/supabase';
+import { cleanDigits, formatDocumento, isValidCpf, isValidCnpj } from '@/lib/format';
 
 const BLUE = '#5f5f5f';
 const TEXT = '#232323';
 const MUTED = '#7a7a7a';
 
 type Mode = 'login' | 'signup';
+type Perfil = 'advogado' | 'consultante';
 
 const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', margin: '0 0 8px' };
 
 export default function AuthGateway() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('login');
+  const [perfil, setPerfil] = useState<Perfil>('advogado');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [documento, setDocumento] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
   const supabase = getSupabase();
+  const documentoDigits = cleanDigits(documento);
+  const isDocumentoValido =
+    documentoDigits.length === 11 ? isValidCpf(documentoDigits) : documentoDigits.length === 14 ? isValidCnpj(documentoDigits) : false;
 
   const finish = () => {
     router.replace('/painel');
@@ -64,12 +72,20 @@ export default function AuthGateway() {
     if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Informe um e-mail válido.');
     if (password.length < 6) return setError('A senha deve ter ao menos 6 caracteres.');
     if (mode === 'signup' && name.trim().length < 3) return setError('Informe seu nome completo.');
+    if (mode === 'signup' && perfil === 'consultante' && !isDocumentoValido) {
+      return setError('Informe um CPF ou CNPJ válido.');
+    }
 
     setLoading(true);
     try {
       if (!supabase) {
         try {
           localStorage.setItem('bf-demo-user', email);
+          localStorage.setItem('bf-demo-role', mode === 'signup' && perfil === 'consultante' ? 'cliente' : 'advogado');
+          if (mode === 'signup' && perfil === 'consultante') {
+            localStorage.setItem('bf-demo-documento', documentoDigits);
+            localStorage.setItem('bf-demo-documento-tipo', documentoDigits.length === 14 ? 'cnpj' : 'cpf');
+          }
         } catch {}
         return finish();
       }
@@ -77,7 +93,16 @@ export default function AuthGateway() {
         const { data, error: err } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { full_name: name.trim() }, emailRedirectTo: `${window.location.origin}/painel` }
+          options: {
+            data: {
+              full_name: name.trim(),
+              role: perfil === 'consultante' ? 'cliente' : 'advogado',
+              ...(perfil === 'consultante'
+                ? { documento: documentoDigits, documento_tipo: documentoDigits.length === 14 ? 'cnpj' : 'cpf' }
+                : {})
+            },
+            emailRedirectTo: `${window.location.origin}/painel`
+          }
         });
         if (err) return setError(err.message);
         if (!data.session) return setInfo('Conta criada! Confirme seu e-mail para acessar.');
@@ -168,6 +193,21 @@ export default function AuthGateway() {
             <span style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
           </div>
 
+          {mode === 'signup' && (
+            <div style={{ margin: '0 0 18px' }}>
+              <label style={label}>Você é...</label>
+              <SegmentedControl
+                fullWidth
+                value={perfil}
+                onChange={v => setPerfil(v as Perfil)}
+                data={[
+                  { label: 'Advogado', value: 'advogado' },
+                  { label: 'Consultante', value: 'consultante' }
+                ]}
+              />
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} noValidate style={{ display: 'grid', gap: 18 }}>
             {mode === 'signup' && (
               <div>
@@ -175,6 +215,25 @@ export default function AuthGateway() {
                   Nome completo
                 </label>
                 <input id="bf-name" className="bf-input" value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
+              </div>
+            )}
+            {mode === 'signup' && perfil === 'consultante' && (
+              <div>
+                <label style={label} htmlFor="bf-documento">
+                  CPF ou CNPJ
+                </label>
+                <input
+                  id="bf-documento"
+                  className="bf-input"
+                  placeholder="000.000.000-00"
+                  value={documento}
+                  maxLength={18}
+                  onChange={e => setDocumento(formatDocumento(e.target.value))}
+                  autoComplete="off"
+                />
+                <p style={{ fontSize: 12, color: MUTED, margin: '6px 0 0' }}>
+                  Você só poderá consultar processos deste CPF/CNPJ. Não é possível alterar depois de criada a conta.
+                </p>
               </div>
             )}
             <div>

@@ -73,6 +73,19 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
       </AppShell.Header>
 
       <AppShell.Navbar className="bf-side" data-expanded={expanded || undefined}>
+        <UnstyledButton
+          onClick={toggle}
+          visibleFrom="sm"
+          aria-label={expanded ? 'Recolher menu' : 'Expandir menu'}
+          aria-expanded={expanded}
+          className="bf-nav-item bf-nav-muted"
+        >
+          <span className="bf-nav-icon">
+            {expanded ? <ChevronLeft size={ICON} strokeWidth={1.8} /> : <ChevronRight size={ICON} strokeWidth={1.8} />}
+          </span>
+          <span className="bf-nav-label">Recolher</span>
+        </UnstyledButton>
+
         <div className="bf-side-brand">
           <Link href="/painel" aria-label="Blindagem Financeira — início" className="bf-side-logo">
             <Image src="/blindagem-logo.png" alt="Blindagem Financeira" width={122} height={40} priority />
@@ -123,18 +136,6 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
               <span className="bf-nav-label">Sair</span>
             </UnstyledButton>
           </Tooltip>
-          <UnstyledButton
-            onClick={toggle}
-            visibleFrom="sm"
-            aria-label={expanded ? 'Recolher menu' : 'Expandir menu'}
-            aria-expanded={expanded}
-            className="bf-nav-item bf-nav-muted"
-          >
-            <span className="bf-nav-icon">
-              {expanded ? <ChevronLeft size={ICON} strokeWidth={1.8} /> : <ChevronRight size={ICON} strokeWidth={1.8} />}
-            </span>
-            <span className="bf-nav-label">Recolher</span>
-          </UnstyledButton>
         </div>
       </AppShell.Navbar>
 

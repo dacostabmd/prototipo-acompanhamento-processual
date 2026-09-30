@@ -1,7 +1,7 @@
 'use client';
 
 import { authFetch } from '@/lib/authFetch';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { SegmentedControl, Switch, Checkbox, Tooltip } from '@mantine/core';
 import { Lock, Check, X, Info } from 'lucide-react';
@@ -16,11 +16,16 @@ import {
 import {
   cleanDigits,
   formatCpf,
+  formatDocumento,
   formatPhone,
   isValidCpf,
+  isValidCnpj,
   formatChatMessageHtml
 } from '@/lib/format';
 import { useDevPagante } from '@/lib/devPagante';
+import { extractDdd, prioritizeByDdd } from '@/lib/ddd';
+import { useProfile } from '@/lib/useProfile';
+import { getAvgMs, recordSample } from '@/lib/tribunalTiming';
 
 /* ── Design tokens (tema dark/glass) ─────────────────────────────────── */
 const BLUE = '#5f5f5f';
@@ -46,7 +51,7 @@ export interface ProcessTrackerProps {
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
 type ScanStatus = 'pending' | 'loading' | 'found' | 'not-found';
-type ScanItem = { label: string; status: ScanStatus };
+type ScanItem = { label: string; status: ScanStatus; startedAt?: number; elapsedMs?: number };
 
 const MOSS_GREEN = '#3d6b4f';
 const RUBY_RED = '#9b2c3f';
@@ -59,12 +64,11 @@ const ALL_TRIBUNAL_LABELS = [
 
 const CUSTO_POR_CONSULTA = 0.2; // R$ por chamada à Infosimples (mantido em sincronia com app/api/processos/route.ts)
 
-function getTargetTribunals(stateValue: string, tribunaisFiltro: string[] | null): string[] {
-  const selected = (stateValue || '').toUpperCase();
-  const isRj = selected.includes('RJ') || selected.includes('RIO');
-  const base = isRj
-    ? [...ALL_TRIBUNAL_LABELS].sort((a, b) => (a === 'TJRJ' ? -1 : b === 'TJRJ' ? 1 : 0))
-    : ALL_TRIBUNAL_LABELS;
+function getTargetTribunals(ddd: number, tribunaisFiltro: string[] | null): string[] {
+  const base = prioritizeByDdd(
+    ALL_TRIBUNAL_LABELS.map(label => ({ label })),
+    ddd
+  ).map(t => t.label);
   if (!tribunaisFiltro || tribunaisFiltro.length === 0) return base;
   return base.filter(label => tribunaisFiltro.includes(label));
 }
@@ -74,6 +78,8 @@ export default function ProcessTracker({
   chatTone = 'Acolhedor'
 }: ProcessTrackerProps) {
   const isPagante = useDevPagante();
+  const { profile } = useProfile();
+  const isConsultante = profile.role === 'cliente';
 
   // Passo 1 · Como buscar
   const [fullName, setFullName] = useState('');
@@ -82,6 +88,14 @@ export default function ProcessTracker({
   const [processNumberInput, setProcessNumberInput] = useState('');
   const [partyNameInput, setPartyNameInput] = useState('');
   const [stateInput] = useState('AUTO');
+
+  // Consultante: documento fixo do próprio perfil, pré-preenchido e travado.
+  useEffect(() => {
+    if (isConsultante && profile.documento) {
+      setCpfInput(formatDocumento(profile.documento));
+      setFullName(prev => prev || profile.nome);
+    }
+  }, [isConsultante, profile.documento, profile.nome]);
 
   // Passo 2 · Onde procurar
   const [buscarTodosTribunais, setBuscarTodosTribunais] = useState(true);
@@ -106,6 +120,14 @@ export default function ProcessTracker({
   const [tribunaisConsultados, setTribunaisConsultados] = useState<string[]>([]);
   const [custoEstimado, setCustoEstimado] = useState<number>(0);
   const [scanItems, setScanItems] = useState<ScanItem[]>([]);
+  const [scanClockTick, setScanClockTick] = useState(0);
+
+  // Atualiza o cronômetro/% estimado de cada card de tribunal enquanto a varredura está em curso.
+  useEffect(() => {
+    if (!searching) return;
+    const id = window.setInterval(() => setScanClockTick(t => t + 1), 150);
+    return () => window.clearInterval(id);
+  }, [searching]);
 
   // Bitrix states
   const [bitrixLeadId, setBitrixLeadId] = useState<string | number | null>(null);
@@ -128,7 +150,11 @@ export default function ProcessTracker({
   const found = hasSearched && !notFound && !!caseData;
 
   // Validações por passo do novo Stepper: 1·Como buscar 2·Onde procurar 3·Avisos 4·Revisar e consultar
-  const isCpfValid = cleanDigits(cpfInput).length === 11 && isValidCpf(cleanDigits(cpfInput));
+  const cpfInputDigits = cleanDigits(cpfInput);
+  const isCpfValid =
+    isConsultante && profile.documentoTipo === 'cnpj'
+      ? cpfInputDigits.length === 14 && isValidCnpj(cpfInputDigits)
+      : cpfInputDigits.length === 11 && isValidCpf(cpfInputDigits);
   const isStep1Valid =
     fullName.trim().length >= 3 &&
     isCpfValid &&
@@ -201,6 +227,13 @@ export default function ProcessTracker({
       return;
     }
 
+    // A Infosimples só consulta por CPF hoje (ver app/api/processos/route.ts); consultante PJ
+    // ainda não tem cobertura real de busca — gap registrado no roadmap.
+    if (isConsultante && profile.documentoTipo === 'cnpj') {
+      setFormError('Consulta por CNPJ ainda não está disponível. Em breve habilitaremos a busca para consultantes PJ.');
+      return;
+    }
+
     setFormError('');
     setSearching(true);
     setHasSearched(false);
@@ -208,8 +241,10 @@ export default function ProcessTracker({
     // O backend agora transmite o progresso em streaming (NDJSON): cada linha chega assim que
     // aquele tribunal específico responde à Infosimples, então cada card muda de "Consultando..."
     // para "Encontrado"/"Sem processos" de forma independente e em tempo real, sem esperar os 14.
-    const targets = getTargetTribunals(stateInput, buscarTodosTribunais ? null : tribunaisSelecionados);
-    setScanItems(targets.map(label => ({ label, status: 'loading' })));
+    // A primeira consulta priorizada é a do tribunal do estado do DDD informado no celular.
+    const targets = getTargetTribunals(extractDdd(phoneDigits), buscarTodosTribunais ? null : tribunaisSelecionados);
+    const scanStartedAt = Date.now();
+    setScanItems(targets.map(label => ({ label, status: 'loading', startedAt: scanStartedAt })));
 
     try {
       // 1. Busca processual multi-tribunal
@@ -264,9 +299,12 @@ export default function ProcessTracker({
           const evt = JSON.parse(line);
           if (evt.type === 'progress') {
             setScanItems(prev =>
-              prev.map(item =>
-                item.label === evt.label ? { ...item, status: evt.found ? 'found' : 'not-found' } : item
-              )
+              prev.map(item => {
+                if (item.label !== evt.label) return item;
+                const elapsedMs = item.startedAt ? Date.now() - item.startedAt : undefined;
+                if (elapsedMs) recordSample(item.label, elapsedMs);
+                return { ...item, status: evt.found ? 'found' : 'not-found', elapsedMs };
+              })
             );
           } else if (evt.type === 'done') {
             data = evt;
@@ -508,26 +546,45 @@ export default function ProcessTracker({
                   border: `1px solid ${BORDER}`
                 }}
               >
-                <div
-                  style={{
-                    display: 'inline-block',
-                    width: 44,
-                    height: 44,
-                    border: `3px solid ${BORDER}`,
-                    borderTopColor: BLUE,
-                    borderRadius: '50%',
-                    animation: 'bf-spin 0.9s linear infinite',
-                    marginBottom: 16
-                  }}
-                />
                 <h3 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
                   Varrendo bases judiciais...
                 </h3>
                 <p style={{ margin: '0 0 20px', fontSize: 13.5, color: MUTED }}>
-                  Consultamos os {scanItems.length || 14} tribunais abaixo ao mesmo tempo. Cada card muda para
-                  &quot;Encontrado&quot; ou &quot;Sem processos&quot; assim que aquele tribunal responde — tribunais com
-                  sistemas mais lentos (eproc/legado) podem demorar mais que os outros.
+                  Consultamos os {scanItems.length || 14} tribunais abaixo ao mesmo tempo. O % de cada barra é uma
+                  estimativa com base no tempo médio histórico daquele tribunal neste navegador; a barra completa
+                  quando a resposta real chega — tribunais com sistemas mais lentos (eproc/legado) podem demorar mais.
                 </p>
+
+                {(() => {
+                  const doneCount = scanItems.filter(i => i.status === 'found' || i.status === 'not-found').length;
+                  const totalCount = scanItems.length || 1;
+                  const pct = Math.round((doneCount / totalCount) * 100);
+                  return (
+                    <div style={{ maxWidth: 560, margin: '0 auto 24px' }}>
+                      <div
+                        style={{
+                          height: 6,
+                          borderRadius: 3,
+                          background: 'rgba(255,255,255,0.08)',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: '100%',
+                            width: `${pct}%`,
+                            background: BLUE,
+                            borderRadius: 3,
+                            transition: 'width 0.4s ease'
+                          }}
+                        />
+                      </div>
+                      <div style={{ marginTop: 6, fontSize: 11.5, color: MUTED, textAlign: 'right' }}>
+                        {doneCount}/{scanItems.length} tribunais consultados
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {scanItems.length > 0 && (
                   <div
@@ -540,95 +597,134 @@ export default function ProcessTracker({
                       margin: '0 auto'
                     }}
                   >
-                    {scanItems.map(item => (
-                      <div
-                        key={item.label}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          padding: '10px 12px',
-                          background: 'rgba(10,10,10,0.6)',
-                          border: `1px solid ${BORDER}`,
-                          borderRadius: 4,
-                          fontSize: 12.5,
-                          minWidth: 0,
-                          animation: 'bf-fadein 0.35s ease both'
-                        }}
-                      >
-                        <span
-                          aria-hidden="true"
+                    {scanItems.map(item => {
+                      // % estimado com base no tempo médio histórico daquele tribunal (localStorage,
+                      // ver lib/tribunalTiming.ts) — não é progresso real (a chamada é atômica),
+                      // é uma estimativa que se refina a cada consulta feita no navegador.
+                      const liveElapsedMs =
+                        item.status === 'loading' && item.startedAt ? Date.now() - item.startedAt : item.elapsedMs ?? 0;
+                      const avgMs = getAvgMs(item.label);
+                      const estimatedPct =
+                        item.status === 'found' || item.status === 'not-found'
+                          ? 100
+                          : item.status === 'loading'
+                          ? Math.min(96, Math.round((liveElapsedMs / avgMs) * 100))
+                          : 0;
+                      const elapsedLabel = liveElapsedMs > 0 ? `${(liveElapsedMs / 1000).toFixed(1)}s` : null;
+
+                      return (
+                        <div
+                          key={item.label}
                           style={{
-                            display: 'inline-flex',
-                            width: 16,
-                            height: 16,
-                            flex: 'none',
-                            alignItems: 'center',
-                            justifyContent: 'center'
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6,
+                            padding: '10px 12px',
+                            background: 'rgba(10,10,10,0.6)',
+                            border: `1px solid ${BORDER}`,
+                            borderRadius: 4,
+                            fontSize: 12.5,
+                            minWidth: 0,
+                            animation: 'bf-fadein 0.35s ease both'
                           }}
                         >
-                          {item.status === 'pending' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span
+                              aria-hidden="true"
+                              style={{
+                                display: 'inline-flex',
+                                width: 16,
+                                height: 16,
+                                flex: 'none',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              {item.status === 'pending' && (
+                                <span
+                                  style={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: '50%',
+                                    background: INPUT_BORDER
+                                  }}
+                                />
+                              )}
+                              {item.status === 'found' && (
+                                <Check size={16} strokeWidth={2.5} style={{ color: MOSS_GREEN }} />
+                              )}
+                              {item.status === 'not-found' && (
+                                <X size={16} strokeWidth={2.5} style={{ color: RUBY_RED }} />
+                              )}
+                            </span>
                             <span
                               style={{
-                                width: 6,
-                                height: 6,
-                                borderRadius: '50%',
-                                background: INPUT_BORDER
+                                fontWeight: 600,
+                                color: TEXT,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
                               }}
-                            />
-                          )}
-                          {item.status === 'loading' && (
+                            >
+                              {item.label}
+                            </span>
                             <span
                               style={{
-                                display: 'inline-block',
-                                width: 14,
-                                height: 14,
-                                border: `2px solid ${BORDER}`,
-                                borderTopColor: BLUE,
-                                borderRadius: '50%',
-                                animation: 'bf-spin 0.8s linear infinite'
+                                marginLeft: 'auto',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                flexShrink: 0,
+                                textAlign: 'right',
+                                color:
+                                  item.status === 'found'
+                                    ? MOSS_GREEN
+                                    : item.status === 'not-found'
+                                    ? RUBY_RED
+                                    : MUTED
                               }}
-                            />
-                          )}
-                          {item.status === 'found' && (
-                            <Check size={16} strokeWidth={2.5} style={{ color: MOSS_GREEN }} />
-                          )}
-                          {item.status === 'not-found' && (
-                            <X size={16} strokeWidth={2.5} style={{ color: RUBY_RED }} />
-                          )}
-                        </span>
-                        <span
-                          style={{
-                            fontWeight: 600,
-                            color: TEXT,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          {item.label}
-                        </span>
-                        <span
-                          style={{
-                            marginLeft: 'auto',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            flexShrink: 0,
-                            color:
-                              item.status === 'found'
-                                ? MOSS_GREEN
-                                : item.status === 'not-found'
-                                ? RUBY_RED
-                                : MUTED
-                          }}
-                        >
-                          {item.status === 'pending' && 'Aguardando'}
-                          {item.status === 'loading' && 'Consultando...'}
-                          {item.status === 'found' && 'Encontrado'}
-                          {item.status === 'not-found' && 'Sem processos'}
-                        </span>
-                      </div>
-                    ))}
+                            >
+                              {item.status === 'pending' && 'Aguardando'}
+                              {item.status === 'loading' && `${estimatedPct}% · ${elapsedLabel}`}
+                              {item.status === 'found' && `Encontrado · ${elapsedLabel}`}
+                              {item.status === 'not-found' && `Sem processos · ${elapsedLabel}`}
+                            </span>
+                          </div>
+
+                          <div
+                            style={{
+                              height: 4,
+                              borderRadius: 2,
+                              background: 'rgba(255,255,255,0.08)',
+                              overflow: 'hidden',
+                              position: 'relative'
+                            }}
+                          >
+                            {item.status === 'pending' && <div style={{ height: '100%', width: 0 }} />}
+                            {item.status === 'loading' && (
+                              <div
+                                style={{
+                                  height: '100%',
+                                  width: `${estimatedPct}%`,
+                                  background: BLUE,
+                                  borderRadius: 2,
+                                  transition: 'width 0.15s linear'
+                                }}
+                              />
+                            )}
+                            {(item.status === 'found' || item.status === 'not-found') && (
+                              <div
+                                style={{
+                                  height: '100%',
+                                  width: '100%',
+                                  borderRadius: 2,
+                                  background: item.status === 'found' ? MOSS_GREEN : RUBY_RED
+                                }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -652,30 +748,34 @@ export default function ProcessTracker({
                       Como você quer buscar?
                     </h2>
                     <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
-                      Escolha o dado que você tem em mãos para localizar o processo.
+                      {isConsultante
+                        ? 'Você consulta apenas os processos ligados ao seu próprio CPF/CNPJ cadastrado.'
+                        : 'Escolha o dado que você tem em mãos para localizar o processo.'}
                     </p>
 
-                    <SegmentedControl
-                      fullWidth
-                      value={searchMode}
-                      onChange={v => setSearchMode(v as 'cpf' | 'numero' | 'nome')}
-                      data={[
-                        { label: 'CPF', value: 'cpf' },
-                        { label: 'Nº do processo', value: 'numero' },
-                        {
-                          label: (
-                            <Tooltip label={isPagante ? 'Buscar pelo nome da parte' : 'Disponível para assinantes'} withArrow>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                Nome da parte {!isPagante && <Lock size={12} strokeWidth={2.5} style={{ opacity: 0.85 }} />}
-                              </span>
-                            </Tooltip>
-                          ) as unknown as string,
-                          value: 'nome',
-                          disabled: !isPagante
-                        }
-                      ]}
-                      mb={18}
-                    />
+                    {!isConsultante && (
+                      <SegmentedControl
+                        fullWidth
+                        value={searchMode}
+                        onChange={v => setSearchMode(v as 'cpf' | 'numero' | 'nome')}
+                        data={[
+                          { label: 'CPF', value: 'cpf' },
+                          { label: 'Nº do processo', value: 'numero' },
+                          {
+                            label: (
+                              <Tooltip label={isPagante ? 'Buscar pelo nome da parte' : 'Disponível para assinantes'} withArrow>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                  Nome da parte {!isPagante && <Lock size={12} strokeWidth={2.5} style={{ opacity: 0.85 }} />}
+                                </span>
+                              </Tooltip>
+                            ) as unknown as string,
+                            value: 'nome',
+                            disabled: !isPagante
+                          }
+                        ]}
+                        mb={18}
+                      />
+                    )}
 
                     <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
                       NOME COMPLETO
@@ -686,32 +786,36 @@ export default function ProcessTracker({
                       onChange={e => setFullName(e.target.value)}
                       placeholder="Nome completo exatamente como consta no documento ou processo"
                       style={{ ...inputStyle, marginBottom: 16 }}
-                      autoFocus
+                      autoFocus={!isConsultante}
                     />
 
                     <label style={{ display: 'flex', alignItems: 'center', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
-                      CPF DO TITULAR
-                      <Tooltip label="Sempre usamos o processo pelo CPF ligado a ele" withArrow>
+                      {isConsultante ? 'SEU CPF/CNPJ' : 'CPF DO TITULAR'}
+                      <Tooltip
+                        label={isConsultante ? 'CPF/CNPJ fixo, definido no cadastro e travado para consultantes' : 'Sempre usamos o processo pelo CPF ligado a ele'}
+                        withArrow
+                      >
                         <span style={{ marginLeft: 6, display: 'inline-flex', alignItems: 'center', color: MUTED, cursor: 'help' }}>
-                          <Info size={14} />
+                          {isConsultante ? <Lock size={13} strokeWidth={2.2} /> : <Info size={14} />}
                         </span>
                       </Tooltip>
                     </label>
                     <input
                       type="text"
                       value={cpfInput}
-                      onChange={e => setCpfInput(formatCpf(e.target.value))}
+                      onChange={e => setCpfInput(formatDocumento(e.target.value))}
                       placeholder="000.000.000-00"
-                      maxLength={14}
+                      maxLength={18}
                       style={inputStyle}
+                      disabled={isConsultante}
                     />
-                    {!isCpfValid && cleanDigits(cpfInput).length === 11 && (
+                    {!isCpfValid && cpfInputDigits.length >= 11 && (
                       <span style={{ fontSize: 11, color: DANGER, marginTop: 4, display: 'block' }}>
-                        Dígito verificador do CPF inválido. Verifique os números.
+                        Dígito verificador do documento inválido. Verifique os números.
                       </span>
                     )}
 
-                    {searchMode === 'numero' && (
+                    {!isConsultante && searchMode === 'numero' && (
                       <div style={{ marginTop: 16 }}>
                         <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
                           NÚMERO DO PROCESSO (CNJ)
@@ -898,9 +1002,9 @@ export default function ProcessTracker({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
                       <ReviewRow
                         label="Buscar por"
-                        value={`CPF ${formatCpf(cleanDigits(cpfInput)) || '—'}${
-                          searchMode === 'numero' ? ` · Nº ${processNumberInput || '—'}` : ''
-                        }${searchMode === 'nome' ? ` · Nome ${partyNameInput || '—'}` : ''}`}
+                        value={`${isConsultante && profile.documentoTipo === 'cnpj' ? 'CNPJ' : 'CPF'} ${cpfInput || '—'}${
+                          !isConsultante && searchMode === 'numero' ? ` · Nº ${processNumberInput || '—'}` : ''
+                        }${!isConsultante && searchMode === 'nome' ? ` · Nome ${partyNameInput || '—'}` : ''}`}
                         onEdit={() => setCurrentStepIndex(1)}
                       />
                       <ReviewRow
