@@ -248,10 +248,27 @@ export async function POST(request: Request) {
               }
 
               if (movs.length === 0) {
+                // A Infosimples nem sempre retorna a lista de movimentações (processo muito recente,
+                // sigilo parcial, ou o próprio tribunal não expõe histórico detalhado nesse serviço).
+                // Nesses casos, monta uma descrição com todos os outros campos do processo já
+                // disponíveis na resposta (classe, vara, valor) em vez de deixar só "Processo distribuído".
+                const classeInfo = p.classe || p.classe_acao || p.assunto;
+                const varaInfo = p.vara || p.foro || p.orgao_julgador;
+                const valorInfo = p.valor_acao || p.valor_causa;
+                const detalhes = [
+                  classeInfo && `Classe: ${classeInfo}`,
+                  varaInfo && `Órgão: ${varaInfo}`,
+                  valorInfo && `Valor da causa: ${valorInfo}`
+                ].filter(Boolean);
+
                 movs.push({
                   data: convertBrDateToIso(p.distribuicao || p.data_autuacao),
                   titulo: p.ultimo_evento ? (p.ultimo_evento.slice(0, 70) + '...') : 'Processo distribuído',
-                  descricao: p.ultimo_evento || `Processo autuado no tribunal: ${p.distribuicao || p.data_autuacao || 'Data não informada'}.`,
+                  descricao:
+                    p.ultimo_evento ||
+                    (detalhes.length > 0
+                      ? `Processo autuado em ${p.distribuicao || p.data_autuacao || 'data não informada'}. ${detalhes.join(' · ')}.`
+                      : `Processo autuado no tribunal: ${p.distribuicao || p.data_autuacao || 'Data não informada'}. O tribunal ainda não disponibilizou o histórico de movimentações para este processo.`),
                   tag: 'informativo'
                 });
               }
