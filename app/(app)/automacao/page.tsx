@@ -56,19 +56,21 @@ export default function AutomacaoPage() {
         {regras === null && <p className="text-sm text-white/60">Carregando…</p>}
 
         {regras !== null && (
-          <Tabs value={abaAtiva} onChange={setAbaAtiva}>
-            <Tabs.List>
-              {regras.map(regra => (
-                <Tabs.Tab key={regra.id} value={regra.id}>
-                  {regra.nome}
-                </Tabs.Tab>
-              ))}
+          <Tabs value={abaAtiva} onChange={setAbaAtiva} keepMounted={false}>
+            <div className="flex items-start justify-between gap-3">
+              <Tabs.List className="flex-1">
+                {regras.map(regra => (
+                  <Tabs.Tab key={regra.id} value={regra.id}>
+                    {regra.nome}
+                  </Tabs.Tab>
+                ))}
+              </Tabs.List>
               <Tooltip label="Nova aba de automação">
-                <ActionIcon variant="subtle" color="gray" onClick={openModal} ml="xs" aria-label="Adicionar aba">
+                <ActionIcon variant="subtle" color="gray" onClick={openModal} aria-label="Adicionar aba">
                   <Plus size={18} strokeWidth={1.8} />
                 </ActionIcon>
               </Tooltip>
-            </Tabs.List>
+            </div>
 
             {regras.length === 0 && (
               <p className="mt-6 text-sm text-white/60">

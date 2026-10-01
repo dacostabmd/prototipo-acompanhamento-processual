@@ -10,7 +10,7 @@ export async function requireAdvogadoOuAdmin(request: Request): Promise<NextResp
   if (!db) return null; // modo demo sem Supabase: não bloqueia (mesmo padrão de requireUser)
 
   const { data } = await db.from('ap_perfis').select('role').eq('id', userId).maybeSingle();
-  if (data?.role !== 'advogado' && data?.role !== 'admin') {
+  if (data?.role !== 'advogado' && data?.role !== 'broker' && data?.role !== 'admin') {
     return NextResponse.json({ error: 'Acesso restrito à equipe operacional.' }, { status: 403 });
   }
   return null;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getSupabase } from './supabase';
 
-export type ProfileRole = 'cliente' | 'advogado' | 'admin';
+export type ProfileRole = 'cliente' | 'advogado' | 'broker' | 'admin';
 
 export interface Profile {
   role: ProfileRole;
@@ -27,24 +27,42 @@ function readDemoProfile(): Profile {
 }
 
 /** Carrega o perfil (role + documento fixo do consultante) uma vez, com fallback ao modo demo sem Supabase. */
-export function useProfile(): { profile: Profile; loading: boolean } {
+export function useProfile(): { profile: Profile; loading: boolean; refresh: () => Promise<void> } {
   const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchProfile = async () => {
     const supabase = getSupabase();
     if (!supabase) {
       setProfile(readDemoProfile());
       setLoading(false);
       return;
     }
-    (async () => {
+
+    try {
       const { data } = await supabase.auth.getUser();
       const u = data.user;
       if (!u) {
         setLoading(false);
         return;
       }
+
+      // Sincroniza role / documento pendente de login com Google se houver
+      try {
+        const pendingRole = localStorage.getItem('bf_pending_role');
+        const pendingDoc = localStorage.getItem('bf_pending_documento');
+        const pendingDocTipo = localStorage.getItem('bf_pending_documento_tipo');
+        if (pendingRole) {
+          await supabase.from('ap_perfis').update({
+            role: pendingRole,
+            ...(pendingDoc ? { documento: pendingDoc, documento_tipo: pendingDocTipo || (pendingDoc.length === 14 ? 'cnpj' : 'cpf') } : {})
+          }).eq('id', u.id);
+          localStorage.removeItem('bf_pending_role');
+          localStorage.removeItem('bf_pending_documento');
+          localStorage.removeItem('bf_pending_documento_tipo');
+        }
+      } catch {}
+
       const { data: perfil } = await supabase.from('ap_perfis').select('nome,role,documento,documento_tipo').eq('id', u.id).maybeSingle();
       setProfile({
         role: (perfil?.role as ProfileRole) || 'advogado',
@@ -52,9 +70,16 @@ export function useProfile(): { profile: Profile; loading: boolean } {
         documento: perfil?.documento ?? '',
         documentoTipo: (perfil?.documento_tipo as 'cpf' | 'cnpj' | '') || ''
       });
+    } catch {
+      setProfile(readDemoProfile());
+    } finally {
       setLoading(false);
-    })();
+    }
+  };
+
+  useEffect(() => {
+    void fetchProfile();
   }, []);
 
-  return { profile, loading };
+  return { profile, loading, refresh: fetchProfile };
 }

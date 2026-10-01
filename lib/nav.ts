@@ -15,7 +15,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/painel', label: 'Visão geral', icon: LayoutDashboard },
   { href: '/consulta', label: 'Consultar processos', icon: Search },
   { href: '/processos', label: 'Meus processos', icon: Gavel },
-  { href: '/automacao', label: 'Automação de funis', icon: Workflow, roles: ['advogado', 'admin'] },
+  { href: '/automacao', label: 'Automação de funis', icon: Workflow, roles: ['advogado', 'broker', 'admin'] },
   { href: '/perfil', label: 'Meu perfil', icon: User }
 ];
 

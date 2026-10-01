@@ -62,7 +62,15 @@ export default function Perfil() {
   return (
     <div className="mx-auto max-w-2xl p-6 sm:p-10">
       <h1 className="text-3xl font-bold tracking-tight text-white">Meu perfil</h1>
-      <p className="mt-2 text-white/60">{isConsultante ? 'Conta consultante' : 'Conta advogado'}</p>
+      <p className="mt-2 text-white/60">
+        {d.role === 'broker'
+          ? 'Conta Broker (Ativos & Precatórios)'
+          : isConsultante
+          ? 'Conta Consulta Avulsa'
+          : d.role === 'admin'
+          ? 'Conta Administrador'
+          : 'Conta Advogado'}
+      </p>
       <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-sm backdrop-blur-md">
         <dl className="grid gap-5 text-sm">
           {campos.map(({ icon: Icon, label, valor, locked }) => (

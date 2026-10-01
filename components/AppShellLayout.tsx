@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import { AppShell, Burger, Tooltip, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
@@ -14,7 +15,11 @@ import { authFetch } from '@/lib/authFetch';
 import { useProfile } from '@/lib/useProfile';
 import PageTransition from './PageTransition';
 import UserChip from './UserChip';
-import GhostFibers from './GhostFibers';
+
+// WebGL (ogl) é custoso e puramente decorativo: carregado só no client, fora do caminho
+// crítico de render inicial de cada rota autenticada (diagnóstico de performance registrado
+// em roadmap.json, feature "tema-dark-glass-shell").
+const GhostFibers = dynamic(() => import('./GhostFibers'), { ssr: false });
 
 const RAIL = 80;
 const EXPANDED = 250;

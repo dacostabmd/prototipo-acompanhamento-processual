@@ -12,7 +12,7 @@ const TEXT = '#232323';
 const MUTED = '#7a7a7a';
 
 type Mode = 'login' | 'signup';
-type Perfil = 'advogado' | 'consultante';
+type Perfil = 'advogado' | 'broker' | 'cliente';
 
 const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', margin: '0 0 8px' };
 
@@ -24,6 +24,7 @@ export default function AuthGateway() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [documento, setDocumento] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,6 +39,20 @@ export default function AuthGateway() {
     router.refresh();
   };
 
+  // Carrega credenciais salvas no localStorage (Lembrar senha)
+  useEffect(() => {
+    try {
+      const savedRemember = localStorage.getItem('bf_remember_me');
+      if (savedRemember === 'true') {
+        const savedEmail = localStorage.getItem('bf_saved_email') || '';
+        const savedPassword = localStorage.getItem('bf_saved_password') || '';
+        if (savedEmail) setEmail(savedEmail);
+        if (savedPassword) setPassword(savedPassword);
+        setRememberMe(true);
+      }
+    } catch {}
+  }, []);
+
   // Redireciona automaticamente se já estiver autenticado
   useEffect(() => {
     if (supabase) {
@@ -51,16 +66,40 @@ export default function AuthGateway() {
 
   const handleGoogle = async () => {
     setError('');
+
+    // Se estiver em modo cadastro, salva o perfil/documento escolhido para sincronizar no retorno do OAuth
+    try {
+      if (mode === 'signup') {
+        localStorage.setItem('bf_pending_role', perfil);
+        if (perfil === 'cliente' && documentoDigits) {
+          localStorage.setItem('bf_pending_documento', documentoDigits);
+          localStorage.setItem('bf_pending_documento_tipo', documentoDigits.length === 14 ? 'cnpj' : 'cpf');
+        }
+      }
+    } catch {}
+
     if (!supabase) {
       // Modo demonstração enquanto o Supabase não está configurado
       try {
         localStorage.setItem('bf-demo-user', 'google');
+        localStorage.setItem('bf-demo-role', perfil);
+        if (perfil === 'cliente' && documentoDigits) {
+          localStorage.setItem('bf-demo-documento', documentoDigits);
+          localStorage.setItem('bf-demo-documento-tipo', documentoDigits.length === 14 ? 'cnpj' : 'cpf');
+        }
       } catch {}
       return finish();
     }
+
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/painel` }
+      options: {
+        redirectTo: `${window.location.origin}/painel`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent'
+        }
+      }
     });
     if (err) setError('Não foi possível entrar com o Google. Tente novamente.');
   };
@@ -72,23 +111,37 @@ export default function AuthGateway() {
     if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Informe um e-mail válido.');
     if (password.length < 6) return setError('A senha deve ter ao menos 6 caracteres.');
     if (mode === 'signup' && name.trim().length < 3) return setError('Informe seu nome completo.');
-    if (mode === 'signup' && perfil === 'consultante' && !isDocumentoValido) {
-      return setError('Informe um CPF ou CNPJ válido.');
+    if (mode === 'signup' && perfil === 'cliente' && !isDocumentoValido) {
+      return setError('Informe um CPF ou CNPJ válido para a Consulta Avulsa.');
     }
 
     setLoading(true);
     try {
+      // Salva ou remove credenciais do localStorage conforme checkbox "Lembrar dados"
+      try {
+        if (rememberMe) {
+          localStorage.setItem('bf_remember_me', 'true');
+          localStorage.setItem('bf_saved_email', email);
+          localStorage.setItem('bf_saved_password', password);
+        } else {
+          localStorage.removeItem('bf_remember_me');
+          localStorage.removeItem('bf_saved_email');
+          localStorage.removeItem('bf_saved_password');
+        }
+      } catch {}
+
       if (!supabase) {
         try {
           localStorage.setItem('bf-demo-user', email);
-          localStorage.setItem('bf-demo-role', mode === 'signup' && perfil === 'consultante' ? 'cliente' : 'advogado');
-          if (mode === 'signup' && perfil === 'consultante') {
+          localStorage.setItem('bf-demo-role', mode === 'signup' ? perfil : 'advogado');
+          if (mode === 'signup' && perfil === 'cliente') {
             localStorage.setItem('bf-demo-documento', documentoDigits);
             localStorage.setItem('bf-demo-documento-tipo', documentoDigits.length === 14 ? 'cnpj' : 'cpf');
           }
         } catch {}
         return finish();
       }
+
       if (mode === 'signup') {
         const { data, error: err } = await supabase.auth.signUp({
           email,
@@ -96,8 +149,8 @@ export default function AuthGateway() {
           options: {
             data: {
               full_name: name.trim(),
-              role: perfil === 'consultante' ? 'cliente' : 'advogado',
-              ...(perfil === 'consultante'
+              role: perfil,
+              ...(perfil === 'cliente'
                 ? { documento: documentoDigits, documento_tipo: documentoDigits.length === 14 ? 'cnpj' : 'cpf' }
                 : {})
             },
@@ -173,9 +226,31 @@ export default function AuthGateway() {
           <h2 style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.6, color: TEXT, margin: '0 0 8px' }}>
             {mode === 'login' ? 'Acesse sua conta' : 'Crie sua conta'}
           </h2>
-          <p style={{ fontSize: 15, color: MUTED, margin: '0 0 28px' }}>
+          <p style={{ fontSize: 15, color: MUTED, margin: '0 0 24px' }}>
             {mode === 'login' ? 'Entre para consultar e acompanhar seus processos.' : 'Leva menos de um minuto.'}
           </p>
+
+          {mode === 'signup' && (
+            <div style={{ margin: '0 0 20px' }}>
+              <label style={label}>Qual é o seu perfil de acesso?</label>
+              <SegmentedControl
+                fullWidth
+                value={perfil}
+                onChange={v => setPerfil(v as Perfil)}
+                data={[
+                  { label: 'Advogado', value: 'advogado' },
+                  { label: 'Broker', value: 'broker' },
+                  { label: 'Consulta Avulsa', value: 'cliente' }
+                ]}
+                mb={6}
+              />
+              <p style={{ fontSize: 12, color: MUTED, margin: '4px 0 0', lineHeight: 1.4 }}>
+                {perfil === 'advogado' && 'Acesso a consultas livres por qualquer CPF ou CNJ, gestão de carteiras e automações.'}
+                {perfil === 'broker' && 'Acesso a consultas livres, análise de precatórios/ativos judiciais e automação de funil.'}
+                {perfil === 'cliente' && 'Acesso restrito ao próprio CPF/CNPJ cadastrado, ideal para acompanhamento pessoal.'}
+              </p>
+            </div>
+          )}
 
           <button type="button" onClick={handleGoogle} className="bf-btn-google">
             <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
@@ -187,28 +262,13 @@ export default function AuthGateway() {
             Continuar com Google
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '24px 0', color: '#94a3b8', fontSize: 13 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '20px 0', color: '#94a3b8', fontSize: 13 }}>
             <span style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
-            ou com e-mail
+            ou com e-mail e senha
             <span style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
           </div>
 
-          {mode === 'signup' && (
-            <div style={{ margin: '0 0 18px' }}>
-              <label style={label}>Você é...</label>
-              <SegmentedControl
-                fullWidth
-                value={perfil}
-                onChange={v => setPerfil(v as Perfil)}
-                data={[
-                  { label: 'Advogado', value: 'advogado' },
-                  { label: 'Consultante', value: 'consultante' }
-                ]}
-              />
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} noValidate style={{ display: 'grid', gap: 18 }}>
+          <form onSubmit={handleSubmit} noValidate style={{ display: 'grid', gap: 16 }}>
             {mode === 'signup' && (
               <div>
                 <label style={label} htmlFor="bf-name">
@@ -217,10 +277,10 @@ export default function AuthGateway() {
                 <input id="bf-name" className="bf-input" value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
               </div>
             )}
-            {mode === 'signup' && perfil === 'consultante' && (
+            {mode === 'signup' && perfil === 'cliente' && (
               <div>
                 <label style={label} htmlFor="bf-documento">
-                  CPF ou CNPJ
+                  CPF ou CNPJ do titular
                 </label>
                 <input
                   id="bf-documento"
@@ -232,7 +292,7 @@ export default function AuthGateway() {
                   autoComplete="off"
                 />
                 <p style={{ fontSize: 12, color: MUTED, margin: '6px 0 0' }}>
-                  Você só poderá consultar processos deste CPF/CNPJ. Não é possível alterar depois de criada a conta.
+                  Você consultará os processos ligados a este documento fixo.
                 </p>
               </div>
             )}
@@ -265,6 +325,16 @@ export default function AuthGateway() {
               />
             </div>
 
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#475569', cursor: 'pointer', userSelect: 'none', marginTop: -4 }}>
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#2455b8' }}
+              />
+              <span>Lembrar meus dados de acesso neste navegador</span>
+            </label>
+
             {error && (
               <div role="alert" style={{ background: '#fef2f2', color: '#b42318', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
                 {error}
@@ -281,7 +351,7 @@ export default function AuthGateway() {
             </button>
           </form>
 
-          <p style={{ fontSize: 14, color: MUTED, textAlign: 'center', marginTop: 26 }}>
+          <p style={{ fontSize: 14, color: MUTED, textAlign: 'center', marginTop: 22 }}>
             {mode === 'login' ? 'Ainda não tem conta?' : 'Já possui conta?'}{' '}
             <button
               type="button"
