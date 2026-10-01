@@ -58,11 +58,38 @@ export interface BitrixDeal {
   [customField: string]: unknown;
 }
 
-/** Lista os funis (pipelines) de negociação. */
-export async function listarFunis(): Promise<{ pipelines: BitrixPipeline[]; simulated: boolean }> {
-  const mock: BitrixPipeline[] = [{ ID: 0, NAME: '[Simulado] Funil padrão', SORT: 10 }];
+interface BitrixDealField {
+  type: string;
+  isRequired?: boolean;
+}
+
+/**
+ * Checa se um campo customizado (ex.: UF_CRM_1740590606) existe como campo de DEAL no Bitrix.
+ * crm.deal.fields é global (não por categoria) — campos customizados do Bitrix valem para todos
+ * os funis de Deal, então essa checagem é "o campo existe na conta", não "está preenchido neste
+ * funil específico" (o preenchimento real por deal só se sabe ao listar os deals).
+ */
+async function campoDeDealExiste(campo: string): Promise<{ existe: boolean; simulated: boolean }> {
+  const mock: Record<string, BitrixDealField> = { [campo]: { type: 'string' } };
+  const r = await callBitrix<Record<string, BitrixDealField>>('crm.deal.fields', {}, mock);
+  return { existe: Boolean(r.result?.[campo]), simulated: r.simulated };
+}
+
+/**
+ * Lista os funis (pipelines) de negociação cujo nome começa com "IA" (prefixo usado para marcar
+ * funis de automação de enriquecimento) e que têm o campo customizado do número de processo
+ * configurado na conta Bitrix.
+ */
+export async function listarFunisIA(campoProcesso: string): Promise<{ pipelines: BitrixPipeline[]; simulated: boolean }> {
+  const mock: BitrixPipeline[] = [{ ID: 0, NAME: 'IA - [Simulado] Funil padrão', SORT: 10 }];
   const r = await callBitrix<BitrixPipeline[]>('crm.dealcategory.list', {}, mock);
-  return { pipelines: r.result, simulated: r.simulated };
+  const { existe: campoExiste, simulated: camposSimulated } = await campoDeDealExiste(campoProcesso);
+
+  const simulated = r.simulated || camposSimulated;
+  if (!campoExiste) return { pipelines: [], simulated };
+
+  const pipelinesIA = r.result.filter(p => p.NAME?.trim().toUpperCase().startsWith('IA'));
+  return { pipelines: pipelinesIA, simulated };
 }
 
 /** Lista as etapas de um funil. ENTITY_ID segue o padrão "DEAL_STAGE_<categoryId>" (0 = "DEAL_STAGE"). */
@@ -74,20 +101,25 @@ export async function listarEtapas(categoryId: number): Promise<{ stages: Bitrix
 }
 
 /**
- * Lista deals de um funil+etapa, com paginação nativa do Bitrix (start/next, páginas de 50).
- * `select` sempre inclui ID, TITLE, CATEGORY_ID, STAGE_ID, OPPORTUNITY e o campo de processo.
+ * Lista deals de um funil (opcionalmente filtrando por etapa), com paginação nativa do Bitrix
+ * (start/next, páginas de 50). `select` sempre inclui ID, TITLE, CATEGORY_ID, STAGE_ID,
+ * OPPORTUNITY e o campo de processo. Sem `stageId`, varre todas as etapas do funil — cada funil
+ * "IA <Estado>" tem várias etapas, cada uma com deals que têm o número de processo preenchido.
  */
 export async function listarDeals(params: {
   categoryId: number;
-  stageId: string;
+  stageId?: string;
   campoProcesso: string;
   start?: number;
 }): Promise<{ deals: BitrixDeal[]; next?: number; simulated: boolean }> {
   const mock: BitrixDeal[] = [];
+  const filter: Record<string, unknown> = { CATEGORY_ID: params.categoryId };
+  if (params.stageId) filter.STAGE_ID = params.stageId;
+
   const r = await callBitrix<BitrixDeal[]>(
     'crm.deal.list',
     {
-      filter: { CATEGORY_ID: params.categoryId, STAGE_ID: params.stageId },
+      filter,
       select: ['ID', 'TITLE', 'CATEGORY_ID', 'STAGE_ID', 'OPPORTUNITY', params.campoProcesso],
       start: params.start ?? 0,
       order: { ID: 'ASC' }
@@ -95,4 +127,26 @@ export async function listarDeals(params: {
     mock
   );
   return { deals: r.result, next: r.next, simulated: r.simulated };
+}
+
+/**
+ * Busca um deal específico dentro de um funil pelo valor exato do campo customizado do número
+ * de processo. Usado pela busca pontual (campo de busca na UI, em vez do lote de N).
+ */
+export async function buscarDealPorNumeroProcesso(params: {
+  categoryId: number;
+  campoProcesso: string;
+  numeroProcesso: string;
+}): Promise<{ deal: BitrixDeal | null; simulated: boolean }> {
+  const mock: BitrixDeal[] = [];
+  const r = await callBitrix<BitrixDeal[]>(
+    'crm.deal.list',
+    {
+      filter: { CATEGORY_ID: params.categoryId, [params.campoProcesso]: params.numeroProcesso },
+      select: ['ID', 'TITLE', 'CATEGORY_ID', 'STAGE_ID', 'OPPORTUNITY', params.campoProcesso],
+      start: 0
+    },
+    mock
+  );
+  return { deal: r.result[0] ?? null, simulated: r.simulated };
 }

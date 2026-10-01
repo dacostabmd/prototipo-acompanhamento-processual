@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ActionIcon, Tabs, Tooltip } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { Plus } from 'lucide-react';
+import { Plus, Settings2 } from 'lucide-react';
 import { authFetch } from '@/lib/authFetch';
 import { useProfile } from '@/lib/useProfile';
 import type { AutomacaoRegra } from '@/lib/automacao';
@@ -25,12 +25,14 @@ export default function AutomacaoPage() {
   }, [carregandoPerfil, profile.role, router]);
 
   useEffect(() => {
-    authFetch('/api/automacao/regras')
+    // Descobre automaticamente os funis "IA*" do Bitrix (com o campo de nº de processo
+    // configurado) e garante uma aba/regra por funil, sem precisar criar manualmente.
+    authFetch('/api/automacao/regras/sincronizar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
       .then(res => res.json())
       .then(data => {
         const lista: AutomacaoRegra[] = data.regras ?? [];
         setRegras(lista);
-        if (lista.length > 0) setAbaAtiva(lista[0].id);
+        if (lista.length > 0) setAbaAtiva(prev => prev ?? lista[0].id);
       })
       .catch(() => setRegras([]));
   }, []);
@@ -45,15 +47,17 @@ export default function AutomacaoPage() {
     setAbaAtiva(regra.id);
   };
 
+  const regraAtiva = regras?.find(r => r.id === abaAtiva) ?? null;
+
   if (profile.role === 'cliente') return null;
 
   return (
     <div className="mx-auto max-w-6xl p-6 sm:p-10">
       <h1 className="text-3xl font-bold tracking-tight text-white">Automação de funis</h1>
-      <p className="mt-2 text-white/60">Busque números de processo em deals do Bitrix24 e enriqueça automaticamente com InfoSimples e DataJud.</p>
+      <p className="mt-2 text-white/60">Enriquecimento de leads por número de processo (InfoSimples + DataJud), a partir dos funis &quot;IA*&quot; do Bitrix24.</p>
 
       <div className="mt-8 overflow-x-auto rounded-3xl border border-white/10 bg-white/5 p-5 shadow-sm backdrop-blur-md">
-        {regras === null && <p className="text-sm text-white/60">Carregando…</p>}
+        {regras === null && <p className="text-sm text-white/60">Buscando funis no Bitrix…</p>}
 
         {regras !== null && (
           <Tabs value={abaAtiva} onChange={setAbaAtiva} keepMounted={false}>
@@ -65,16 +69,25 @@ export default function AutomacaoPage() {
                   </Tabs.Tab>
                 ))}
               </Tabs.List>
-              <Tooltip label="Nova aba de automação">
-                <ActionIcon variant="subtle" color="gray" onClick={openModal} aria-label="Adicionar aba">
-                  <Plus size={18} strokeWidth={1.8} />
-                </ActionIcon>
-              </Tooltip>
+              <div className="flex items-center gap-1.5">
+                <Tooltip label="Nova regra / funil">
+                  <ActionIcon variant="subtle" onClick={openModal} aria-label="Adicionar regra" className="bf-neon-btn">
+                    <Plus size={18} strokeWidth={2.4} />
+                  </ActionIcon>
+                </Tooltip>
+                {regraAtiva && (
+                  <Tooltip label="Configurar esta aba (etapa, filtros, tamanho do lote)">
+                    <ActionIcon variant="subtle" onClick={openModal} aria-label="Configurar aba" className="bf-neon-btn">
+                      <Settings2 size={18} strokeWidth={2.4} />
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </div>
             </div>
 
             {regras.length === 0 && (
               <p className="mt-6 text-sm text-white/60">
-                Nenhuma aba configurada ainda. Clique no ícone &quot;+&quot; para criar a primeira, escolhendo o funil, a etapa e o campo do número de processo no Bitrix.
+                Nenhum funil &quot;IA*&quot; encontrado no Bitrix com o campo de número de processo configurado. Verifique o nome dos funis (devem começar com &quot;IA&quot;) e o campo customizado na conta.
               </p>
             )}
 
@@ -87,7 +100,7 @@ export default function AutomacaoPage() {
         )}
       </div>
 
-      <ModalConfigurarRegra opened={modalOpened} onClose={closeModal} onSalvo={onRegraSalva} />
+      <ModalConfigurarRegra opened={modalOpened} onClose={closeModal} onSalvo={onRegraSalva} regraExistente={regraAtiva} />
     </div>
   );
 }

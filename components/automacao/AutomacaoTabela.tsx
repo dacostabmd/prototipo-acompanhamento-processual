@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Group, NumberInput, Pagination, Select, Table, TextInput } from '@mantine/core';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActionIcon, Badge, Button, Group, NumberInput, Pagination, Select, Table, Tooltip, TextInput } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { Play, Search } from 'lucide-react';
+import { Eye, Play, Search } from 'lucide-react';
 import { authFetch } from '@/lib/authFetch';
-import { ESFERA_LABEL, STATUS_LABEL, type AutomacaoDeal, type AutomacaoRegra } from '@/lib/automacao';
+import { ESFERA_LABEL, type AutomacaoDeal, type AutomacaoRegra } from '@/lib/automacao';
 import ModalDetalheDeal from './ModalDetalheDeal';
+import AutomacaoScan, { type ScanItem } from './AutomacaoScan';
 
 interface Props {
   regra: AutomacaoRegra;
@@ -22,14 +23,6 @@ interface Filtros {
 const FILTROS_VAZIOS: Filtros = { esfera: null, valorMin: '', valorMax: '', busca: '' };
 const PAGE_SIZE = 10;
 
-const STATUS_COR: Record<AutomacaoDeal['status'], string> = {
-  pendente: 'gray',
-  processando: 'blue',
-  enriquecido: 'teal',
-  sem_processo: 'yellow',
-  erro: 'red'
-};
-
 const fmtValor = (v: number | null) => (v !== null ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—');
 const fmtData = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '—');
 
@@ -39,10 +32,12 @@ export default function AutomacaoTabela({ regra }: Props) {
   const [filtrosAplicados, setFiltrosAplicados] = useState<Filtros>(FILTROS_VAZIOS);
   const [deals, setDeals] = useState<AutomacaoDeal[] | null>(null);
   const [total, setTotal] = useState(0);
+  const [numeroBusca, setNumeroBusca] = useState('');
   const [processando, setProcessando] = useState(false);
-  const [progresso, setProgresso] = useState<{ atual: number; meta: number } | null>(null);
+  const [scanItems, setScanItems] = useState<ScanItem[]>([]);
   const [dealSelecionado, setDealSelecionado] = useState<AutomacaoDeal | null>(null);
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
+  const itemsPorDealId = useRef(new Map<number, number>());
 
   const carregarDeals = useCallback(async () => {
     const params = new URLSearchParams({ regraId: regra.id, page: String(page), pageSize: String(PAGE_SIZE) });
@@ -66,20 +61,20 @@ export default function AutomacaoTabela({ regra }: Props) {
     setPage(1);
   };
 
-  const buscarProximos = async () => {
+  const rodarProcessamento = async (numeroProcesso?: string) => {
     setProcessando(true);
-    setProgresso({ atual: 0, meta: regra.tamanhoLote });
+    setScanItems([]);
+    itemsPorDealId.current = new Map();
     try {
       const res = await authFetch('/api/automacao/processar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ regraId: regra.id })
+        body: JSON.stringify({ regraId: regra.id, numeroProcesso })
       });
       const reader = res.body?.getReader();
       if (!reader) return;
       const decoder = new TextDecoder();
       let buffer = '';
-      let atual = 0;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -90,16 +85,31 @@ export default function AutomacaoTabela({ regra }: Props) {
         for (const linha of linhas) {
           if (!linha.trim()) continue;
           const evento = JSON.parse(linha);
-          if (evento.type === 'progress' && evento.dealId) {
-            atual += 1;
-            setProgresso({ atual, meta: regra.tamanhoLote });
-          }
+          if (evento.type !== 'progress' || !evento.dealId) continue;
+
+          setScanItems(prev => {
+            const idx = itemsPorDealId.current.get(evento.dealId);
+            if (evento.status === 'iniciado') {
+              if (idx !== undefined) return prev;
+              const novoIdx = prev.length;
+              itemsPorDealId.current.set(evento.dealId, novoIdx);
+              return [...prev, { dealId: evento.dealId, label: evento.dealTitulo ?? `Deal #${evento.dealId}`, status: 'loading' }];
+            }
+            if (idx === undefined) return prev;
+            const copia = [...prev];
+            copia[idx] = {
+              ...copia[idx],
+              status: evento.status === 'enriquecido' ? 'found' : 'not-found',
+              numeroCnj: evento.numeroCnj ?? undefined
+            };
+            return copia;
+          });
         }
       }
     } finally {
       setProcessando(false);
-      setProgresso(null);
       setPage(1);
+      setNumeroBusca('');
       await carregarDeals();
     }
   };
@@ -137,68 +147,94 @@ export default function AutomacaoTabela({ regra }: Props) {
           value={filtros.busca}
           onChange={e => setFiltros(f => ({ ...f, busca: e.currentTarget.value }))}
         />
-        <Button variant="filled" onClick={aplicarFiltros}>
+        <Button variant="filled" onClick={aplicarFiltros} disabled={processando}>
           Filtrar
         </Button>
       </div>
 
-      <Group justify="space-between" mt="md">
-        <Button leftSection={<Play size={16} />} onClick={buscarProximos} loading={processando}>
-          {processando && progresso ? `Processando ${progresso.atual}/${progresso.meta}...` : `Buscar próximos ${regra.tamanhoLote}`}
+      <Group justify="space-between" mt="md" align="flex-end" wrap="wrap">
+        <Button leftSection={<Play size={16} />} onClick={() => rodarProcessamento()} loading={processando} disabled={processando}>
+          Buscar próximos {regra.tamanhoLote}
         </Button>
+
+        <Group gap="xs">
+          <TextInput
+            placeholder="Nº de processo específico..."
+            value={numeroBusca}
+            onChange={e => setNumeroBusca(e.currentTarget.value)}
+            disabled={processando}
+            w={220}
+          />
+          <Button variant="light" onClick={() => rodarProcessamento(numeroBusca)} disabled={!numeroBusca.trim() || processando} loading={processando && !!numeroBusca}>
+            Buscar este
+          </Button>
+        </Group>
+
         <Badge color="gray" variant="light">
-          {total} deal(s) processado(s)
+          {total} lead(s) qualificado(s)
         </Badge>
       </Group>
 
-      <div className="mt-4 overflow-x-auto">
-        {deals === null && <p className="p-6 text-sm text-white/60">Carregando…</p>}
-        {deals?.length === 0 && (
-          <p className="p-6 text-sm text-white/60">Nenhum deal processado ainda nesta regra — clique em &quot;Buscar&quot; para começar.</p>
-        )}
-        {!!deals?.length && (
-          <div className="min-w-[860px]">
-            <Table verticalSpacing="sm" horizontalSpacing="md" highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th className="!text-white/60">Deal</Table.Th>
-                  <Table.Th className="!text-white/60">Nº processo</Table.Th>
-                  <Table.Th className="!text-white/60">Tribunal</Table.Th>
-                  <Table.Th className="!text-white/60">Esfera</Table.Th>
-                  <Table.Th className="!text-white/60">Valor</Table.Th>
-                  <Table.Th className="!text-white/60">Status</Table.Th>
-                  <Table.Th className="!text-white/60">Atualização</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {deals.map(deal => (
-                  <Table.Tr key={deal.id} onClick={() => abrirDetalhe(deal)} style={{ cursor: 'pointer' }}>
-                    <Table.Td className="!text-white font-medium">
-                      {deal.dealTitulo ?? `Deal #${deal.dealId}`}
-                    </Table.Td>
-                    <Table.Td className="!text-white/70">{deal.numeroCnjFormatado ?? '—'}</Table.Td>
-                    <Table.Td className="!text-white/70">{deal.tribunalLabel ?? '—'}</Table.Td>
-                    <Table.Td className="!text-white/70">{deal.esfera ? ESFERA_LABEL[deal.esfera] : '—'}</Table.Td>
-                    <Table.Td className="!text-white/70">{fmtValor(deal.valorDeal)}</Table.Td>
-                    <Table.Td>
-                      <Badge color={STATUS_COR[deal.status]} variant="light">
-                        {STATUS_LABEL[deal.status]}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td className="!text-white/70">{fmtData(deal.processadoEm)}</Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
+      <div className="relative mt-4 min-h-[120px]">
+        <div
+          className="transition-opacity duration-300 ease-out"
+          style={{ opacity: processando ? 1 : 0, position: processando ? 'relative' : 'absolute', inset: 0, pointerEvents: processando ? 'auto' : 'none' }}
+        >
+          {processando && <AutomacaoScan items={scanItems} />}
+        </div>
 
-            {deals.length === 0 && filtrosAplicados !== FILTROS_VAZIOS && (
-              <p className="mt-4 text-center text-sm text-white/60">Nenhum deal corresponde aos filtros aplicados.</p>
-            )}
-          </div>
-        )}
+        <div
+          className="overflow-x-auto transition-opacity duration-300 ease-out"
+          style={{ opacity: processando ? 0 : 1, position: processando ? 'absolute' : 'relative', inset: 0, pointerEvents: processando ? 'none' : 'auto' }}
+        >
+          {deals === null && <p className="p-6 text-sm text-white/60">Carregando…</p>}
+          {deals?.length === 0 && (
+            <p className="p-6 text-sm text-white/60">Nenhum lead qualificado ainda nesta aba — clique em &quot;Buscar próximos&quot; para começar.</p>
+          )}
+          {!!deals?.length && (
+            <div className="min-w-[860px]">
+              <Table verticalSpacing="sm" horizontalSpacing="md" highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th className="!text-white/60">Deal</Table.Th>
+                    <Table.Th className="!text-white/60">Nº processo</Table.Th>
+                    <Table.Th className="!text-white/60">Tribunal</Table.Th>
+                    <Table.Th className="!text-white/60">Esfera</Table.Th>
+                    <Table.Th className="!text-white/60">Valor</Table.Th>
+                    <Table.Th className="!text-white/60">Atualização</Table.Th>
+                    <Table.Th className="!text-white/60">Ações</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {deals.map(deal => (
+                    <Table.Tr key={deal.id}>
+                      <Table.Td className="!text-white font-medium">{deal.dealTitulo ?? `Deal #${deal.dealId}`}</Table.Td>
+                      <Table.Td className="!text-white/70">{deal.numeroCnjFormatado ?? '—'}</Table.Td>
+                      <Table.Td className="!text-white/70">{deal.tribunalLabel ?? '—'}</Table.Td>
+                      <Table.Td className="!text-white/70">{deal.esfera ? ESFERA_LABEL[deal.esfera] : '—'}</Table.Td>
+                      <Table.Td className="!text-white/70">{fmtValor(deal.valorDeal)}</Table.Td>
+                      <Table.Td className="!text-white/70">{fmtData(deal.processadoEm)}</Table.Td>
+                      <Table.Td>
+                        <Tooltip label="Ver dados qualificados">
+                          <ActionIcon variant="subtle" onClick={() => abrirDetalhe(deal)} aria-label="Ver detalhes" className="bf-neon-btn">
+                            <Eye size={16} strokeWidth={2.2} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+
+              {deals.length === 0 && filtrosAplicados !== FILTROS_VAZIOS && (
+                <p className="mt-4 text-center text-sm text-white/60">Nenhum lead corresponde aos filtros aplicados.</p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {total > PAGE_SIZE && (
+      {!processando && total > PAGE_SIZE && (
         <Group justify="center" mt="md">
           <Pagination total={Math.ceil(total / PAGE_SIZE)} value={page} onChange={setPage} />
         </Group>

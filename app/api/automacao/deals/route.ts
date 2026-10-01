@@ -48,21 +48,23 @@ export async function GET(request: Request) {
   const page = Math.max(Number(url.searchParams.get('page') ?? '1'), 1);
   const pageSize = Math.min(Math.max(Number(url.searchParams.get('pageSize') ?? '10'), 1), 100);
   const esfera = url.searchParams.get('esfera');
-  const status = url.searchParams.get('status');
   const valorMin = url.searchParams.get('valorMin');
   const valorMax = url.searchParams.get('valorMax');
   const busca = url.searchParams.get('busca')?.trim();
 
+  // Só exibe deals efetivamente enriquecidos (com dado real) — processos sem informação no
+  // InfoSimples/DataJud nunca são persistidos por app/api/automacao/processar/route.ts, mas o
+  // filtro aqui também protege contra linhas antigas gravadas por uma versão anterior do fluxo.
   let query = db
     .from('ap_automacao_deals')
     .select('id,regra_id,deal_id,deal_titulo,numero_cnj,numero_cnj_formatado,tribunal_label,esfera,valor_deal,status,erro_mensagem,dados_enriquecidos,processado_em,created_at', {
       count: 'exact'
     })
     .eq('regra_id', regraId)
+    .eq('status', 'enriquecido')
     .order('created_at', { ascending: false });
 
   if (esfera) query = query.eq('esfera', esfera);
-  if (status) query = query.eq('status', status);
   if (valorMin) query = query.gte('valor_deal', Number(valorMin));
   if (valorMax) query = query.lte('valor_deal', Number(valorMax));
   if (busca) query = query.or(`numero_cnj_formatado.ilike.%${busca}%,deal_titulo.ilike.%${busca}%`);

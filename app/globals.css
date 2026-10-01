@@ -640,7 +640,18 @@ a:hover {
 
 .mantine-NumberInput-control {
   border-color: var(--bf-glass-border) !important;
-  color: var(--bf-text-muted) !important;
+  color: #ffffff !important;
+}
+
+.mantine-NumberInput-control svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
+}
+
+.mantine-NumberInput-control:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.18) !important;
 }
 
 .mantine-Tabs-tab {
@@ -663,5 +674,28 @@ a:hover {
 
 .mantine-Pagination-control[data-active] {
   background: var(--bf-blue-600) !important;
+}
+
+/* ── Neon / High Contrast White Icons & Action Buttons ── */
+.bf-neon-btn,
+.bf-neon-icon,
+.mantine-ActionIcon-root {
+  color: #ffffff !important;
+  transition: all 0.2s ease !important;
+}
+
+.bf-neon-btn svg,
+.bf-neon-icon svg,
+.mantine-ActionIcon-root svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.85)) drop-shadow(0 0 12px rgba(255, 255, 255, 0.5));
+}
+
+.bf-neon-btn:hover,
+.bf-neon-icon:hover,
+.mantine-ActionIcon-root:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.45) !important;
 }
 
