@@ -6,14 +6,14 @@ import { ActionIcon, Tabs, Tooltip } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Plus, Settings2 } from 'lucide-react';
 import { authFetch } from '@/lib/authFetch';
-import { useProfile } from '@/lib/useProfile';
+import { useSharedProfile } from '@/components/ProfileProvider';
 import type { AutomacaoRegra } from '@/lib/automacao';
 import AutomacaoTabela from '@/components/automacao/AutomacaoTabela';
 import ModalConfigurarRegra from '@/components/automacao/ModalConfigurarRegra';
 
 export default function AutomacaoPage() {
   const router = useRouter();
-  const { profile, loading: carregandoPerfil } = useProfile();
+  const { profile, loading: carregandoPerfil } = useSharedProfile();
   const [regras, setRegras] = useState<AutomacaoRegra[] | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<string | null>(null);
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
@@ -25,14 +25,29 @@ export default function AutomacaoPage() {
   }, [carregandoPerfil, profile.role, router]);
 
   useEffect(() => {
-    // Descobre automaticamente os funis "IA*" do Bitrix (com o campo de nº de processo
-    // configurado) e garante uma aba/regra por funil, sem precisar criar manualmente.
-    authFetch('/api/automacao/regras/sincronizar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+    // Lista as regras já conhecidas primeiro (rápido, só Postgres). A sincronização com o
+    // Bitrix (2 chamadas externas + sincronismo de regras) só roda no primeiro acesso, quando
+    // ainda não há nenhuma regra salva — sem isso, toda navegação para /automacao reconsultava
+    // o Bitrix do zero, mesmo sem nenhum funil novo.
+    authFetch('/api/automacao/regras')
       .then(res => res.json())
-      .then(data => {
+      .then(async data => {
         const lista: AutomacaoRegra[] = data.regras ?? [];
-        setRegras(lista);
-        if (lista.length > 0) setAbaAtiva(prev => prev ?? lista[0].id);
+        if (lista.length > 0) {
+          setRegras(lista);
+          setAbaAtiva(prev => prev ?? lista[0].id);
+          return;
+        }
+
+        const res2 = await authFetch('/api/automacao/regras/sincronizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data2 = await res2.json();
+        const lista2: AutomacaoRegra[] = data2.regras ?? [];
+        setRegras(lista2);
+        if (lista2.length > 0) setAbaAtiva(prev => prev ?? lista2[0].id);
       })
       .catch(() => setRegras([]));
   }, []);

@@ -26,7 +26,7 @@ import {
 } from '@/lib/format';
 import { useDevPagante } from '@/lib/devPagante';
 import { extractDdd, prioritizeByDdd } from '@/lib/ddd';
-import { useProfile } from '@/lib/useProfile';
+import { useSharedProfile } from '@/components/ProfileProvider';
 import { getAvgMs, recordSample } from '@/lib/tribunalTiming';
 import { custoServico, custoTotal } from '@/lib/infosimplesPricing';
 
@@ -97,7 +97,7 @@ export default function ProcessTracker({
   chatTone = 'Acolhedor'
 }: ProcessTrackerProps) {
   const isPagante = useDevPagante();
-  const { profile } = useProfile();
+  const { profile } = useSharedProfile();
   const isConsultante = profile.role === 'cliente';
 
   // Passo 1 · Como buscar
@@ -275,7 +275,7 @@ export default function ProcessTracker({
     const cnjParsed = isBuscaNumero ? parseCnj(processNumberInput) : null;
     const targets =
       isBuscaNumero && cnjParsed?.valido
-        ? [cnjParsed.tribunalLabel]
+        ? ['DataJud (CNJ)', cnjParsed.tribunalLabel]
         : getTargetTribunals(extractDdd(phoneDigits), buscarTodosTribunais ? null : tribunaisSelecionados);
     const scanStartedAt = Date.now();
     setScanItems(targets.map(label => ({ label, status: 'loading', startedAt: scanStartedAt })));
@@ -609,14 +609,85 @@ export default function ProcessTracker({
                 }}
               >
                 <h3 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
-                  Varrendo bases judiciais...
+                  {searchMode === 'numero' ? 'Realizando nossa pesquisa...' : 'Varrendo bases judiciais...'}
                 </h3>
                 <p style={{ margin: '0 0 20px', fontSize: 13.5, color: MUTED }}>
-                  Consultamos os {scanItems.length || 14} tribunais abaixo ao mesmo tempo. O % de cada barra é uma
+                  {searchMode === 'numero'
+                    ? 'Cruzamos a API pública do CNJ (DataJud) com a base do tribunal de origem do processo ao mesmo tempo, para trazer o resultado mais completo possível.'
+                    : `Consultamos os ${scanItems.length || 14} tribunais abaixo ao mesmo tempo. O % de cada barra é uma
                   estimativa com base no tempo médio histórico daquele tribunal neste navegador; a barra completa
-                  quando a resposta real chega — tribunais com sistemas mais lentos (eproc/legado) podem demorar mais.
+                  quando a resposta real chega — tribunais com sistemas mais lentos (eproc/legado) podem demorar mais.`}
                 </p>
 
+                {searchMode === 'numero' ? (
+                  (() => {
+                    const doneCount = scanItems.filter(i => i.status === 'found' || i.status === 'not-found' || i.status === 'cancelled').length;
+                    const totalCount = scanItems.length || 1;
+                    const algumEncontrado = scanItems.some(i => i.status === 'found');
+                    const todasConcluidas = doneCount === totalCount;
+                    const dataJudItem = scanItems.find(i => i.label === 'DataJud (CNJ)');
+                    const tribunalItem = scanItems.find(i => i.label !== 'DataJud (CNJ)');
+                    const dataJudPendente = dataJudItem && (dataJudItem.status === 'pending' || dataJudItem.status === 'loading');
+                    const tribunalPendente = tribunalItem && (tribunalItem.status === 'pending' || tribunalItem.status === 'loading');
+
+                    // % estimado pela média dos dois itens em andamento (mesma mecânica de tempo médio
+                    // histórico usada no grid multi-tribunal, via lib/tribunalTiming.ts) — garante que a
+                    // barra avance de forma visível mesmo com as duas fontes ainda em "loading".
+                    const pct = todasConcluidas
+                      ? 100
+                      : Math.min(
+                          96,
+                          Math.round(
+                            (scanItems.reduce((sum, item) => {
+                              if (item.status !== 'loading' || !item.startedAt) return sum + (item.status === 'pending' ? 0 : 100);
+                              const liveElapsedMs = Date.now() - item.startedAt;
+                              const avgMs = getAvgMs(item.label);
+                              return sum + Math.min(96, (liveElapsedMs / avgMs) * 100);
+                            }, 0) /
+                              totalCount)
+                          )
+                        );
+
+                    const statusLabel = todasConcluidas
+                      ? algumEncontrado
+                        ? 'Processo localizado — consolidando os dados...'
+                        : 'Nenhuma das duas fontes localizou o processo...'
+                      : dataJudPendente && tribunalPendente
+                      ? `Consultando a base pública do CNJ (DataJud) e o ${tribunalItem?.label || 'tribunal'} em paralelo...`
+                      : dataJudPendente
+                      ? 'Consultando a base pública do CNJ (DataJud)...'
+                      : tribunalPendente
+                      ? `Aguardando resposta do ${tribunalItem?.label}...`
+                      : 'Consolidando os dados encontrados...';
+
+                    return (
+                      <div style={{ maxWidth: 420, margin: '0 auto' }}>
+                        <div
+                          style={{
+                            height: 6,
+                            borderRadius: 3,
+                            background: 'rgba(255,255,255,0.08)',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: '100%',
+                              width: `${pct}%`,
+                              background: todasConcluidas ? (algumEncontrado ? MOSS_GREEN : RUBY_RED) : BLUE,
+                              borderRadius: 3,
+                              transition: 'width 0.4s ease'
+                            }}
+                          />
+                        </div>
+                        <div style={{ marginTop: 10, fontSize: 12.5, color: MUTED, lineHeight: 1.4 }}>
+                          {statusLabel} {!todasConcluidas && `(${pct}%)`}
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <>
                 {(() => {
                   const doneCount = scanItems.filter(i => i.status === 'found' || i.status === 'not-found' || i.status === 'cancelled').length;
                   const totalCount = scanItems.length || 1;
@@ -834,6 +905,8 @@ export default function ProcessTracker({
                     })}
                   </div>
                 )}
+                  </>
+                )}
               </div>
             ) : (
               <Stepper
@@ -933,7 +1006,7 @@ export default function ProcessTracker({
                     <label style={{ display: 'flex', alignItems: 'center', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
                       {isConsultante
                         ? 'SEU CPF/CNPJ'
-                        : searchMode === 'numero'
+                        : searchMode === 'numero' || searchMode === 'nome'
                         ? 'CPF DO TITULAR (OPCIONAL)'
                         : 'CPF DO TITULAR'}
                       <Tooltip
@@ -942,6 +1015,8 @@ export default function ProcessTracker({
                             ? 'CPF/CNPJ fixo, definido no cadastro e travado para consultantes'
                             : searchMode === 'numero'
                             ? 'Opcional na busca por processo CNJ'
+                            : searchMode === 'nome'
+                            ? 'Opcional, mas ajuda a evitar resultados de homônimos'
                             : 'Sempre usamos o processo pelo CPF ligado a ele'
                         }
                         withArrow
@@ -955,7 +1030,11 @@ export default function ProcessTracker({
                       type="text"
                       value={cpfInput}
                       onChange={e => setCpfInput(formatDocumento(e.target.value))}
-                      placeholder={searchMode === 'numero' && !isConsultante ? '000.000.000-00 (opcional)' : '000.000.000-00'}
+                      placeholder={
+                        (searchMode === 'numero' || searchMode === 'nome') && !isConsultante
+                          ? '000.000.000-00 (opcional)'
+                          : '000.000.000-00'
+                      }
                       maxLength={18}
                       style={inputStyle}
                       disabled={isConsultante}

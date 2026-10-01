@@ -95,7 +95,7 @@ export async function consultarDataJud(tribunalLabel: string, numeroProcessoDigi
         Authorization: `APIKey ${apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ query: { match: { numeroProcesso: numeroProcessoDigits } } }),
+      body: JSON.stringify({ query: { match_phrase: { numeroProcesso: numeroProcessoDigits } } }),
       signal: controller.signal
     });
     if (!res.ok) return null;
@@ -166,7 +166,7 @@ export async function buscarProcessoDiretoDataJud(numeroProcessoDigits: string):
         Authorization: `APIKey ${apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ query: { match: { numeroProcesso: info.numeroLimpo } } }),
+      body: JSON.stringify({ query: { match_phrase: { numeroProcesso: info.numeroLimpo } } }),
       signal: controller.signal
     });
     if (!res.ok) return null;

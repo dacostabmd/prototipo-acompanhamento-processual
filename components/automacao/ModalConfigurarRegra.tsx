@@ -29,8 +29,8 @@ export default function ModalConfigurarRegra({ opened, onClose, onSalvo, regraEx
   const [stageId, setStageId] = useState<string | null>(null);
   const [tamanhoLote, setTamanhoLote] = useState<number>(10);
   const [filtroEsfera, setFiltroEsfera] = useState<string | null>(null);
-  const [filtroValorMin, setFiltroValorMin] = useState<number | ''>('');
-  const [filtroValorMax, setFiltroValorMax] = useState<number | ''>('');
+  const [filtroValorMin, setFiltroValorMin] = useState<number | ''>(100);
+  const [filtroValorMax, setFiltroValorMax] = useState<number | ''>(10000000);
   const [campoEsfera, setCampoEsfera] = useState('');
   const [salvando, setSalvando] = useState(false);
 
@@ -39,8 +39,8 @@ export default function ModalConfigurarRegra({ opened, onClose, onSalvo, regraEx
     setStageId(regraExistente.stageId || null);
     setTamanhoLote(regraExistente.tamanhoLote);
     setFiltroEsfera(regraExistente.filtroEsfera);
-    setFiltroValorMin(regraExistente.filtroValorMin ?? '');
-    setFiltroValorMax(regraExistente.filtroValorMax ?? '');
+    setFiltroValorMin(regraExistente.filtroValorMin ?? 100);
+    setFiltroValorMax(regraExistente.filtroValorMax ?? 10000000);
     setCampoEsfera(regraExistente.campoEsfera ?? '');
 
     authFetch(`/api/automacao/bitrix/etapas?categoriaId=${regraExistente.categoriaId}`)

@@ -654,16 +654,54 @@ a:hover {
   background: rgba(255, 255, 255, 0.18) !important;
 }
 
+/* ── Mantine Tabs Dark / Glass Aesthetic & Smooth Hover Transitions ── */
+.mantine-Tabs-list {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  gap: 4px !important;
+  padding-bottom: 0 !important;
+}
+
 .mantine-Tabs-tab {
-  color: var(--bf-text-muted) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 10px 10px 0 0 !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  padding: 9px 18px !important;
+  margin-bottom: -1px !important;
+  transition: color 200ms ease, background-color 200ms ease, border-color 200ms ease, box-shadow 200ms ease !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+.mantine-Tabs-tab:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.35) !important;
 }
 
 .mantine-Tabs-tab[data-active] {
-  color: var(--bf-text-primary) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.14) rgba(255, 255, 255, 0.14) transparent rgba(255, 255, 255, 0.14) !important;
+  border-bottom: 2px solid #ffffff !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3) !important;
 }
 
-.mantine-Tabs-list {
-  border-color: var(--bf-glass-border) !important;
+.mantine-Tabs-tab[data-active]:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: #ffffff !important;
+  border-bottom: 2px solid #ffffff !important;
+}
+
+.mantine-Tabs-tab:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5) !important;
+  outline-offset: 2px !important;
 }
 
 .mantine-Pagination-control {
@@ -699,3 +737,27 @@ a:hover {
   box-shadow: 0 0 16px rgba(255, 255, 255, 0.45) !important;
 }
 
+
+/* ─── Mantine Table (Dark Theme & Instant Subtle Hover) ─── */
+.mantine-Table-table {
+  --table-hover-color: rgba(255, 255, 255, 0.08) !important;
+  --table-border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.mantine-Table-table,
+.mantine-Table-thead,
+.mantine-Table-tbody,
+.mantine-Table-tr,
+.mantine-Table-th,
+.mantine-Table-td {
+  transition: none !important;
+}
+
+.mantine-Table-tr:hover,
+.mantine-Table-tr[data-hover]:hover,
+.mantine-Table-tbody tr:hover,
+.mantine-Table-tbody tr[data-hover]:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  transition: none !important;
+}

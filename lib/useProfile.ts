@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getSupabase } from './supabase';
 
-export type ProfileRole = 'cliente' | 'advogado' | 'broker' | 'admin';
+export type ProfileRole = 'cliente' | 'advogado' | 'broker' | 'admin' | 'owner';
 
 export interface Profile {
   role: ProfileRole;
@@ -26,8 +26,13 @@ function readDemoProfile(): Profile {
   }
 }
 
-/** Carrega o perfil (role + documento fixo do consultante) uma vez, com fallback ao modo demo sem Supabase. */
-export function useProfile(): { profile: Profile; loading: boolean; refresh: () => Promise<void> } {
+/**
+ * Carrega o perfil (role + documento fixo do consultante) uma vez, com fallback ao modo demo sem
+ * Supabase. Prefira useSharedProfile() (components/ProfileProvider.tsx) em componentes dentro do
+ * shell autenticado — essa função aqui é a busca "crua", reaproveitada pelo Provider, mas chamá-la
+ * direto em várias páginas duplica as chamadas ao Supabase a cada navegação.
+ */
+export function useProfileQuery(): { profile: Profile; loading: boolean; refresh: () => Promise<void> } {
   const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
   const [loading, setLoading] = useState(true);
 

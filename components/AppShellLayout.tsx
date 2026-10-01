@@ -12,9 +12,10 @@ import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { NAV_ITEMS } from '@/lib/nav';
 import { getSupabase } from '@/lib/supabase';
 import { authFetch } from '@/lib/authFetch';
-import { useProfile } from '@/lib/useProfile';
+import { ProfileProvider, useSharedProfile } from './ProfileProvider';
 import PageTransition from './PageTransition';
 import UserChip from './UserChip';
+import Changelog from './Changelog';
 
 // WebGL (ogl) é custoso e puramente decorativo: carregado só no client, fora do caminho
 // crítico de render inicial de cada rota autenticada (diagnóstico de performance registrado
@@ -25,12 +26,21 @@ const RAIL = 80;
 const EXPANDED = 250;
 const ICON = 20;
 
+/** Monta o ProfileProvider uma única vez no shell: todas as páginas filhas (via useSharedProfile) reaproveitam essa mesma busca de perfil, em vez de cada uma refazer auth.getUser()+select em ap_perfis. */
 export default function AppShellLayout({ children }: { children: ReactNode }) {
+  return (
+    <ProfileProvider>
+      <AppShellLayoutInner>{children}</AppShellLayoutInner>
+    </ProfileProvider>
+  );
+}
+
+function AppShellLayoutInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [expanded, setExpanded] = useState(true);
   const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure(false);
-  const { profile } = useProfile();
+  const { profile } = useSharedProfile();
   const navItems = NAV_ITEMS.filter(item => !item.roles || item.roles.includes(profile.role));
 
   useEffect(() => {
@@ -154,6 +164,7 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
           <PageTransition>{children}</PageTransition>
         </div>
       </AppShell.Main>
+      <Changelog isOwner={profile.role === 'owner'} />
     </AppShell>
   );
 }

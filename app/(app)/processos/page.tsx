@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Table, TextInput, Select } from '@mantine/core';
 import { Gavel, Search } from 'lucide-react';
 import { authFetch } from '@/lib/authFetch';
-import { useProfile } from '@/lib/useProfile';
+import { useSharedProfile } from '@/components/ProfileProvider';
 
 interface Processo {
   id: string;
@@ -31,7 +31,7 @@ const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-
 export default function Processos() {
   const [lista, setLista] = useState<Processo[] | null>(null);
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
-  const { profile } = useProfile();
+  const { profile } = useSharedProfile();
   const isConsultante = profile.role === 'cliente';
 
   useEffect(() => {

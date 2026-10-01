@@ -8,7 +8,7 @@ import { invalidateProcessosCache } from '@/lib/redis';
 import { consultarDataJud, buscarProcessoDiretoDataJud } from '@/lib/datajud';
 import { parseCnj } from '@/lib/cnj';
 import { classifyTag } from '@/lib/classify';
-import { custoTotal } from '@/lib/infosimplesPricing';
+import { custoTotal, custoServico } from '@/lib/infosimplesPricing';
 import { criarRegistroConsulta, limparRegistroConsulta } from '@/lib/consultaAbort';
 
 function convertBrDateToIso(dateStr?: string): string {
@@ -22,11 +22,18 @@ function convertBrDateToIso(dateStr?: string): string {
   return dateStr;
 }
 
-async function fetchInfosimples(service: string, token: string, cleanCpf: string, signal: AbortSignal) {
+async function fetchInfosimples(
+  service: string,
+  token: string,
+  params: Record<string, string | undefined>,
+  signal: AbortSignal
+) {
   try {
     const form = new URLSearchParams();
     form.append('token', token);
-    form.append('cpf', cleanCpf);
+    for (const [key, value] of Object.entries(params)) {
+      if (value) form.append(key, value);
+    }
 
     const res = await fetch(`https://api.infosimples.com/api/v2/consultas/${service}`, {
       method: 'POST',
@@ -43,6 +50,103 @@ async function fetchInfosimples(service: string, token: string, cleanCpf: string
     }
     return null;
   }
+}
+
+/** Converte um registro bruto de processo retornado pela Infosimples para o formato LegalProcess. */
+function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName?: string): LegalProcess {
+  const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').trim();
+  const movs: Movement[] = [];
+
+  const rawMovs =
+    p.ultimas_movimentacoes ||
+    p.eventos ||
+    p.movimento_processo ||
+    p.movimentacoes_processo ||
+    p.movimentacao ||
+    [];
+  if (Array.isArray(rawMovs) && rawMovs.length > 0) {
+    rawMovs.forEach((m: any) => {
+      const fullText = (m.movimento || m.descricao || m.evento || m.movimentacao || '').trim();
+      const dashIdx = fullText.indexOf(' - ');
+      let titulo = dashIdx > 0 && dashIdx < 60 ? fullText.slice(0, dashIdx) : fullText.slice(0, 70);
+      if (titulo.length < fullText.length && !titulo.endsWith('...')) {
+        titulo += '...';
+      }
+      const responsavel = m.responsavel || m.magistrado || m.orgao_julgador || m.orgao;
+      const complemento = m.complemento || m.observacao || m.detalhe;
+      const extras = [
+        responsavel && `Responsável: ${responsavel}`,
+        complemento && complemento !== fullText && complemento
+      ].filter(Boolean);
+      const descricaoCompleta = extras.length > 0 ? `${fullText} — ${extras.join(' · ')}` : fullText;
+      movs.push({
+        data: convertBrDateToIso(m.data || m.data_evento || m.data_hora_movimentacao),
+        titulo: titulo || 'Movimentação processual',
+        descricao: descricaoCompleta || 'Sem descrição detalhada.',
+        tag: classifyTag(fullText)
+      });
+    });
+  }
+
+  if (movs.length === 0) {
+    const classeInfo = p.classe || p.classe_acao || p.assunto;
+    const varaInfo = p.vara || p.foro || p.orgao_julgador;
+    const valorInfo = p.valor_acao || p.valor_causa;
+    const partesInfo = [p.reqte || p.autor, p.reqdo || p.reu || p.exectdo].filter(Boolean).join(' x ');
+    const situacaoInfo = p.situacao || p.status || p.fase;
+    const detalhes = [
+      classeInfo && `Classe: ${classeInfo}`,
+      varaInfo && `Órgão: ${varaInfo}`,
+      valorInfo && `Valor da causa: ${valorInfo}`,
+      partesInfo && `Partes: ${partesInfo}`,
+      situacaoInfo && `Situação: ${situacaoInfo}`
+    ].filter(Boolean);
+
+    movs.push({
+      data: convertBrDateToIso(p.distribuicao || p.data_autuacao),
+      titulo: p.ultimo_evento ? (p.ultimo_evento.slice(0, 70) + '...') : 'Processo distribuído',
+      descricao:
+        p.ultimo_evento && detalhes.length > 0
+          ? `${p.ultimo_evento} — ${detalhes.join(' · ')}.`
+          : p.ultimo_evento ||
+            (detalhes.length > 0
+              ? `Processo autuado em ${p.distribuicao || p.data_autuacao || 'data não informada'}. ${detalhes.join(' · ')}.`
+              : `Processo autuado no tribunal: ${p.distribuicao || p.data_autuacao || 'Data não informada'}. O tribunal ainda não disponibilizou o histórico de movimentações para este processo.`),
+      tag: 'informativo'
+    });
+  }
+
+  let parteContraria = 'Não informada';
+  const normUser = (fullName || '').toLowerCase().trim();
+  const autor = p.reqte || p.autor || '';
+  const reu = p.reqdo || p.reu || p.exectdo || '';
+
+  if (autor && reu) {
+    if (normUser && autor.toLowerCase().includes(normUser)) {
+      parteContraria = reu;
+    } else if (normUser && reu.toLowerCase().includes(normUser)) {
+      parteContraria = autor;
+    } else {
+      parteContraria = reu;
+    }
+  } else {
+    parteContraria = reu || autor || 'Não informada';
+  }
+
+  let valorCausa = p.valor_acao || p.valor_causa;
+  if (!valorCausa && p.normalizado_valor_acao) {
+    valorCausa = `R$ ${Number(p.normalizado_valor_acao).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  }
+
+  return {
+    numero: num,
+    tribunal: `${tribunalLabel} · ${p.vara || p.foro || p.orgao_julgador || '1º Grau'}`,
+    tipo: p.classe || p.classe_acao || p.assunto || 'Ação Judicial',
+    parteContraria,
+    valorCausa: valorCausa || 'Não informado',
+    distribuicao: p.distribuicao || p.data_autuacao || 'Não informada',
+    movimentos: movs
+  };
 }
 
 /** Salva as preferências do stepper (Onde procurar / Avisos). Nunca lança erro. */
@@ -114,6 +218,33 @@ async function salvarProcessos(userId: string, cpf: string, phone: string | unde
   }
 }
 
+// Multi-tribunal: consulta todos os tribunais com API de busca (por CPF ou número de processo) na Infosimples.
+// campoNumero: nome exato do parâmetro de busca direta por número de processo daquele serviço,
+// confirmado na documentação oficial (infosimples.com/consultas/<slug>) — não é uniforme entre
+// serviços (a maioria usa "numero_processo", mas tjsp/primeiro-grau, trf1/processo e trf5/processo
+// usam "processo"). null quando o serviço não tem nenhum campo de busca por número (só CPF/CNPJ/nome/OAB).
+const ALL_TARGETS: { service: string; label: string; campoNumero: string | null }[] = [
+  { service: 'tribunal/tjsp/primeiro-grau', label: 'TJSP', campoNumero: 'processo' },
+  { service: 'tribunal/tjsp/eproc-lista', label: 'TJSP (eproc)', campoNumero: null },
+  { service: 'tribunal/tjrj/processo-eproc', label: 'TJRJ', campoNumero: 'numero_processo' },
+  { service: 'tribunal/tjmg/processo', label: 'TJMG', campoNumero: 'numero_processo' },
+  { service: 'tribunal/tjpr/processo', label: 'TJPR', campoNumero: 'numero_processo' },
+  // TJBA e TJRS: "primeiro-grau" aqui é na verdade o serviço de Certidão (antecedentes), não consulta
+  // processual — a Infosimples não tem, hoje, um serviço de busca de processos para esses 2 tribunais
+  // (confirmado na documentação oficial). Mantidos só para a varredura por CPF (que já falhava
+  // silenciosamente, pois os dados retornados não têm formato de lista de processos); nunca entram
+  // na busca por número, que exige campoNumero.
+  { service: 'tribunal/tjba/primeiro-grau', label: 'TJBA', campoNumero: null },
+  { service: 'tribunal/tjrs/primeiro-grau', label: 'TJRS', campoNumero: null },
+  { service: 'tribunal/tjsc/processo', label: 'TJSC', campoNumero: 'numero_processo' },
+  { service: 'tribunal/trf1/processo', label: 'TRF1', campoNumero: 'processo' },
+  { service: 'tribunal/trf2/processo', label: 'TRF2', campoNumero: 'numero_processo' },
+  { service: 'tribunal/trf2/processo-eproc', label: 'TRF2 (eproc)', campoNumero: 'numero_processo' },
+  { service: 'tribunal/trf3/consulta-publica', label: 'TRF3', campoNumero: 'numero_processo' },
+  { service: 'tribunal/trf5/processo', label: 'TRF5', campoNumero: 'processo' },
+  { service: 'tribunal/trf6/processo', label: 'TRF6', campoNumero: 'numero_processo' }
+];
+
 export async function POST(request: Request) {
   const unauthorized = await requireUser(request);
   if (unauthorized) return unauthorized;
@@ -158,17 +289,105 @@ export async function POST(request: Request) {
           const emit = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
           emit({ type: 'started', consultaId });
 
-          // Busca direto na API pública do DataJud (CNJ) pelo número de processo
-          const processoDataJud = await buscarProcessoDiretoDataJud(cleanProcessNumber);
-          const allProcesses: LegalProcess[] = [];
+          // Cruza as duas fontes em paralelo: DataJud (API pública gratuita do CNJ) e Infosimples
+          // (raspagem direta do portal do tribunal) — nunca uma como fallback da outra, pois cada
+          // uma pode ter dado que a outra não tem (cobertura, atraso de indexação, campos extras).
+          let custoEstimado = 0;
+          const token = process.env.INFOSIMPLES_API_TOKEN || process.env.INFOSIMPLES_TOKEN;
+          const tribunaisDoCnj = ALL_TARGETS.filter(
+            t => (t.label === targetLabel || t.label.startsWith(`${targetLabel} (`)) && t.campoNumero
+          );
+          const formattedNumber = cnjInfo?.numeroFormatado || cleanProcessNumber;
 
-          if (processoDataJud) {
-            allProcesses.push(processoDataJud);
-            emit({ type: 'progress', label: targetLabel, found: true });
-          } else {
-            console.log(`[api/processos] Processo ${cleanProcessNumber} não localizado no DataJud para ${targetLabel}.`);
+          const dataJudPromise = buscarProcessoDiretoDataJud(cleanProcessNumber).then(processo => {
+            emit({ type: 'progress', label: 'DataJud (CNJ)', found: !!processo });
+            return processo;
+          });
+
+          const infosimplesPromise = (async () => {
+            if (!token || tribunaisDoCnj.length === 0) {
+              emit({ type: 'progress', label: targetLabel, found: false });
+              return null;
+            }
+
+            for (const target of tribunaisDoCnj) {
+              const controller = new AbortController();
+              const result = await fetchInfosimples(
+                target.service,
+                token,
+                { [target.campoNumero!]: formattedNumber },
+                controller.signal
+              );
+              custoEstimado += custoServico(target.service);
+
+              if (result) {
+                console.log(
+                  `[api/processos] (busca por número) ${target.service}: code ${result.code} - "${result.code_message}" (data_count: ${result.data_count})`
+                );
+              } else {
+                console.log(`[api/processos] (busca por número) ${target.service}: sem resposta da Infosimples.`);
+              }
+
+              // Resposta de busca por número pode vir como objeto de detalhe único (campo "processo",
+              // singular, ou o próprio result.data[0] já sem wrapper) ou como lista (mesmo formato do
+              // fluxo por CPF), dependendo do serviço — tenta todos os formatos observados.
+              const rawList: any[] =
+                result?.code === 200 && result.data?.[0]
+                  ? result.data[0].processos ||
+                    result.data[0].lista_processos ||
+                    result.data[0].processos_lista ||
+                    result.data[0].lista_processos_encontrados ||
+                    (result.data[0].processo ? [result.data[0].processo] : null) ||
+                    (result.data[0].numero || result.data[0].numero_processo || result.data[0].classe_acao
+                      ? [result.data[0]]
+                      : [])
+                  : [];
+
+              const achou = rawList.find((p: any) => {
+                const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').replace(/\D/g, '');
+                return num === cleanProcessNumber;
+              });
+
+              if (achou) {
+                const processo = montarLegalProcessDaInfosimples(achou, target.label, fullName);
+                emit({ type: 'progress', label: targetLabel, found: true });
+                return processo;
+              }
+            }
+
             emit({ type: 'progress', label: targetLabel, found: false });
+            return null;
+          })();
+
+          const [processoDataJud, processoInfosimples] = await Promise.all([dataJudPromise, infosimplesPromise]);
+
+          // Mescla: parte da base mais completa disponível e complementa com os campos/movimentações
+          // que só a outra fonte trouxe (nunca sobrescreve dado já preenchido).
+          const allProcesses: LegalProcess[] = [];
+          let processoFinal: LegalProcess | null = null;
+
+          if (processoInfosimples && processoDataJud) {
+            processoFinal = processoInfosimples;
+            const descricoesExistentes = new Set(processoFinal.movimentos.map(m => m.descricao));
+            const movimentosNovos = processoDataJud.movimentos.filter(m => !descricoesExistentes.has(m.descricao));
+            if (movimentosNovos.length > 0) {
+              processoFinal.movimentos = [...movimentosNovos, ...processoFinal.movimentos].sort((a, b) => (a.data < b.data ? 1 : -1));
+            }
+            if (processoDataJud.assuntosDataJud?.length) processoFinal.assuntosDataJud = processoDataJud.assuntosDataJud;
+            if (processoDataJud.orgaoJulgadorDataJud) processoFinal.orgaoJulgadorDataJud = processoDataJud.orgaoJulgadorDataJud;
+            if (processoDataJud.grauDataJud) processoFinal.grauDataJud = processoDataJud.grauDataJud;
+            if ((!processoFinal.distribuicao || processoFinal.distribuicao === 'Não informada') && processoDataJud.distribuicao !== 'Não informada') {
+              processoFinal.distribuicao = processoDataJud.distribuicao;
+            }
+            if ((!processoFinal.valorCausa || processoFinal.valorCausa === 'Não informado') && processoDataJud.valorCausa !== 'Não informado') {
+              processoFinal.valorCausa = processoDataJud.valorCausa;
+            }
+            processoFinal.enriquecidoDataJud = true;
+          } else {
+            processoFinal = processoInfosimples || processoDataJud;
           }
+
+          if (processoFinal) allProcesses.push(processoFinal);
 
           const userId = await getUserId(request);
           await trackEvento(request, userId, {
@@ -180,6 +399,7 @@ export async function POST(request: Request) {
               totalProcessos: allProcesses.length,
               modo: 'numero',
               numeroProcesso: cleanProcessNumber,
+              fontes: { dataJud: !!processoDataJud, infosimples: !!processoInfosimples },
               processos: allProcesses.map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
             }
           });
@@ -200,7 +420,7 @@ export async function POST(request: Request) {
               totalProcessos: 0,
               processes: [],
               tribunaisConsultados: [targetLabel],
-              custoEstimado: 0
+              custoEstimado
             });
           } else {
             emit({
@@ -209,7 +429,7 @@ export async function POST(request: Request) {
               totalProcessos: allProcesses.length,
               processes: allProcesses,
               tribunaisConsultados: [targetLabel],
-              custoEstimado: 0
+              custoEstimado
             });
           }
 
@@ -239,24 +459,6 @@ export async function POST(request: Request) {
     const cleanPhone = (phone || '').replace(/\D/g, '');
     const ddd = extractDdd(cleanPhone);
     const selectedState = (state || '').toUpperCase();
-
-    // Multi-tribunal: consulta todos os tribunais com API de busca por CPF (lista de processos) na Infosimples.
-    const ALL_TARGETS: { service: string; label: string }[] = [
-      { service: 'tribunal/tjsp/primeiro-grau', label: 'TJSP' },
-      { service: 'tribunal/tjsp/eproc-lista', label: 'TJSP (eproc)' },
-      { service: 'tribunal/tjrj/processo-eproc', label: 'TJRJ' },
-      { service: 'tribunal/tjmg/processo', label: 'TJMG' },
-      { service: 'tribunal/tjpr/processo', label: 'TJPR' },
-      { service: 'tribunal/tjba/primeiro-grau', label: 'TJBA' },
-      { service: 'tribunal/tjrs/primeiro-grau', label: 'TJRS' },
-      { service: 'tribunal/tjsc/processo', label: 'TJSC' },
-      { service: 'tribunal/trf1/processo', label: 'TRF1' },
-      { service: 'tribunal/trf2/processo', label: 'TRF2' },
-      { service: 'tribunal/trf2/processo-eproc', label: 'TRF2 (eproc)' },
-      { service: 'tribunal/trf3/consulta-publica', label: 'TRF3' },
-      { service: 'tribunal/trf5/processo', label: 'TRF5' },
-      { service: 'tribunal/trf6/processo', label: 'TRF6' }
-    ];
 
     const orderedTargets = prioritizeByDdd(ALL_TARGETS, ddd);
 
@@ -289,7 +491,7 @@ export async function POST(request: Request) {
           tribunaisConsultados.push(target.label);
           const abortController = new AbortController();
           abortControllers.set(target.label, abortController);
-          const result = await fetchInfosimples(target.service, token, cleanCpf, abortController.signal);
+          const result = await fetchInfosimples(target.service, token, { cpf: cleanCpf }, abortController.signal);
           const cancelado = abortController.signal.aborted;
           abortControllers.delete(target.label);
 
@@ -317,98 +519,7 @@ export async function POST(request: Request) {
               seenProcessos.add(num);
               foundInThisTribunal = true;
 
-              const movs: Movement[] = [];
-
-              const rawMovs =
-                p.ultimas_movimentacoes ||
-                p.eventos ||
-                p.movimento_processo ||
-                p.movimentacoes_processo ||
-                p.movimentacao ||
-                [];
-              if (Array.isArray(rawMovs) && rawMovs.length > 0) {
-                rawMovs.forEach((m: any) => {
-                  const fullText = (m.movimento || m.descricao || m.evento || m.movimentacao || '').trim();
-                  const dashIdx = fullText.indexOf(' - ');
-                  let titulo = dashIdx > 0 && dashIdx < 60 ? fullText.slice(0, dashIdx) : fullText.slice(0, 70);
-                  if (titulo.length < fullText.length && !titulo.endsWith('...')) {
-                    titulo += '...';
-                  }
-                  const responsavel = m.responsavel || m.magistrado || m.orgao_julgador || m.orgao;
-                  const complemento = m.complemento || m.observacao || m.detalhe;
-                  const extras = [
-                    responsavel && `Responsável: ${responsavel}`,
-                    complemento && complemento !== fullText && complemento
-                  ].filter(Boolean);
-                  const descricaoCompleta = extras.length > 0 ? `${fullText} — ${extras.join(' · ')}` : fullText;
-                  movs.push({
-                    data: convertBrDateToIso(m.data || m.data_evento || m.data_hora_movimentacao),
-                    titulo: titulo || 'Movimentação processual',
-                    descricao: descricaoCompleta || 'Sem descrição detalhada.',
-                    tag: classifyTag(fullText)
-                  });
-                });
-              }
-
-              if (movs.length === 0) {
-                const classeInfo = p.classe || p.classe_acao || p.assunto;
-                const varaInfo = p.vara || p.foro || p.orgao_julgador;
-                const valorInfo = p.valor_acao || p.valor_causa;
-                const partesInfo = [p.reqte || p.autor, p.reqdo || p.reu || p.exectdo].filter(Boolean).join(' x ');
-                const situacaoInfo = p.situacao || p.status || p.fase;
-                const detalhes = [
-                  classeInfo && `Classe: ${classeInfo}`,
-                  varaInfo && `Órgão: ${varaInfo}`,
-                  valorInfo && `Valor da causa: ${valorInfo}`,
-                  partesInfo && `Partes: ${partesInfo}`,
-                  situacaoInfo && `Situação: ${situacaoInfo}`
-                ].filter(Boolean);
-
-                movs.push({
-                  data: convertBrDateToIso(p.distribuicao || p.data_autuacao),
-                  titulo: p.ultimo_evento ? (p.ultimo_evento.slice(0, 70) + '...') : 'Processo distribuído',
-                  descricao:
-                    p.ultimo_evento && detalhes.length > 0
-                      ? `${p.ultimo_evento} — ${detalhes.join(' · ')}.`
-                      : p.ultimo_evento ||
-                        (detalhes.length > 0
-                          ? `Processo autuado em ${p.distribuicao || p.data_autuacao || 'data não informada'}. ${detalhes.join(' · ')}.`
-                          : `Processo autuado no tribunal: ${p.distribuicao || p.data_autuacao || 'Data não informada'}. O tribunal ainda não disponibilizou o histórico de movimentações para este processo.`),
-                  tag: 'informativo'
-                });
-              }
-
-              let parteContraria = 'Não informada';
-              const normUser = (fullName || '').toLowerCase().trim();
-              const autor = p.reqte || p.autor || '';
-              const reu = p.reqdo || p.reu || p.exectdo || '';
-
-              if (autor && reu) {
-                if (normUser && autor.toLowerCase().includes(normUser)) {
-                  parteContraria = reu;
-                } else if (normUser && reu.toLowerCase().includes(normUser)) {
-                  parteContraria = autor;
-                } else {
-                  parteContraria = reu;
-                }
-              } else {
-                parteContraria = reu || autor || 'Não informada';
-              }
-
-              let valorCausa = p.valor_acao || p.valor_causa;
-              if (!valorCausa && p.normalizado_valor_acao) {
-                valorCausa = `R$ ${Number(p.normalizado_valor_acao).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-              }
-
-              allProcesses.push({
-                numero: num,
-                tribunal: `${target.label} · ${p.vara || p.foro || p.orgao_julgador || '1º Grau'}`,
-                tipo: p.classe || p.classe_acao || p.assunto || 'Ação Judicial',
-                parteContraria,
-                valorCausa: valorCausa || 'Não informado',
-                distribuicao: p.distribuicao || p.data_autuacao || 'Não informada',
-                movimentos: movs
-              });
+              allProcesses.push(montarLegalProcessDaInfosimples(p, target.label, fullName));
             });
           }
 

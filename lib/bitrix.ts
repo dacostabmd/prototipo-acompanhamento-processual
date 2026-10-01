@@ -82,11 +82,13 @@ async function campoDeDealExiste(campo: string): Promise<{ existe: boolean; simu
  */
 export async function listarFunisIA(campoProcesso: string): Promise<{ pipelines: BitrixPipeline[]; simulated: boolean }> {
   const mock: BitrixPipeline[] = [{ ID: 0, NAME: 'IA - [Simulado] Funil padrão', SORT: 10 }];
-  const r = await callBitrix<BitrixPipeline[]>('crm.dealcategory.list', {}, mock);
-  const { existe: campoExiste, simulated: camposSimulated } = await campoDeDealExiste(campoProcesso);
+  const [r, campo] = await Promise.all([
+    callBitrix<BitrixPipeline[]>('crm.dealcategory.list', {}, mock),
+    campoDeDealExiste(campoProcesso)
+  ]);
 
-  const simulated = r.simulated || camposSimulated;
-  if (!campoExiste) return { pipelines: [], simulated };
+  const simulated = r.simulated || campo.simulated;
+  if (!campo.existe) return { pipelines: [], simulated };
 
   const pipelinesIA = r.result.filter(p => p.NAME?.trim().toUpperCase().startsWith('IA'));
   return { pipelines: pipelinesIA, simulated };
@@ -127,6 +129,21 @@ export async function listarDeals(params: {
     mock
   );
   return { deals: r.result, next: r.next, simulated: r.simulated };
+}
+
+/** Busca um deal específico pelo ID. Usado pelo webhook de evento do Bitrix (ONCRMDEALADD/UPDATE), que só informa o ID. */
+export async function buscarDealPorId(params: {
+  dealId: number;
+  campoProcesso: string;
+}): Promise<{ deal: BitrixDeal | null; simulated: boolean }> {
+  const mock: BitrixDeal | null = null;
+  const r = await callBitrix<BitrixDeal | null>(
+    'crm.deal.get',
+    { id: params.dealId },
+    mock
+  );
+  if (!r.result) return { deal: null, simulated: r.simulated };
+  return { deal: r.result, simulated: r.simulated };
 }
 
 /**
