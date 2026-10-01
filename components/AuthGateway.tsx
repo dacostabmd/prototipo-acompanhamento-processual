@@ -290,7 +290,7 @@ export default function AuthGateway() {
                 setError('');
                 setInfo('');
               }}
-              style={{ background: 'none', border: 'none', padding: 0, color: BLUE, fontWeight: 600, cursor: 'pointer', fontSize: 14 }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#ffffff', textDecoration: 'underline', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}
             >
               {mode === 'login' ? 'Criar conta' : 'Fazer login'}
             </button>

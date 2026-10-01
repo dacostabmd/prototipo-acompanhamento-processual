@@ -848,7 +848,7 @@ export default function ProcessTracker({
                 {/* ── PASSO 1: COMO BUSCAR ── */}
                 <Step>
                   <div>
-                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE, fontWeight: 700, marginBottom: 4 }}>
+                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 4 }}>
                       PASSO 1 DE 4 · COMO BUSCAR
                     </div>
                     <h2 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
@@ -986,7 +986,7 @@ export default function ProcessTracker({
                 {/* ── PASSO 2: ONDE PROCURAR ── */}
                 <Step>
                   <div>
-                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE, fontWeight: 700, marginBottom: 4 }}>
+                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 4 }}>
                       PASSO 2 DE 4 · ONDE PROCURAR
                     </div>
                     <h2 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
@@ -1099,7 +1099,7 @@ export default function ProcessTracker({
                 {/* ── PASSO 3: AVISOS ── */}
                 <Step>
                   <div>
-                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE, fontWeight: 700, marginBottom: 4 }}>
+                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 4 }}>
                       PASSO 3 DE 4 · AVISOS
                     </div>
                     <h2 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
@@ -1157,7 +1157,7 @@ export default function ProcessTracker({
                 {/* ── PASSO 4: REVISAR E CONSULTAR ── */}
                 <Step>
                   <div>
-                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE, fontWeight: 700, marginBottom: 4 }}>
+                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 4 }}>
                       PASSO 4 DE 4 · REVISAR E CONSULTAR
                     </div>
                     <h2 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
@@ -1295,7 +1295,7 @@ export default function ProcessTracker({
               )}
             </div>
             <p style={{ margin: '0 0 22px', fontSize: 14, color: MUTED, lineHeight: 1.7 }}>
-              A consulta automática para o CPF {cpfInput} não retornou processos públicos ativos no tribunal consultado ({tribunaisConsultados.join(', ') || stateInput}).
+              A consulta automática para {searchMode === 'numero' ? `o processo ${processNumberInput || 'informado'}` : `o CPF ${cpfInput || 'informado'}`} não retornou processos públicos ativos no tribunal consultado ({tribunaisConsultados.join(', ') || stateInput}).
               Isso não significa que não existam pendências, pois processos em segredo de justiça ou em outros estados exigem verificação especializada.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
@@ -1305,7 +1305,7 @@ export default function ProcessTracker({
               >
                 PRECISO DE AUXÍLIO JURÍDICO
               </button>
-              <div style={{ display: 'flex', gap: 16 }}>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -1316,13 +1316,15 @@ export default function ProcessTracker({
                     void fetchAiSummary(demoData);
                   }}
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: BLUE,
+                    background: 'rgba(255,255,255,0.08)',
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: 4,
+                    color: '#ffffff',
                     fontSize: 12.5,
+                    fontWeight: 600,
                     cursor: 'pointer',
-                    textDecoration: 'underline',
-                    padding: 4
+                    padding: '8px 16px',
+                    transition: 'all 0.2s'
                   }}
                 >
                   Visualizar com dados demonstrativos (Modo Teste)
@@ -1334,16 +1336,17 @@ export default function ProcessTracker({
                     setNotFound(false);
                   }}
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: MUTED,
+                    background: 'transparent',
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: 4,
+                    color: BLUE_LIGHT,
                     fontSize: 12.5,
                     cursor: 'pointer',
-                    textDecoration: 'underline',
-                    padding: 4
+                    padding: '8px 16px',
+                    transition: 'all 0.2s'
                   }}
                 >
-                  Tentar outro CPF
+                  {searchMode === 'numero' ? 'Tentar outro processo' : 'Tentar outro CPF'}
                 </button>
               </div>
             </div>
