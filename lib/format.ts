@@ -1,5 +1,7 @@
 export const cleanDigits = (value: string): string => (value || '').replace(/\D/g, '');
 
+export { formatProcessNumber, isValidProcessNumber, parseCnj } from './cnj';
+
 export const formatCpf = (value: string): string => {
   const d = cleanDigits(value).slice(0, 11);
   if (d.length > 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;

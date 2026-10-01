@@ -5,7 +5,8 @@ import { NextResponse } from 'next/server';
 import type { LegalProcess, Movement } from '@/lib/mockProcesses';
 import { extractDdd, prioritizeByDdd } from '@/lib/ddd';
 import { invalidateProcessosCache } from '@/lib/redis';
-import { consultarDataJud } from '@/lib/datajud';
+import { consultarDataJud, buscarProcessoDiretoDataJud } from '@/lib/datajud';
+import { parseCnj } from '@/lib/cnj';
 import { classifyTag } from '@/lib/classify';
 import { custoTotal } from '@/lib/infosimplesPricing';
 import { criarRegistroConsulta, limparRegistroConsulta } from '@/lib/consultaAbort';
@@ -78,12 +79,15 @@ async function salvarProcessos(userId: string, cpf: string, phone: string | unde
     const db = getAdminClient();
     if (!db) return;
 
-    const perfil: Record<string, string> = { cpf };
+    const perfil: Record<string, string> = {};
+    if (cpf) perfil.cpf = cpf;
     const tel = (phone || '').replace(/\D/g, '');
     if (tel) perfil.telefone = tel;
     if (fullName?.trim()) perfil.nome = fullName.trim();
-    const up = await db.from('ap_perfis').update(perfil).eq('id', userId);
-    if (up.error) console.error('[api/processos] perfil:', up.error.message);
+    if (Object.keys(perfil).length > 0) {
+      const up = await db.from('ap_perfis').update(perfil).eq('id', userId);
+      if (up.error) console.error('[api/processos] perfil:', up.error.message);
+    }
 
     const rows = list
       .map(p => {
@@ -129,10 +133,100 @@ export async function POST(request: Request) {
     const cleanCpf = (cpf || '').replace(/\D/g, '');
     const cleanProcessNumber = (processNumber || '').replace(/\D/g, '');
 
-    if (cleanCpf.length !== 11) {
-      return NextResponse.json({ error: 'CPF deve conter 11 dígitos numéricos.' }, { status: 400 });
+    const isBuscaPorNumero = cleanProcessNumber.length === 20;
+
+    if (!isBuscaPorNumero && cleanCpf.length !== 11) {
+      return NextResponse.json(
+        { error: 'Informe um CPF válido (11 dígitos) ou um número de processo CNJ válido (20 dígitos).' },
+        { status: 400 }
+      );
     }
 
+    // ── FLUXO A: BUSCA DIRETA POR NÚMERO DE PROCESSO (CNJ) ──
+    if (isBuscaPorNumero) {
+      const cnjInfo = parseCnj(cleanProcessNumber);
+      const targetLabel = cnjInfo?.tribunalLabel || 'Tribunal';
+      const consultaId = randomUUID();
+      const encoder = new TextEncoder();
+
+      console.log(
+        `[api/processos] Consulta direta por Número CNJ: ${cleanProcessNumber} (Tribunal: ${targetLabel} - ${cnjInfo?.tribunalNome || 'Detectado'})`
+      );
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          const emit = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
+          emit({ type: 'started', consultaId });
+
+          // Busca direto na API pública do DataJud (CNJ) pelo número de processo
+          const processoDataJud = await buscarProcessoDiretoDataJud(cleanProcessNumber);
+          const allProcesses: LegalProcess[] = [];
+
+          if (processoDataJud) {
+            allProcesses.push(processoDataJud);
+            emit({ type: 'progress', label: targetLabel, found: true });
+          } else {
+            console.log(`[api/processos] Processo ${cleanProcessNumber} não localizado no DataJud para ${targetLabel}.`);
+            emit({ type: 'progress', label: targetLabel, found: false });
+          }
+
+          const userId = await getUserId(request);
+          await trackEvento(request, userId, {
+            tipo: 'consulta',
+            assunto: allProcesses[0]?.tipo,
+            classe: allProcesses[0]?.tipo,
+            tribunal: targetLabel,
+            dados: {
+              totalProcessos: allProcesses.length,
+              modo: 'numero',
+              numeroProcesso: cleanProcessNumber,
+              processos: allProcesses.map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
+            }
+          });
+
+          if (userId && allProcesses.length > 0) {
+            await salvarProcessos(userId, cleanCpf, phone, fullName, allProcesses);
+            await salvarPreferencias(userId, [targetLabel], {
+              avisarMovimentacao,
+              canalAviso,
+              resumoLinguagemSimples
+            });
+          }
+
+          if (allProcesses.length === 0) {
+            emit({
+              type: 'done',
+              notFound: true,
+              totalProcessos: 0,
+              processes: [],
+              tribunaisConsultados: [targetLabel],
+              custoEstimado: 0
+            });
+          } else {
+            emit({
+              type: 'done',
+              notFound: false,
+              totalProcessos: allProcesses.length,
+              processes: allProcesses,
+              tribunaisConsultados: [targetLabel],
+              custoEstimado: 0
+            });
+          }
+
+          controller.close();
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'application/x-ndjson; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          'X-Accel-Buffering': 'no'
+        }
+      });
+    }
+
+    // ── FLUXO B: VARREDURA MULTI-TRIBUNAL POR CPF (INFOSIMPLES) ──
     const token = process.env.INFOSIMPLES_API_TOKEN || process.env.INFOSIMPLES_TOKEN;
 
     if (!token) {
@@ -147,9 +241,6 @@ export async function POST(request: Request) {
     const selectedState = (state || '').toUpperCase();
 
     // Multi-tribunal: consulta todos os tribunais com API de busca por CPF (lista de processos) na Infosimples.
-    // TJBA/TJRS/TJSC/TRF6 têm formato de resposta não confirmado na documentação pública — o parser abaixo
-    // tenta múltiplos nomes de campo, mas pode falhar silenciosamente em encontrar processos nesses tribunais
-    // até serem validados com uma chamada real.
     const ALL_TARGETS: { service: string; label: string }[] = [
       { service: 'tribunal/tjsp/primeiro-grau', label: 'TJSP' },
       { service: 'tribunal/tjsp/eproc-lista', label: 'TJSP (eproc)' },
@@ -167,20 +258,13 @@ export async function POST(request: Request) {
       { service: 'tribunal/trf6/processo', label: 'TRF6' }
     ];
 
-    // Prioriza o tribunal do estado do DDD informado (ex.: DDD 11 -> TJSP primeiro), mas consulta
-    // todos os tribunais disponíveis do mesmo jeito — é só a ordem/animação de progresso que muda.
     const orderedTargets = prioritizeByDdd(ALL_TARGETS, ddd);
 
-    // Passo "Onde procurar": se o usuário restringiu a busca a tribunais específicos, filtra a varredura.
-    // null/vazio (ou ausência do campo) mantém o comportamento padrão de consultar todos os tribunais.
     const hasTribunalFilter = Array.isArray(tribunaisSelecionados) && tribunaisSelecionados.length > 0;
     const targets = hasTribunalFilter
       ? orderedTargets.filter(t => tribunaisSelecionados.includes(t.label))
       : orderedTargets;
 
-    // Preço base (faixa de menor volume, 1–500 consultas/mês) + adicional fixo por serviço,
-    // conforme tabela pública da Infosimples (ver lib/infosimplesPricing.ts) — mais fiel que
-    // um valor único cravado para todos os tribunais.
     const custoEstimado = custoTotal(targets.map(t => t.service));
 
     console.log(
@@ -188,16 +272,11 @@ export async function POST(request: Request) {
       targets.map(t => t.label).join(', ')
     );
 
-    // Streaming NDJSON: cada linha é emitida assim que o respectivo tribunal responde,
-    // em vez de esperar Promise.allSettled terminar todas as 14 chamadas (o mais lento
-    // das 14 determinava o tempo total de espera sem nenhum feedback incremental).
     const encoder = new TextEncoder();
     const allProcesses: LegalProcess[] = [];
     const seenProcessos = new Set<string>();
     const tribunaisConsultados: string[] = [];
 
-    // Id exposto ao cliente (evento 'started') para permitir cancelar um tribunal específico em
-    // andamento via POST /api/processos/cancelar, sem afetar os demais tribunais da mesma consulta.
     const consultaId = randomUUID();
     const abortControllers = criarRegistroConsulta(consultaId);
 
@@ -225,7 +304,6 @@ export async function POST(request: Request) {
           }
 
           if (result && result.code === 200 && result.data?.[0]) {
-            // Cada tribunal usa um nome de campo diferente para a lista de processos
             const rawList: any[] =
               result.data[0].processos ||
               result.data[0].lista_processos ||
@@ -241,7 +319,6 @@ export async function POST(request: Request) {
 
               const movs: Movement[] = [];
 
-              // Cada tribunal usa um nome de campo diferente para as movimentações
               const rawMovs =
                 p.ultimas_movimentacoes ||
                 p.eventos ||
@@ -257,9 +334,6 @@ export async function POST(request: Request) {
                   if (titulo.length < fullText.length && !titulo.endsWith('...')) {
                     titulo += '...';
                   }
-                  // Além do texto do próprio evento, a Infosimples às vezes traz campos extras
-                  // específicos da movimentação (responsável pelo ato, complemento, anexos) sob
-                  // nomes distintos por tribunal — agrega os que existirem em vez de descartar.
                   const responsavel = m.responsavel || m.magistrado || m.orgao_julgador || m.orgao;
                   const complemento = m.complemento || m.observacao || m.detalhe;
                   const extras = [
@@ -277,10 +351,6 @@ export async function POST(request: Request) {
               }
 
               if (movs.length === 0) {
-                // A Infosimples nem sempre retorna a lista de movimentações (processo muito recente,
-                // sigilo parcial, ou o próprio tribunal não expõe histórico detalhado nesse serviço).
-                // Nesses casos, monta uma descrição com todos os outros campos do processo já
-                // disponíveis na resposta (classe, vara, valor, partes) em vez de deixar só "Processo distribuído".
                 const classeInfo = p.classe || p.classe_acao || p.assunto;
                 const varaInfo = p.vara || p.foro || p.orgao_julgador;
                 const valorInfo = p.valor_acao || p.valor_causa;
@@ -308,7 +378,6 @@ export async function POST(request: Request) {
                 });
               }
 
-              // Identifica parte contrária
               let parteContraria = 'Não informada';
               const normUser = (fullName || '').toLowerCase().trim();
               const autor = p.reqte || p.autor || '';
@@ -343,25 +412,16 @@ export async function POST(request: Request) {
             });
           }
 
-          // Emite o progresso deste tribunal específico assim que ele termina, independente dos outros 13.
           emit({ type: 'progress', label: target.label, found: foundInThisTribunal });
         });
 
         await Promise.allSettled(perTribunalPromises);
 
-        // Passo "Como buscar" no modo Nº do processo: filtra o resultado da varredura por CPF para
-        // manter só o(s) processo(s) cujo número bate com o informado. Infosimples não tem endpoint de
-        // busca por número, então a varredura completa por CPF continua ocorrendo normalmente.
         const filteredProcesses = cleanProcessNumber
           ? allProcesses.filter(p => p.numero.replace(/\D/g, '').includes(cleanProcessNumber))
           : allProcesses;
 
-        // Enriquecimento via DataJud (CNJ): por processo já encontrado pela Infosimples (não por
-        // tribunal da varredura), busca dados complementares pelo número CNJ — movimentações,
-        // assuntos (TPU), órgão julgador, grau de jurisdição e data de ajuizamento. DataJud não
-        // tem busca por CPF/CNPJ, só por número de processo — por isso entra aqui, depois da
-        // Infosimples já ter localizado os processos. No-op silencioso sem DATAJUD_API_KEY configurada.
-        // Só complementa campos que a Infosimples não trouxe (nunca sobrescreve um dado já presente).
+        // Enriquecimento via DataJud (CNJ)
         await Promise.allSettled(
           filteredProcesses.map(async p => {
             const tribunalLabel = p.tribunal.split(' · ')[0];

@@ -118,10 +118,11 @@
     {
       "id": "busca-numero-nome",
       "titulo": "Busca por número de processo (CNJ) ou nome de parte, além de CPF",
-      "modelo": "Nº do processo funcional (filtra a varredura por CPF); Nome da parte é preview bloqueado para não-pagantes",
+      "modelo": "Nº do processo funcional (busca direta e gratuita via DataJud CNJ com campos Nome e CPF opcionais); Nome da parte é preview bloqueado para não-pagantes",
       "status": "Implementada",
       "log": [
-        "2026-09-30: app/api/processos/route.ts agora filtra por processNumber. Busca por nome da parte não tem endpoint real na Infosimples — fica como aba desabilitada no Passo 1, liberada apenas com o flag de dev 'pagante' (lib/devPagante.ts + aba Conta em DevMetrics.tsx)."
+        "2026-09-30: app/api/processos/route.ts agora filtra por processNumber. Busca por nome da parte não tem endpoint real na Infosimples — fica como aba desabilitada no Passo 1, liberada apenas com o flag de dev 'pagante' (lib/devPagante.ts + aba Conta em DevMetrics.tsx).",
+        "2026-10-01: busca direta e exclusiva por número de processo CNJ (lib/cnj.ts com parseCnj e máscara 20 dígitos). No Passo 1 do Stepper, ao selecionar 'Nº do processo', o campo CNJ torna-se o dado principal obrigatório e os campos 'Nome completo' e 'CPF do titular' tornam-se opcionais com placeholders claros. O tribunal de origem (ex.: TJSP, TRF3, TRT2) é identificado automaticamente a partir do CNJ. Backend (app/api/processos/route.ts + lib/datajud.ts) executa a busca direta via API pública do DataJud sem exigir CPF/token Infosimples, retornando dados e movimentações completas instantaneamente e com custo gratuito."
       ]
     },
     {
@@ -226,6 +227,31 @@
         "2026-09-30: app/api/processos/route.ts — gera um consultaId (randomUUID) por requisição, emite evento NDJSON 'started' com esse id logo no início do stream, cria um AbortController por tribunal dentro do targets.map e passa o signal para fetchInfosimples (que ganhou parâmetro signal e ignora AbortError no catch). Tribunal cancelado emite 'progress' com cancelado:true em vez de found:true/false.",
         "2026-09-30: novo endpoint POST /api/processos/cancelar/route.ts — recebe { consultaId, label }, chama cancelarTribunal() e retorna { cancelado: boolean }.",
         "2026-09-30: components/ProcessTracker.tsx — ScanStatus ganhou o valor 'cancelled'; consultaIdRef guarda o id recebido no evento 'started'; cada card de tribunal em status 'loading' ganhou um botão (ícone XCircle, lucide-react) que chama handleCancelarTribunal (POST ao novo endpoint); tribunal cancelado não entra na média histórica de tempo (lib/tribunalTiming.ts) por não ser um tempo de resposta real. Typecheck (tsc --noEmit) ok."
+      ]
+    },
+    {
+      "id": "documentacao-mestre-projeto",
+      "titulo": "Documentação mestre do projeto (para_entender_o_projeto.json)",
+      "modelo": "arquivo JSON único na raiz cobrindo propósito, funcionalidades, arquitetura, performance, configuração, custos, copywriting e keywords; serve a produto/comercial, engenharia e liderança ao mesmo tempo",
+      "status": "Implementada",
+      "log": [
+        "2026-10-01: criado para_entender_o_projeto.json (17 seções) a partir da leitura direta de roadmap.json, app/, components/, lib/ e supabase/migrations/. Inclui seção explícita 'o_que_ainda_nao_existe' separando o entregue do pendente (monitoramento contínuo, alertas, documentos na íntegra, busca por nome/CNPJ, cobertura trabalhista/2º grau), para evitar que material de campanha prometa feature não implementada. Também registra gargalos de performance conhecidos e aponta que README.md está desatualizado (ainda descreve o protótipo mock com dados de lib/mockProcesses.ts, paleta azul e Poppins)."
+      ]
+    },
+    {
+      "id": "automacao-bitrix-funis",
+      "titulo": "Automação de etapas em funis Bitrix24 por número de processo, com enriquecimento DataJud",
+      "modelo": "nova rota /automacao (restrita a advogado/admin) com abas configuráveis (1 aba = 1 regra de funil+etapa+campo de processo), lote sob demanda via botão gatilho (streaming NDJSON), tabela Mantine paginada server-side com filtros (esfera/valor/busca) e modal de detalhe com fade-in padrão Mantine",
+      "status": "Implementada",
+      "log": [
+        "2026-10-01: migration supabase/migrations/20260930200000_ap_automacao_bitrix.sql cria ap_automacao_regras (abas/regras: funil, etapa, campo customizado do nº processo — default UF_CRM_1740590606 fornecido pelo usuário —, tamanho de lote, filtros de esfera/valor) e ap_automacao_deals (deals processados/enriquecidos, unique(regra_id,deal_id) evita reprocessar no próximo clique). RLS: dono da regra ou admin (via ap_is_admin()), escrita só por service role.",
+        "2026-10-01: achado durante a implementação — ap_eventos/ap_auditoria/ap_is_admin()/ap_touch_updated_at() (definidas no arquivo local supabase/migrations/20260929120000_ap_schema_inicial.sql) nunca tinham sido aplicadas no banco Supabase remoto do projeto 'prosec' (confirmado via list_migrations do MCP: só 4 migrations registradas, nenhuma delas a inicial). Ou seja, trackEvento/auditRequest já eram no-op silencioso em produção desde sempre. Corrigido na mesma migration desta feature (create table if not exists / create or replace, idempotente) — usuário aplicou manualmente via SQL editor do Supabase.",
+        "2026-10-01: novo lib/bitrix.ts generaliza o padrão de webhook incoming já usado em app/api/bitrix/lead/route.ts (hoje só crm.lead.add) para métodos de DEAL: listarFunis (crm.dealcategory.list), listarEtapas (crm.status.list com ENTITY_ID), listarDeals (crm.deal.list com paginação nativa start/next). Mesmo modo simulado do endpoint existente quando BITRIX_WEBHOOK_URL não está configurada.",
+        "2026-10-01: endpoint de processamento (app/api/automacao/processar/route.ts) reaproveita buscarProcessoDiretoDataJud (lib/datajud.ts, já existente e não modificada) — função que já fazia busca direta por número CNJ via DataJud, inferindo o tribunal com parseCnj (lib/cnj.ts, também já existente). Infosimples NÃO entra no fluxo automático desta v1: só busca por CPF hoje, sem endpoint confirmado por número de processo — fica como gap documentado, não bloqueou a entrega.",
+        "2026-10-01: esfera 'Municipal' não existe nativamente no número CNJ (só Estadual/ramoJustica=8 e Federal/ramoJustica=4 são infere­­íveis); regra ganhou campo_esfera opcional (lido de um campo customizado do próprio deal no Bitrix) como fallback para Municipal, documentado no código.",
+        "2026-10-01: UI em app/(app)/automacao/page.tsx (Tabs do Mantine sobre Paper + botão '+' para nova aba) → components/automacao/AutomacaoTabela.tsx (filtros com botão gatilho 'Filtrar' + botão 'Buscar próximos N' com streaming de progresso + Table paginada com Pagination real server-side) → ModalDetalheDeal.tsx (fade-in 100% padrão Mantine Modal, sem CSS/JS extra) e ModalConfigurarRegra.tsx (form de funil/etapa/campo/lote/filtros). Item de menu 'Automação de funis' (ícone Workflow, lucide-react) em lib/nav.ts restrito a role advogado/admin via novo campo NavItem.roles — AppShellLayout.tsx filtra por profile.role antes de renderizar.",
+        "2026-10-01: verificação — npx tsc --noEmit (exit 0) e npm run build (produção, limpo .next antes) passaram sem erros, todas as rotas novas (/automacao, /api/automacao/*) compiladas corretamente junto das existentes. Testado via curl sem token: todos os endpoints novos retornam 401 (requireUser) como esperado. Teste visual completo no navegador (login real) não foi feito nesta sessão — banco Supabase remoto está limpo, sem usuário de teste, e o usuário optou por não criar conta de teste agora; validação visual fica para quando houver um usuário advogado/admin real.",
+        "2026-10-01: `next lint` está pedindo configuração interativa de ESLint (migração pendente da flag --no-deprecated do Next 16) — não configurado nesta sessão por estar fora do escopo pedido; typecheck + build cobriram a verificação de correção de tipos/compilação."
       ]
     }
   ]

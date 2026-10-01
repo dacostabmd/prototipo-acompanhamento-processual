@@ -1,0 +1,825 @@
+{
+  "meta_documento": {
+    "titulo": "Prosec — Acompanhamento Processual Inteligente | Documento mestre de entendimento do projeto",
+    "versao": "1.0",
+    "gerado_em": "2026-10-01",
+    "proposito_deste_arquivo": "Fonte única de verdade sobre o que o sistema é, o que ele faz hoje, como está construído, como se configura e como se vende. Serve a três públicos ao mesmo tempo: produto/comercial (proposta de valor e copy), engenharia (arquitetura e configuração) e liderança (vantagens, custos e roadmap).",
+    "como_ler": [
+      "Se você é comercial/marketing: vá para 'copywriting_e_conversao' e 'vantagens_para_escritorio_de_advocacia'.",
+      "Se você é desenvolvedor novo no projeto: vá para 'arquitetura_tecnica', 'configuracao' e 'mapa_de_arquivos'.",
+      "Se você é liderança/decisão: vá para 'resumo_executivo', 'economia_e_custos' e 'roadmap_resumido'.",
+      "Tudo que está marcado como 'pendente' NÃO existe no produto hoje e não deve ser vendido como existente."
+    ],
+    "fonte_da_verdade_tecnica": "roadmap.json (raiz do projeto) + código em app/, components/ e lib/. Este documento foi escrito a partir da leitura direta desses arquivos em 2026-10-01.",
+    "aviso_de_honestidade_comercial": "A seção 'copywriting_e_conversao' contém material promocional. Toda afirmação ali usada em campanha deve ser confrontada com 'o_que_ainda_nao_existe' antes de ir ao ar, para não prometer funcionalidade não entregue."
+  },
+
+  "resumo_executivo": {
+    "uma_frase": "O Prosec encontra, traduz e organiza processos judiciais a partir de um CPF ou de um número CNJ, devolvendo em segundos um panorama que normalmente exigiria horas de consulta manual em múltiplos sites de tribunais.",
+    "o_problema_que_resolve": [
+      "Um advogado que acompanha a carteira de um cliente precisa abrir, um a um, os portais de cada tribunal, cada um com layout, login e captcha diferentes.",
+      "Não existe um lugar único que responda 'este CPF tem processos onde?' — a pergunta mais comum tanto do advogado quanto do cliente final.",
+      "O cliente leigo recebe o andamento em juridiquês ('conclusos para despacho', 'juntada de petição intercorrente') e liga para o escritório pedindo tradução, consumindo tempo faturável da equipe.",
+      "Movimentações críticas (penhora, bloqueio Sisbajud, leilão, execução) se perdem no meio de dezenas de movimentações burocráticas irrelevantes."
+    ],
+    "o_que_o_sistema_faz_hoje": [
+      "Varre em paralelo 14 fontes judiciais por CPF e devolve todos os processos encontrados, com progresso em tempo real por tribunal.",
+      "Busca direta e gratuita por número de processo CNJ, identificando o tribunal automaticamente a partir dos 20 dígitos.",
+      "Enriquece os dados encontrados com a base oficial do DataJud (CNJ): movimentações, assuntos da Tabela Processual Unificada, órgão julgador, grau e data de ajuizamento.",
+      "Classifica cada movimentação em urgente / positivo / andamento / informativo, fazendo o risco saltar aos olhos.",
+      "Gera um resumo executivo por IA em linguagem acessível, com destaque colorido para riscos e para itens favoráveis.",
+      "Abre um chat jurídico com IA já contextualizado nos processos daquele cliente específico.",
+      "Salva a carteira do usuário em 'Meus processos', com tabela filtrável por coluna e cache de leitura.",
+      "Separa dois perfis de acesso: Advogado (busca livre) e Consultante (travado no próprio documento)."
+    ],
+    "em_que_estagio_esta": "Produto funcional em produção, com fluxo de ponta a ponta operante (login, consulta, resultado, IA, persistência). As frentes de monitoramento contínuo, alertas automáticos e documentos na íntegra ainda são pendentes — ver 'o_que_ainda_nao_existe'."
+  },
+
+  "proposito_e_posicionamento": {
+    "proposito": "Transformar dado processual público — que é disperso, bruto e ilegível para leigos — em informação organizada, priorizada por risco e compreensível, para quem precisa decidir e para quem precisa de tranquilidade.",
+    "nome_interno_do_projeto": "Prosec (repositório: 'blindagem-acompanhamento-processos'), operado sob a marca Blindagem Financeira.",
+    "dois_publicos_no_mesmo_produto": {
+      "advogado": {
+        "quem_e": "Advogado autônomo, sócio de banca pequena/média ou equipe de contencioso que acompanha carteira de clientes.",
+        "dor_principal": "Tempo perdido em consulta manual e medo de perder um prazo ou uma constrição patrimonial.",
+        "o_que_ganha": "Busca livre por qualquer CPF ou CNJ, varredura multi-tribunal em uma tela, carteira centralizada e resumo pronto para enviar ao cliente.",
+        "no_sistema": "role 'advogado' — Passo 1 do stepper com escolha livre do modo de busca."
+      },
+      "consultante": {
+        "quem_e": "Pessoa física que quer saber da própria situação judicial — se está sendo processada, por quem, por quanto, e o que está acontecendo agora.",
+        "dor_principal": "Ansiedade e total incompreensão da linguagem dos tribunais.",
+        "o_que_ganha": "Consulta do próprio CPF com resposta em português claro e um chat para tirar dúvidas sem pagar hora de consulta.",
+        "no_sistema": "role 'cliente' — documento fixado no cadastro, imutável por trigger de banco, campo pré-preenchido e travado na busca."
+      }
+    },
+    "o_que_o_produto_nao_e": [
+      "Não é um sistema de gestão de escritório (ERP jurídico) — não controla honorários, agenda, contratos ou financeiro.",
+      "Não é um peticionador — não redige nem protocola peças.",
+      "Não é um robô de prazos com garantia — o monitoramento contínuo ainda é uma frente pendente.",
+      "Não substitui o PJe/eproc para quem precisa dos autos na íntegra."
+    ],
+    "diferencial_de_posicionamento": "Concorrentes de busca processual entregam dado bruto e cobram pela quantidade. O Prosec entrega leitura: classifica o risco, resume em linguagem humana e conversa sobre o caso. A diferença vendável não é 'achamos o processo', é 'explicamos o processo'."
+  },
+
+  "funcionalidades_implementadas": [
+    {
+      "id": "busca-multi-tribunal-cpf",
+      "nome": "Varredura multi-tribunal por CPF",
+      "o_que_faz": "Com um único CPF, consulta simultaneamente 14 serviços judiciais e consolida todos os processos encontrados, deduplicando por número.",
+      "fontes_cobertas": ["TJSP", "TJSP (eproc)", "TJRJ", "TJMG", "TJPR", "TJBA", "TJRS", "TJSC", "TRF1", "TRF2", "TRF2 (eproc)", "TRF3", "TRF5", "TRF6"],
+      "abrangencia_real": "1º grau. 2º grau, tribunais superiores, Justiça do Trabalho e Eleitoral ainda não entram na varredura por CPF.",
+      "detalhe_tecnico": "Promise.allSettled sobre 14 chamadas à API Infosimples, com streaming NDJSON — cada tribunal emite sua linha de progresso assim que responde, sem esperar o mais lento.",
+      "valor_para_o_usuario": "Substitui 14 abas de navegador, 14 captchas e 14 layouts diferentes por uma tela."
+    },
+    {
+      "id": "busca-numero-cnj",
+      "nome": "Busca direta por número de processo (CNJ)",
+      "o_que_faz": "Recebe os 20 dígitos do número CNJ, identifica sozinho o ramo da justiça e o tribunal de origem, e busca direto na API pública do DataJud.",
+      "cobertura_de_tribunais_no_parser": "Justiça Estadual (27 TJs), Justiça Federal (TRF1 a TRF6), Justiça do Trabalho (TST e TRT1 a TRT24), Justiça Eleitoral (TSE e TREs), Justiça Militar (STM e TJMs), STF, STJ e CNJ.",
+      "custo": "R$ 0,00 — a API do DataJud é pública e gratuita.",
+      "detalhe_tecnico": "lib/cnj.ts faz o parsing posicional do número (sequencial, DV, ano, ramo J, código do tribunal TR, órgão de origem) e resolve o alias DataJud correspondente.",
+      "valor_para_o_usuario": "Quem já tem o número do processo tem resposta instantânea, gratuita e com cobertura muito maior que a busca por CPF."
+    },
+    {
+      "id": "enriquecimento-datajud",
+      "nome": "Enriquecimento com base oficial do CNJ (DataJud)",
+      "o_que_faz": "Depois de localizar um processo pela Infosimples, consulta o DataJud pelo número e complementa o que faltou.",
+      "campos_enriquecidos": ["movimentações adicionais (dedupe por descrição)", "assuntos da Tabela Processual Unificada", "órgão julgador", "grau", "data de ajuizamento", "complementos tabelados com valor (ex.: valor de penhora, percentual de multa)"],
+      "regra_de_precedencia": "Nunca sobrescreve dado já trazido pela Infosimples — só preenche campo ausente.",
+      "degradacao_graciosa": "Sem DATAJUD_API_KEY configurada, ou em timeout de 5s, é no-op silencioso: o fluxo principal segue sem enriquecimento.",
+      "sinal_na_interface": "Selo 'DATAJUD (CNJ)' ao lado de 'Últimas movimentações' quando algum processo foi enriquecido.",
+      "valor_para_o_usuario": "Dado oficial do Conselho Nacional de Justiça, sem custo adicional, cobrindo lacunas dos raspadores de tribunal."
+    },
+    {
+      "id": "classificacao-de-risco",
+      "nome": "Classificação automática de movimentações por risco",
+      "o_que_faz": "Lê o texto de cada movimentação e atribui uma das quatro tags de destaque visual.",
+      "tags": {
+        "urgente": "penhora, bloqueio, Sisbajud, Bacenjud, prisão, busca e apreensão, leilão, arresto, execução",
+        "positivo": "deferido, procedente, acolhido, extinto, baixado, cancelado, acordo, favorável",
+        "andamento": "petição, audiência, perícia, citação, despacho, concluso, juntada, intimação",
+        "informativo": "tudo o que não cai nas regras acima"
+      },
+      "detalhe_tecnico": "lib/classify.ts — regex sobre o texto normalizado, determinístico e sem custo de IA.",
+      "valor_para_o_usuario": "O que ameaça o patrimônio aparece em destaque; o ruído burocrático fica em segundo plano."
+    },
+    {
+      "id": "resumo-ia",
+      "nome": "Resumo executivo por IA",
+      "o_que_faz": "Gera um resumo de 2 a 3 parágrafos do panorama processual em linguagem acessível, com destaque colorido para risco e para itens favoráveis, e negrito nos dados de identificação (número do processo, credor, valor, data).",
+      "modelo": "OpenAI gpt-4o-mini como principal, com fallback para Anthropic claude-haiku-4-5.",
+      "guardrails": "Sanitização de placeholders — o texto nunca sai com '[Seu Nome]' ou '[Nome do Advogado]'; assina como 'Equipe Blindagem Financeira' ou sem assinatura.",
+      "valor_para_o_usuario": "Para o advogado, é um texto pronto para colar no WhatsApp do cliente. Para o cliente, é a primeira vez que ele entende o próprio processo."
+    },
+    {
+      "id": "chat-juridico-ia",
+      "nome": "Chat jurídico contextualizado",
+      "o_que_faz": "Abre uma conversa com IA que já conhece todos os processos daquele CPF — número, tribunal, classe, parte contrária e valor da causa — sem o usuário precisar explicar nada.",
+      "ajuste_de_tom": "Dois tons configuráveis: 'Acolhedor' (empático, para o cliente final) e 'Formal' (técnico, para o advogado).",
+      "anexos": "Aceita documentos com validação de segurança antes de entrar no contexto.",
+      "valor_para_o_usuario": "Triagem instantânea 24/7, que absorve as perguntas repetitivas que hoje caem no telefone do escritório."
+    },
+    {
+      "id": "seguranca-de-anexos",
+      "nome": "Inspeção de arquivos maliciosos",
+      "o_que_faz": "Antes de aceitar qualquer anexo, valida em três camadas.",
+      "camadas": [
+        "Tamanho: bloqueia arquivo vazio e acima de 15 MB.",
+        "Extensão: lista branca (PDF, PNG, JPG, JPEG, WEBP, DOC, DOCX) e lista negra de 29 extensões executáveis, com detecção de ataque de dupla extensão (ex.: 'contrato.pdf.exe').",
+        "Magic bytes: lê os 8 primeiros bytes e confirma a assinatura binária real — bloqueia executável Windows PE (MZ) e ELF Linux, e verifica a assinatura legítima de PDF, PNG e JPEG."
+      ],
+      "detalhe_tecnico": "lib/security.ts",
+      "valor_para_o_usuario": "Um escritório que recebe documento de cliente desconhecido não vira vetor de malware."
+    },
+    {
+      "id": "conta-e-carteira",
+      "nome": "Conta de usuário e carteira de processos",
+      "o_que_faz": "Cada consulta bem-sucedida salva os processos encontrados na conta do usuário, deduplicados por (user_id, numero_cnj), acessíveis depois em 'Meus processos'.",
+      "interface": "Tabela Mantine com uma linha de filtros por coluna (Número, Tribunal, Classe, Parte contrária, Última movimentação), filtrando client-side a lista carregada.",
+      "valor_para_o_usuario": "A consulta de hoje vira a base da carteira de amanhã — não se reconsulta o que já se sabe."
+    },
+    {
+      "id": "perfis-advogado-consultante",
+      "nome": "Separação de perfis Advogado x Consultante",
+      "o_que_faz": "No cadastro o usuário escolhe a aba 'Advogado' ou 'Consultante'. O consultante informa CPF ou CNPJ, validado com dígito verificador, que fica fixado na conta.",
+      "garantia_tecnica": "A imutabilidade não é só de interface — um trigger de banco (ap_perfis_bloquear_troca_documento) rejeita qualquer UPDATE no documento depois de definido.",
+      "valor_para_o_negocio": "Um consultante não consegue usar a conta barata para consultar CPF de terceiros. O controle é estrutural, não cosmético."
+    },
+    {
+      "id": "transparencia-de-custo",
+      "nome": "Custo estimado por consulta exibido ao usuário",
+      "o_que_faz": "Antes de disparar a varredura, o sistema mostra quanto aquela consulta vai custar, somando o preço base por tribunal mais o adicional fixo de cada serviço.",
+      "detalhe_tecnico": "lib/infosimplesPricing.ts — preço base R$ 0,20 (faixa 1 a 500 consultas/mês) + adicional de R$ 0,04 em TJSC, TRF1, TRF2 e TRF2 eproc.",
+      "valor_para_o_negocio": "O usuário escolhe conscientemente quais tribunais varrer, reduzindo gasto desnecessário com fontes irrelevantes."
+    },
+    {
+      "id": "cancelamento-por-tribunal",
+      "nome": "Cancelamento individual de tribunal durante a varredura",
+      "o_que_faz": "Durante a varredura, cada card de tribunal ainda em consulta tem um botão de cancelar, que aborta só aquela chamada sem derrubar as outras 13.",
+      "detalhe_tecnico": "Endpoint POST /api/processos/cancelar com um registro em memória de consultaId -> Map<tribunal, AbortController>; um AbortController por tribunal dentro do mesmo stream NDJSON.",
+      "valor_para_o_usuario": "Um tribunal lento ou fora do ar não trava o resultado nem queima o tempo do usuário."
+    },
+    {
+      "id": "priorizacao-por-ddd",
+      "nome": "Priorização inteligente por DDD",
+      "o_que_faz": "O DDD do celular informado define qual tribunal estadual é consultado primeiro — DDD 11 prioriza TJSP, DDD 21 prioriza TJRJ, e assim por diante para 8 estados mapeados.",
+      "valor_para_o_usuario": "O resultado mais provável aparece primeiro, em vez de o usuário esperar a varredura toda para ver o óbvio."
+    },
+    {
+      "id": "progresso-estimado",
+      "nome": "Percentual e cronômetro por tribunal",
+      "o_que_faz": "Cada card de tribunal mostra percentual estimado e tempo decorrido durante a consulta.",
+      "honestidade_tecnica": "O percentual é estimativa baseada na média móvel histórica (até 20 amostras em localStorage) do tempo de resposta daquele tribunal, com fallback de 4000 ms — a API da Infosimples é atômica e não reporta progresso real intermediário. Tribunal cancelado não entra na média.",
+      "valor_para_o_usuario": "Espera com previsibilidade em vez de spinner cego."
+    },
+    {
+      "id": "integracao-bitrix",
+      "nome": "Captura de lead no Bitrix24",
+      "o_que_faz": "Envia o lead comercial para o CRM Bitrix24 via webhook.",
+      "escopo": "É captura de lead, não gestão jurídica de carteira."
+    },
+    {
+      "id": "painel-admin",
+      "nome": "Rastreamento de eventos e auditoria",
+      "o_que_faz": "Toda requisição à API é auditada (rota, método, status, duração, hash de IP, user agent) e eventos de negócio são registrados (login, logout, signup, consulta, resumo_ia, chat_ia, lead, page_view) com dia e hora já materializados no fuso de São Paulo.",
+      "visao_agregada": "View ap_dashboard_v1 agrega por dia, hora, tipo e assunto, com contagem de eventos e de usuários distintos.",
+      "privacidade": "IP nunca é gravado em claro — só o hash. CPF em histórico de consulta também é gravado como hash (termo_hash)."
+    }
+  ],
+
+  "o_que_ainda_nao_existe": {
+    "aviso": "NÃO VENDER como funcionalidade entregue. Itens abaixo têm, no máximo, preview visual.",
+    "itens": [
+      {
+        "id": "monitoramento-continuo",
+        "nome": "Monitoramento contínuo de processos",
+        "estado_real": "O toggle 'Avisar quando o processo andar' existe no Passo 3 e a preferência é persistida em ap_preferencias_consulta, mas NENHUM job ou cron reconsulta processos. Não há diff de movimentações.",
+        "impacto_comercial": "Esta é a funcionalidade mais vendável do segmento e a mais crítica do roadmap."
+      },
+      {
+        "id": "alertas-andamento",
+        "nome": "Alertas por e-mail / push / WhatsApp",
+        "estado_real": "A seleção de canal (E-mail/WhatsApp) existe e é persistida em ap_preferencias_consulta.canal_aviso, mas nenhum envio real é disparado."
+      },
+      {
+        "id": "documentos-integra",
+        "nome": "Petições e decisões na íntegra",
+        "estado_real": "O botão 'Petições e decisões' existe na tela de resultado e abre um placeholder 'em breve'. Nenhuma integração real de documentos."
+      },
+      {
+        "id": "busca-por-nome",
+        "nome": "Busca por nome da parte",
+        "estado_real": "Aba desabilitada no Passo 1 — não há endpoint real na Infosimples para isso. Liberada apenas sob flag de desenvolvimento."
+      },
+      {
+        "id": "cobertura-2grau-superiores",
+        "nome": "2º grau e tribunais superiores na varredura por CPF",
+        "estado_real": "Pendente. O parser CNJ já reconhece STJ/STF/TST, mas a varredura por CPF não os alcança — só a busca por número chega lá."
+      },
+      {
+        "id": "cobertura-trabalhista-eleitoral-jec",
+        "nome": "Justiça Trabalhista, Eleitoral e JEC na varredura por CPF",
+        "estado_real": "Pendente."
+      },
+      {
+        "id": "busca-por-cnpj",
+        "nome": "Busca por CNPJ",
+        "estado_real": "O cadastro aceita e valida CNPJ, mas a busca é bloqueada no submit — a Infosimples só aceita CPF hoje."
+      },
+      {
+        "id": "analise-carteira",
+        "nome": "Análise de carteira / due diligence em lote",
+        "estado_real": "Pendente. Consulta em lote de múltiplos CNJs para avaliar créditos e precatórios antes da compra. Depende de documentos na íntegra e cobertura de 2º grau."
+      },
+      {
+        "id": "billing-uso-api-por-conta",
+        "nome": "Painel admin de consumo de API por conta",
+        "estado_real": "Pendente. A lógica de custo já existe; falta gravar valor por chamada e por tribunal e expor no painel interno."
+      }
+    ]
+  },
+
+  "vantagens_para_escritorio_de_advocacia": {
+    "ganho_de_tempo": {
+      "cenario_sem_o_sistema": "Para responder 'este CPF tem processos onde?', o estagiário abre portal por portal, resolve captcha, copia número, cola em planilha. Em 14 fontes isso consome entre 30 e 60 minutos por cliente, com risco alto de pular uma fonte.",
+      "cenario_com_o_sistema": "Um CPF, uma tela, consulta paralela. O resultado chega em segundos, com progresso visível por tribunal.",
+      "efeito_no_escritorio": "Hora de estagiário deixa de ser gasta em copiar e colar e passa a ser gasta em análise."
+    },
+    "reducao_de_risco": {
+      "problema": "Uma penhora ou um bloqueio Sisbajud perdido no meio de 80 movimentações burocráticas é um desastre patrimonial para o cliente e um risco de responsabilização para o advogado.",
+      "resposta_do_sistema": "Classificação automática em 'urgente' faz constrição patrimonial saltar visualmente, e o resumo de IA destaca risco em cor diferente de item favorável."
+    },
+    "reducao_de_atrito_com_o_cliente": {
+      "problema": "O cliente não entende 'conclusos para despacho' e liga para o escritório. Cada ligação dessas é tempo não faturável.",
+      "resposta_do_sistema": "Resumo em linguagem simples pronto para encaminhar, mais um chat de IA que absorve as perguntas repetitivas 24 horas por dia."
+    },
+    "controle_de_custo": {
+      "problema": "Plataformas de busca processual cobram por consulta sem o usuário saber o quanto está gastando até a fatura chegar.",
+      "resposta_do_sistema": "Custo estimado exibido antes da consulta, seleção tribunal a tribunal e cancelamento individual durante a varredura. A busca por número CNJ é gratuita."
+    },
+    "credibilidade_da_fonte": {
+      "argumento": "Os dados não vêm de uma base proprietária opaca — vêm do DataJud, a base pública oficial do Conselho Nacional de Justiça, mais raspagem dos portais dos próprios tribunais. É dado oficial, não inferência."
+    },
+    "governanca_e_seguranca": {
+      "isolamento": "Row Level Security no Postgres — cada usuário só enxerga os próprios dados, garantido no banco e não apenas na aplicação.",
+      "segregacao_de_perfil": "O consultante tem o documento travado por trigger de banco. Não existe caminho de interface ou de API que permita contornar.",
+      "privacidade_de_dados_sensiveis": "IP e CPF em histórico são gravados como hash, nunca em claro.",
+      "antivirus_de_anexos": "Validação por magic bytes impede executável disfarçado de PDF.",
+      "indexacao": "Toda a área autenticada (/painel, /consulta, /processos, /perfil e /api) está bloqueada em robots.txt e marcada noindex — dado de cliente não vaza para buscador."
+    },
+    "escalabilidade_comercial": {
+      "argumento": "O mesmo produto atende dois públicos com economias diferentes: advogado paga por volume e produtividade; consultante paga por tranquilidade e acesso. O perfil Consultante é um funil de aquisição barato que alimenta o produto principal."
+    }
+  },
+
+  "experiencia_do_usuario": {
+    "fluxo_completo": [
+      {
+        "etapa": "1. Entrada",
+        "o_que_acontece": "Login ou cadastro pelo AuthGateway, com abas Advogado e Consultante. Sem Supabase configurado, roda em modo demonstração."
+      },
+      {
+        "etapa": "2. Visão geral",
+        "o_que_acontece": "Painel com dois atalhos: 'Consultar processos' e 'Meus processos'."
+      },
+      {
+        "etapa": "3. Stepper de consulta (4 passos)",
+        "passos": [
+          "Passo 1 — Como buscar: escolha entre CPF e Número do processo. Ao escolher número CNJ, o campo de 20 dígitos vira o dado obrigatório e nome e CPF ficam opcionais. O consultante não vê essa escolha — o documento dele já vem preenchido e travado.",
+          "Passo 2 — Onde procurar: seleção dos tribunais a varrer, com custo estimado por escolha.",
+          "Passo 3 — Avisos: preferências de notificação e resumo em linguagem simples (persistidas; envio ainda pendente).",
+          "Passo 4 — Revisar e consultar: confirmação com custo total estimado antes de disparar."
+        ]
+      },
+      {
+        "etapa": "4. Varredura",
+        "o_que_acontece": "Grid responsivo de 2 colunas, um card por tribunal. Barra de progresso geral (X de 14 consultados) e barra individual por tribunal com percentual estimado e cronômetro. Cada card em andamento tem botão de cancelar. Resultados chegam individualmente por streaming — não há espera pelo mais lento."
+      },
+      {
+        "etapa": "5. Resultado",
+        "o_que_acontece": "Resumo da IA em palavras simples e lista de últimas movimentações, ambos em cards de altura fixa de 420px com scroll interno; cards complementares de Grau, Assunto CNJ e Distribuição aparecem quando o DataJud retorna o dado; selo 'DATAJUD (CNJ)' quando houve enriquecimento; chat de IA ao lado."
+      },
+      {
+        "etapa": "6. Persistência",
+        "o_que_acontece": "Os processos entram em 'Meus processos', tabela filtrável por coluna, servida por cache Redis com fallback para Postgres."
+      }
+    ],
+    "identidade_visual": {
+      "tema": "Dark com glassmorphism em todo o shell autenticado.",
+      "paleta": "Monocromática cinza — Grey Olive #999999, Charcoal #5F5F5F, Gunmetal #3D3D3D, Porcelain #FEFEFA.",
+      "tipografia": "Inter (300 a 700), carregada via next/font com display swap.",
+      "fundo": "GhostFibers — shader WebGL animado via ogl, montado uma única vez dentro do AppShellLayout e persistente entre navegações. Respeita prefers-reduced-motion e pausa fora da viewport.",
+      "icones": "lucide-react exclusivamente. Emojis são proibidos na interface por regra de projeto.",
+      "transicoes": "PageTransition com direção de slide decidida pelo índice da rota em lib/nav.ts."
+    },
+    "acessibilidade_e_responsividade": [
+      "Escalas fluidas com clamp() — responsivo sem media queries.",
+      "prefers-reduced-motion respeitado no fundo animado.",
+      "Grid de varredura adaptável e layout de resultado em coluna no mobile.",
+      "Contraste corrigido iterativamente em cards de vidro, texto do chat e inputs do stepper."
+    ]
+  },
+
+  "arquitetura_tecnica": {
+    "stack": {
+      "framework": "Next.js 15 (App Router) com React 19 e TypeScript 5.7",
+      "estilo": "Tailwind CSS 4 + Mantine 8 (tema em lib/theme.ts) + estilos inline em componentes legados",
+      "animacao": "motion 13, ogl (WebGL), canvas-confetti",
+      "icones": "lucide-react",
+      "banco_e_auth": "Supabase (Postgres + Auth), projeto 'prosec'",
+      "cache": "Upstash Redis (REST/serverless)",
+      "ia": "OpenAI SDK 7 (gpt-4o-mini, principal) e Anthropic SDK 0.65 (claude-haiku-4-5, fallback)",
+      "deploy": "Vercel"
+    },
+    "fontes_de_dados": [
+      {
+        "nome": "Infosimples",
+        "tipo": "API comercial paga, raspagem dos portais dos tribunais",
+        "busca_por": "CPF",
+        "cobertura": "14 serviços de 1º grau (TJs e TRFs)",
+        "custo": "R$ 0,20 base por chamada + adicional de R$ 0,04 em 4 serviços",
+        "papel": "Única fonte capaz de responder 'quais processos existem para este CPF'"
+      },
+      {
+        "nome": "DataJud (CNJ)",
+        "tipo": "API pública oficial do Conselho Nacional de Justiça",
+        "busca_por": "número de processo (não aceita CPF/CNPJ)",
+        "cobertura": "Todos os ramos da justiça brasileira",
+        "custo": "Gratuito",
+        "papel": "Busca direta por CNJ e enriquecimento dos processos achados pela Infosimples",
+        "autenticacao": "Header 'Authorization: APIKey <chave>' — chave pública que pode mudar, ver datajud-wiki.cnj.jus.br",
+        "endpoint": "https://api-publica.datajud.cnj.jus.br/api_publica_<alias>/_search"
+      }
+    ],
+    "endpoints": [
+      { "rota": "POST /api/processos", "funcao": "Consulta principal. Dois fluxos: busca direta por CNJ (DataJud, gratuita) e varredura multi-tribunal por CPF (Infosimples + enriquecimento DataJud). Responde em streaming NDJSON com eventos 'started', 'progress' e 'done'.", "autenticado": true },
+      { "rota": "POST /api/processos/cancelar", "funcao": "Recebe { consultaId, label } e aborta a chamada daquele tribunal específico.", "autenticado": true },
+      { "rota": "GET /api/processos/listar", "funcao": "Lista a carteira do usuário. Tenta o cache Redis (chave ap:processos:{userId}, TTL 300s); em miss consulta o Postgres e popula o cache.", "autenticado": true },
+      { "rota": "POST /api/ai/summary", "funcao": "Resumo executivo dos processos. OpenAI com fallback Anthropic, 800 tokens, temperatura 0.6.", "autenticado": true },
+      { "rota": "POST /api/ai/chat", "funcao": "Chat jurídico com contexto dos processos, tom configurável e anexos validados.", "autenticado": true },
+      { "rota": "POST /api/bitrix/lead", "funcao": "Envia lead ao CRM Bitrix24 via webhook.", "autenticado": true },
+      { "rota": "POST /api/eventos", "funcao": "Rastreamento de eventos de negócio.", "autenticado": true }
+    ],
+    "modelo_de_dados": {
+      "prefixo": "Todas as tabelas usam prefixo ap_ para não colidir com outros sistemas no mesmo projeto Supabase.",
+      "tabelas": [
+        { "nome": "ap_perfis", "conteudo": "1:1 com auth.users — nome, email, cpf, telefone, role (cliente/advogado/admin), documento e documento_tipo (cpf/cnpj, imutáveis após definidos)." },
+        { "nome": "ap_processos", "conteudo": "Processos monitorados com número CNJ validado por regex, tribunal, UF, classe, assunto, valor da causa, partes, status e dados brutos em jsonb. Único por (user_id, numero_cnj)." },
+        { "nome": "ap_movimentacoes", "conteudo": "Andamentos por processo, com hash para dedupe na sincronização. Único por (processo_id, hash)." },
+        { "nome": "ap_processos_pesquisados", "conteudo": "Carteira resultante das consultas, alimentada por upsert em (user_id, numero_cnj)." },
+        { "nome": "ap_resumos_ia", "conteudo": "Resumos gerados, com registro de até qual movimentação o resumo cobre." },
+        { "nome": "ap_consultas", "conteudo": "Histórico para auditoria e cota. Grava termo_hash, nunca o CPF em claro." },
+        { "nome": "ap_preferencias_consulta", "conteudo": "Tribunais selecionados, avisar_movimentacao, canal_aviso e resumo_linguagem_simples. Um registro por usuário." },
+        { "nome": "ap_eventos", "conteudo": "Eventos de negócio com schema_version, colunas 'dia' e 'hora' geradas em America/Sao_Paulo e ip_hash." },
+        { "nome": "ap_auditoria", "conteudo": "Toda requisição à API: método, rota, status, duração, ip_hash, user_agent." }
+      ],
+      "views": [
+        { "nome": "ap_dashboard_v1", "conteudo": "Agregação por dia, hora, tipo e assunto, com total de eventos e usuários distintos. security_invoker = true." }
+      ],
+      "seguranca_no_banco": [
+        "RLS habilitado em todas as tabelas.",
+        "Políticas de dono: o usuário só acessa linhas com user_id = auth.uid().",
+        "Função ap_is_admin() (security definer, search_path fixo) habilita leitura ampla para o painel administrativo.",
+        "Escrita em eventos e auditoria apenas pelo service role.",
+        "Trigger ap_perfis_bloquear_troca_documento impede alteração do documento depois de definido.",
+        "Trigger ap_handle_new_user grava role e documento a partir do metadata do signUp."
+      ]
+    },
+    "decisoes_de_arquitetura_relevantes": [
+      {
+        "decisao": "Streaming NDJSON em vez de resposta única",
+        "motivo": "A versão anterior esperava Promise.allSettled de 14 chamadas terminar, ficando refém do tribunal mais lento sem nenhum feedback. Agora cada tribunal emite sua própria linha de progresso."
+      },
+      {
+        "decisao": "Cancelamento por endpoint de sinalização em vez de 14 requisições HTTP separadas",
+        "motivo": "Abortar o fetch do cliente mataria a leitura do stream inteiro sem parar o trabalho já disparado no servidor. O endpoint de sinalização é a menor mudança estrutural que resolve."
+      },
+      {
+        "decisao": "DataJud como enriquecimento, não como substituto da Infosimples",
+        "motivo": "O DataJud não aceita busca por CPF ou CNPJ. Ele cobre mais tribunais e é gratuito, mas exige o número do processo — por isso complementa o fluxo por CPF em vez de substituí-lo."
+      },
+      {
+        "decisao": "Percentual de progresso estimado por média móvel em localStorage",
+        "motivo": "A chamada à Infosimples é atômica e não reporta etapas intermediárias. A estimativa calibrada pelo histórico real do navegador é mais honesta que um spinner indeterminado."
+      },
+      {
+        "decisao": "classifyTag extraída de route.ts para lib/classify.ts",
+        "motivo": "Next.js não permite exportar valores arbitrários de um route.ts — causava erro de build por import circular."
+      },
+      {
+        "decisao": "Redis como cache de leitura, Postgres como fonte da verdade",
+        "motivo": "Leitura rápida de 'Meus processos' sem abrir mão da consistência. Sem as variáveis Upstash, o cliente é no-op e a leitura cai direto no Postgres."
+      }
+    ]
+  },
+
+  "performance": {
+    "otimizacoes_implementadas": [
+      {
+        "item": "Consulta paralela com streaming incremental",
+        "efeito": "O tempo percebido passa a ser o do tribunal mais rápido, não o do mais lento. Os 14 resultados chegam conforme ficam prontos."
+      },
+      {
+        "item": "Priorização por DDD",
+        "efeito": "O tribunal estadual com maior probabilidade de ter o processo é consultado primeiro."
+      },
+      {
+        "item": "Cancelamento individual",
+        "efeito": "Um tribunal travado não segura o resultado nem consome tempo do usuário."
+      },
+      {
+        "item": "Timeout de 5s no DataJud via AbortController",
+        "efeito": "O enriquecimento nunca segura o fluxo principal; em timeout é no-op silencioso."
+      },
+      {
+        "item": "Cache Redis com TTL de 300s e invalidação dirigida",
+        "efeito": "'Meus processos' carrega do cache; a gravação de novos processos invalida a chave do usuário imediatamente, evitando dado obsoleto."
+      },
+      {
+        "item": "Deduplicação por Set durante a varredura",
+        "efeito": "O mesmo processo retornado por mais de uma fonte não aparece duplicado nem é reprocessado."
+      },
+      {
+        "item": "GhostFibers montado uma única vez no AppShellLayout",
+        "efeito": "O shader WebGL persiste entre navegações em vez de remontar a cada rota; pausa fora da viewport e respeita prefers-reduced-motion."
+      },
+      {
+        "item": "next/font com display swap",
+        "efeito": "Sem flash de texto invisível no carregamento da Inter."
+      }
+    ],
+    "gargalos_conhecidos_nao_resolvidos": [
+      "AuthGuard.tsx e AppShellLayout.tsx são 'use client' e envolvem todas as rotas autenticadas — a renderização fica bloqueada até a checagem de sessão Supabase no cliente, produzindo tela em branco inicial em /consulta e /processos.",
+      "Nenhuma rota usa loading.tsx ou Suspense.",
+      "ProcessTracker.tsx tem 1444 linhas e cerca de 30 useState — re-renderiza toda a árvore a cada tecla digitada no chat, que permanece sempre montado no DOM.",
+      "ProcessDashboardSplit.tsx (1226 linhas) é código morto, sem nenhum importador.",
+      "@tabler/icons-react continua no package.json sem uso, depois da migração para lucide-react.",
+      "O registro de cancelamento (lib/consultaAbort.ts) vive em memória da instância Node — não sobrevive a cold start nem a instância diferente. Aceitável para o ciclo de vida de segundos de uma consulta, mas não é durável."
+    ],
+    "observacao": "Os gargalos acima vieram de uma investigação de performance registrada no roadmap. São diagnóstico, não correção aplicada."
+  },
+
+  "configuracao": {
+    "variaveis_de_ambiente": [
+      { "nome": "INFOSIMPLES_API_TOKEN", "obrigatoria": "Sim, para busca por CPF", "efeito_se_ausente": "A varredura multi-tribunal retorna erro 500. A busca por número CNJ continua funcionando.", "alias_aceito": "INFOSIMPLES_TOKEN" },
+      { "nome": "DATAJUD_API_KEY", "obrigatoria": "Sim, para busca por CNJ e enriquecimento", "efeito_se_ausente": "Enriquecimento vira no-op silencioso e a busca direta por número não retorna resultado.", "observacao": "Chave pública do CNJ, pode mudar sem aviso — conferir em datajud-wiki.cnj.jus.br/api-publica/acesso" },
+      { "nome": "OPENAI_API_KEY", "obrigatoria": "Não", "efeito_se_ausente": "Resumo e chat caem para o fallback Anthropic." },
+      { "nome": "ANTHROPIC_API_KEY", "obrigatoria": "Não", "efeito_se_ausente": "Sem OpenAI nem Anthropic, as funcionalidades de IA ficam indisponíveis." },
+      { "nome": "NEXT_PUBLIC_SUPABASE_URL", "obrigatoria": "Sim, em produção", "efeito_se_ausente": "O app entra em modo demonstração e requireUser deixa de bloquear requisições." },
+      { "nome": "NEXT_PUBLIC_SUPABASE_ANON_KEY", "obrigatoria": "Sim, em produção", "efeito_se_ausente": "Idem acima." },
+      { "nome": "UPSTASH_REDIS_REST_URL", "obrigatoria": "Não", "efeito_se_ausente": "O cliente Redis é no-op; 'Meus processos' lê direto do Postgres." },
+      { "nome": "UPSTASH_REDIS_REST_TOKEN", "obrigatoria": "Não", "efeito_se_ausente": "Idem acima." },
+      { "nome": "BITRIX_WEBHOOK_URL", "obrigatoria": "Não", "efeito_se_ausente": "A captura de lead no CRM não dispara." },
+      { "nome": "NEXT_PUBLIC_SITE_URL", "obrigatoria": "Recomendada", "efeito_se_ausente": "metadataBase, robots.txt e sitemap caem para http://localhost:3000." }
+    ],
+    "principio_de_degradacao_graciosa": "Todas as integrações opcionais são projetadas para falhar em silêncio sem derrubar o fluxo principal: Redis ausente cai no Postgres; DataJud ausente é no-op; OpenAI ausente cai no Anthropic; Supabase ausente entra em modo demonstração. As funções de persistência (salvarProcessos, salvarPreferencias) nunca lançam erro.",
+    "instalacao_local": [
+      "npm install",
+      "cp .env.example .env.local e preencher as chaves",
+      "Aplicar as migrations em supabase/migrations/ no projeto Supabase",
+      "npm run dev — abre em http://localhost:3000"
+    ],
+    "scripts": {
+      "dev": "next dev",
+      "build": "next build",
+      "start": "next start",
+      "lint": "next lint"
+    },
+    "licao_operacional_registrada": "Uma migration existente apenas como arquivo no repositório, nunca aplicada ao Supabase remoto, derrubou toda query de perfil em produção com erro 400. Migration no repositório não é migration aplicada — confirmar sempre no banco real."
+  },
+
+  "mapa_de_arquivos": {
+    "rotas": {
+      "app/page.tsx": "Porta de entrada — AuthGateway (login e cadastro).",
+      "app/(app)/layout.tsx": "Shell autenticado: AuthGuard + AppShellLayout, marcado noindex.",
+      "app/(app)/painel/page.tsx": "Visão geral com atalhos.",
+      "app/(app)/consulta/page.tsx": "Stepper de consulta e resultado.",
+      "app/(app)/processos/page.tsx": "Carteira em tabela Mantine filtrável.",
+      "app/(app)/perfil/page.tsx": "Perfil, com documento travado para consultante.",
+      "app/(app)/historico/page.tsx": "Histórico de atividade.",
+      "app/(app)/documentacoes/": "Documentação técnica interna (autenticação)."
+    },
+    "componentes_principais": {
+      "components/ProcessTracker.tsx": "Orquestrador da consulta (1444 linhas) — stepper, varredura, estado e chat. Candidato prioritário a refatoração.",
+      "components/ProcessResultView.tsx": "Tela de resultado — resumo de IA, cards, movimentações, chat.",
+      "components/Stepper.tsx": "Stepper genérico com goToStep e nextButtonText.",
+      "components/AuthGateway.tsx": "Login e cadastro com abas Advogado e Consultante.",
+      "components/AppShellLayout.tsx": "Sidebar recolhível, topbar e GhostFibers persistente.",
+      "components/GhostFibers.tsx": "Fundo WebGL via ogl.",
+      "components/AiSummaryLoadingBar.tsx": "Animação de carregamento do resumo.",
+      "components/DevMetrics.tsx": "Métricas de desenvolvimento e flag 'pagante'.",
+      "components/ProcessDashboardSplit.tsx": "CÓDIGO MORTO — 1226 linhas sem importador."
+    },
+    "bibliotecas_internas": {
+      "lib/cnj.ts": "Parsing e máscara do número CNJ, com mapa completo de tribunais por ramo da justiça.",
+      "lib/datajud.ts": "Cliente da API pública do CNJ, mapa de aliases e parser de movimentos.",
+      "lib/classify.ts": "Classificação de movimentação em urgente/positivo/andamento/informativo.",
+      "lib/infosimplesPricing.ts": "Modelo de preço por serviço.",
+      "lib/ddd.ts": "Mapa DDD para tribunal estadual e priorização da varredura.",
+      "lib/consultaAbort.ts": "Registro em memória de AbortControllers por consulta e tribunal.",
+      "lib/tribunalTiming.ts": "Média móvel do tempo de resposta por tribunal em localStorage.",
+      "lib/redis.ts": "Cache Upstash com no-op na ausência de credenciais.",
+      "lib/security.ts": "Validação de anexos por tamanho, extensão e magic bytes.",
+      "lib/requireUser.ts": "Guarda de autenticação e auditoria nas rotas de API.",
+      "lib/track.ts": "Cliente admin, identificação de usuário e registro de eventos.",
+      "lib/useProfile.ts": "Hook de role e documento, com fallback para modo demonstração.",
+      "lib/format.ts": "Máscaras e validação de CPF e CNPJ, normalização de nome, formatação do chat.",
+      "lib/theme.ts": "Paleta e tema Mantine.",
+      "lib/nav.ts": "Itens de navegação e índice para direção do slide."
+    },
+    "atencao_para_novos_desenvolvedores": [
+      "README.md está DESATUALIZADO — descreve o protótipo mock original (dados de lib/mockProcesses.ts, paleta azul, Poppins). A realidade atual é consulta real, paleta cinza e Inter. Use este arquivo e roadmap.json como referência.",
+      "roadmap.json é obrigatório: ler no início de qualquer tarefa e atualizar status e log ao concluir.",
+      "Regra de projeto: lucide-react para todo ícone, emoji proibido na interface."
+    ]
+  },
+
+  "economia_e_custos": {
+    "modelo_de_custo_variavel": {
+      "infosimples": "R$ 0,20 por chamada na faixa de 1 a 500 consultas/mês, mais adicional de R$ 0,04 em TJSC, TRF1, TRF2 e TRF2 eproc. Uma varredura completa nos 14 serviços custa cerca de R$ 2,96.",
+      "franquia": "A Infosimples tem franquia mínima mensal de R$ 100,00 por conta — não modelada no cálculo por consulta por ser custo de conta, não de chamada.",
+      "datajud": "Gratuito, tanto na busca direta por CNJ quanto no enriquecimento.",
+      "ia": "gpt-4o-mini no resumo com teto de 800 tokens por chamada; chat conforme uso."
+    },
+    "alavancas_de_margem": [
+      "Direcionar o usuário que já tem o número do processo para a busca CNJ elimina 100% do custo variável daquela consulta.",
+      "A seleção de tribunais no Passo 2 reduz o custo por consulta quando o caso é claramente regional.",
+      "A priorização por DDD e o cancelamento individual permitem encerrar a varredura assim que o resultado útil aparece.",
+      "O cache Redis elimina custo de banco em leituras repetidas da carteira."
+    ],
+    "precificacao_planejada": "O roadmap registra a intenção de precificar o consumo de API a 100x o preço de custo da Infosimples, exposto em painel administrativo interno — não implementado."
+  },
+
+  "copywriting_e_conversao": {
+    "nota_de_uso": "Material para landing pages, anúncios e sequências. Toda peça deve ser conferida contra 'o_que_ainda_nao_existe' antes de publicar. Nunca prometer alerta automático ou monitoramento contínuo enquanto essas frentes estiverem pendentes.",
+
+    "proposta_de_valor_central": {
+      "para_advogados": "Pare de abrir 14 sites de tribunal para descobrir onde seu cliente é réu. Digite um CPF e receba, em segundos, todos os processos encontrados — já classificados por risco e traduzidos para uma linguagem que seu cliente entende.",
+      "para_pessoas_fisicas": "Descubra agora se existe algum processo no seu CPF. Em segundos, em português claro, sem juridiquês e sem precisar entender nada de direito.",
+      "versao_curta": "Todos os processos de um CPF. Em segundos. Em português."
+    },
+
+    "headlines": {
+      "advogado_produtividade": [
+        "14 tribunais consultados ao mesmo tempo. Um CPF. Uma tela.",
+        "O que seu estagiário levava 40 minutos para fazer, agora leva segundos.",
+        "Sua carteira processual inteira, sem abrir um único portal de tribunal.",
+        "Pare de pagar hora de estagiário para copiar e colar número de processo.",
+        "Enquanto você consulta um tribunal, a gente consulta quatorze."
+      ],
+      "advogado_risco": [
+        "Penhora, bloqueio e leilão não deveriam estar escondidos na movimentação 47.",
+        "O sistema marca em vermelho o que ameaça o patrimônio do seu cliente.",
+        "Toda movimentação classificada por risco, automaticamente.",
+        "Você não perde uma constrição patrimonial no meio de 80 andamentos burocráticos."
+      ],
+      "advogado_relacionamento": [
+        "Resumo pronto para mandar no WhatsApp do cliente. Em linguagem que ele entende.",
+        "Seu cliente para de ligar perguntando o que significa 'conclusos para despacho'.",
+        "Transforme juridiquês em português. Automaticamente, em cada consulta.",
+        "Um chat de IA que já conhece os processos do seu cliente responde por você — 24 horas por dia."
+      ],
+      "pessoa_fisica": [
+        "Tenho processo no meu nome? Descubra em segundos.",
+        "Consulte processos pelo CPF e entenda o que está acontecendo — sem juridiquês.",
+        "Seu nome está em algum processo? A resposta está a um CPF de distância.",
+        "Processos no seu CPF, explicados em português claro.",
+        "Antes de assinar aquele contrato, veja o que existe no seu nome."
+      ],
+      "cnj_gratuito": [
+        "Tem o número do processo? A consulta é gratuita.",
+        "Digite os 20 dígitos. A gente descobre o tribunal sozinho.",
+        "Consulta por número de processo: instantânea, oficial e sem custo."
+      ],
+      "autoridade_de_fonte": [
+        "Dados oficiais do Conselho Nacional de Justiça. Não é estimativa — é a fonte.",
+        "Direto da base pública do CNJ, mais os portais dos próprios tribunais.",
+        "Fonte oficial, leitura humana."
+      ]
+    },
+
+    "subheadlines": [
+      "Varredura paralela em 14 fontes judiciais, resumo por inteligência artificial e classificação automática de risco — tudo em uma consulta.",
+      "Você vê o custo antes de consultar, escolhe quais tribunais varrer e cancela qualquer um que esteja demorando.",
+      "Dados oficiais do DataJud (CNJ) combinados com os portais dos tribunais estaduais e federais.",
+      "Feito para quem precisa de resposta, não de um PDF de 200 páginas."
+    ],
+
+    "ctas": {
+      "topo_de_funil": ["Consultar meu CPF agora", "Ver processos no meu nome", "Fazer a primeira consulta", "Testar com um CPF"],
+      "meio_de_funil": ["Consultar por número do processo — grátis", "Ver quanto custa minha consulta", "Criar conta de advogado"],
+      "fundo_de_funil": ["Começar a organizar minha carteira", "Centralizar meus processos", "Ativar minha conta"]
+    },
+
+    "blocos_de_copy_prontos": {
+      "hero_advogado": {
+        "headline": "Um CPF. Quatorze tribunais. Segundos.",
+        "sub": "Pare de abrir portal por portal para montar o panorama processual de um cliente. O Prosec varre as fontes em paralelo, classifica cada movimentação por risco e devolve um resumo que você pode encaminhar sem reescrever.",
+        "cta": "Fazer minha primeira consulta",
+        "prova": "Dados oficiais do DataJud (CNJ) e dos portais dos tribunais estaduais e federais."
+      },
+      "hero_pessoa_fisica": {
+        "headline": "Tenho algum processo no meu nome?",
+        "sub": "Digite seu CPF e descubra em segundos. A gente busca nos tribunais, organiza o que encontrou e explica em português claro — sem juridiquês, sem precisar entender de direito.",
+        "cta": "Consultar meu CPF",
+        "prova": "Consulta em fontes judiciais oficiais. Seus dados ficam protegidos e visíveis só para você."
+      },
+      "secao_como_funciona": [
+        { "passo": "1. Você informa", "texto": "Um CPF ou o número do processo. Só isso." },
+        { "passo": "2. A gente varre", "texto": "Quatorze fontes judiciais consultadas ao mesmo tempo, com progresso visível tribunal a tribunal." },
+        { "passo": "3. A gente traduz", "texto": "Cada movimentação classificada por risco e um resumo executivo em linguagem simples." },
+        { "passo": "4. Você decide", "texto": "Com o panorama completo na tela e um chat de IA que já conhece o caso para tirar dúvidas." }
+      ],
+      "secao_objecoes": [
+        { "objecao": "Já uso outra plataforma de busca processual.", "resposta": "A maioria entrega dado bruto e cobra por volume. Aqui você vê o custo antes de consultar, escolhe quais tribunais varrer, cancela o que está lento e recebe o resultado já traduzido — não uma tabela para interpretar sozinho." },
+        { "objecao": "É seguro colocar meu CPF?", "resposta": "Seus dados ficam isolados por usuário diretamente no banco (Row Level Security). Seu IP nunca é guardado em claro, só como hash. Toda a área logada é invisível para buscadores. E anexos passam por inspeção binária antes de serem aceitos." },
+        { "objecao": "Vai me cobrar uma fortuna por consulta?", "resposta": "O custo estimado aparece na tela antes de você confirmar. E se você já tem o número do processo, a consulta é gratuita." },
+        { "objecao": "A informação é confiável?", "resposta": "Vem do DataJud, a base pública oficial do Conselho Nacional de Justiça, combinada com os portais dos próprios tribunais. Não é estimativa nem base proprietária fechada." },
+        { "objecao": "Meu cliente não entende nada de processo.", "resposta": "É exatamente o ponto. O resumo sai em linguagem simples, pronto para encaminhar, e o chat responde as dúvidas dele sem consumir sua hora." }
+      ],
+      "microcopy_de_confianca": [
+        "Custo exibido antes de você confirmar.",
+        "Consulta por número de processo: sempre gratuita.",
+        "Dados oficiais do CNJ.",
+        "Seus processos, visíveis só para você.",
+        "Cancele a consulta a qualquer tribunal, a qualquer momento."
+      ]
+    },
+
+    "angulos_de_campanha": [
+      { "angulo": "Economia de tempo", "gatilho": "Produtividade", "publico": "Advogado", "mensagem": "40 minutos de consulta manual viram segundos." },
+      { "angulo": "Medo de perder constrição", "gatilho": "Aversão à perda", "publico": "Advogado", "mensagem": "Penhora destacada em vermelho, não escondida na movimentação 47." },
+      { "angulo": "Ansiedade do desconhecido", "gatilho": "Alívio", "publico": "Pessoa física", "mensagem": "Descubra agora, em português, o que existe no seu nome." },
+      { "angulo": "Gratuidade da busca por CNJ", "gatilho": "Risco zero", "publico": "Ambos", "mensagem": "Tem o número? Consulte de graça, agora." },
+      { "angulo": "Autoridade da fonte", "gatilho": "Confiança institucional", "publico": "Ambos", "mensagem": "Base oficial do Conselho Nacional de Justiça." },
+      { "angulo": "Transparência de preço", "gatilho": "Controle", "publico": "Advogado", "mensagem": "Você vê quanto custa antes de confirmar." },
+      { "angulo": "Delegação de atendimento", "gatilho": "Liberação de tempo", "publico": "Advogado", "mensagem": "A IA responde o cliente para você, 24 horas por dia." }
+    ],
+
+    "sequencia_de_email_sugerida": [
+      { "email": 1, "assunto": "Quantos sites de tribunal você abriu essa semana?", "angulo": "Dor de produtividade", "cta": "Fazer a primeira consulta" },
+      { "email": 2, "assunto": "A penhora estava na movimentação 47", "angulo": "Risco de constrição não vista", "cta": "Ver a classificação automática de risco" },
+      { "email": 3, "assunto": "Se você tem o número do processo, a consulta é grátis", "angulo": "Risco zero", "cta": "Consultar por número CNJ" },
+      { "email": 4, "assunto": "Seu cliente ligou de novo perguntando o que significa 'concluso'?", "angulo": "Atrito de relacionamento", "cta": "Ver um resumo em linguagem simples" },
+      { "email": 5, "assunto": "De onde vêm os dados (e por que isso importa)", "angulo": "Autoridade da fonte CNJ", "cta": "Entender a cobertura" }
+    ]
+  },
+
+  "keywords": {
+    "nota_de_uso": "Agrupadas por intenção de busca. As de intenção transacional convertem melhor em anúncio pago; as informacionais sustentam conteúdo orgânico e capturam o público antes da decisão.",
+
+    "intencao_transacional_alta_conversao": [
+      "consultar processo por CPF",
+      "consulta processual por CPF",
+      "ver processos no meu nome",
+      "tenho processo no meu CPF",
+      "sistema de acompanhamento processual",
+      "software acompanhamento de processos advogado",
+      "plataforma consulta processual",
+      "consultar processo judicial online",
+      "buscar processo pelo CPF grátis",
+      "consulta de processo por número CNJ",
+      "acompanhamento processual automatizado",
+      "sistema para advogado acompanhar processos",
+      "gestão de carteira de processos",
+      "consulta multi-tribunal",
+      "ferramenta de busca processual"
+    ],
+
+    "intencao_informacional_topo_de_funil": [
+      "como saber se tenho processo no meu nome",
+      "como consultar processo judicial",
+      "como descobrir se estou sendo processado",
+      "o que significa processo concluso",
+      "o que é movimentação processual",
+      "o que significa penhora online",
+      "o que é bloqueio Sisbajud",
+      "como ler andamento processual",
+      "o que significa execução fiscal",
+      "como entender o número do processo CNJ",
+      "o que é DataJud",
+      "o que é número CNJ do processo",
+      "quanto tempo demora um processo judicial",
+      "o que significa processo baixado",
+      "diferença entre primeiro e segundo grau"
+    ],
+
+    "cauda_longa_por_tribunal": [
+      "consultar processo TJSP por CPF",
+      "consultar processo TJRJ por CPF",
+      "consultar processo TJMG por CPF",
+      "consultar processo TJPR por CPF",
+      "consultar processo TJBA por CPF",
+      "consultar processo TJRS por CPF",
+      "consultar processo TJSC por CPF",
+      "consultar processo TRF1",
+      "consultar processo TRF2",
+      "consultar processo TRF3",
+      "consulta processual justiça federal por CPF",
+      "consulta processo eproc",
+      "andamento processual TJSP",
+      "consulta pública processo estadual"
+    ],
+
+    "dor_do_advogado": [
+      "como organizar processos do escritório",
+      "como acompanhar processos de vários clientes",
+      "evitar perder prazo processual",
+      "centralizar processos de vários tribunais",
+      "automatizar consulta processual",
+      "reduzir tempo de consulta em tribunal",
+      "resumo de processo para cliente",
+      "explicar processo para cliente leigo",
+      "produtividade escritório de advocacia",
+      "tecnologia para advogado autônomo",
+      "legaltech acompanhamento processual",
+      "software jurídico para banca pequena"
+    ],
+
+    "dor_do_cliente_final": [
+      "estou sendo processado e não sei",
+      "descobrir processo contra mim",
+      "processo no CPF sem saber",
+      "como saber se meu nome está sujo na justiça",
+      "consultar dívida judicial",
+      "entender meu processo sem advogado",
+      "meu processo está parado",
+      "o que acontece se eu tiver processo",
+      "bloqueio judicial na conta",
+      "penhora de bens o que fazer"
+    ],
+
+    "termos_tecnicos_e_de_marca": [
+      "Prosec",
+      "Blindagem Financeira acompanhamento processual",
+      "DataJud CNJ API pública",
+      "Tabela Processual Unificada",
+      "número CNJ 20 dígitos",
+      "consulta processual com inteligência artificial",
+      "resumo de processo por IA",
+      "classificação de risco processual",
+      "due diligence processual",
+      "análise de precatórios"
+    ],
+
+    "modificadores_de_conversao": {
+      "nota": "Combinar com os termos-raiz acima para ampliar a cobertura semântica.",
+      "lista": ["grátis", "online", "rápido", "sem cadastro", "por CPF", "por número", "em segundos", "oficial", "2026", "automático", "para advogado", "passo a passo"]
+    },
+
+    "keywords_negativas_sugeridas": {
+      "nota": "Excluir em campanhas pagas para não queimar verba com intenção incompatível.",
+      "lista": ["concurso", "curso", "OAB", "vaga de emprego", "estágio", "petição modelo grátis", "advogado gratuito", "defensoria pública", "jurisprudência", "consulta processo trabalhista por CPF"],
+      "justificativa_do_ultimo": "A varredura por CPF ainda não cobre Justiça do Trabalho — atrair esse termo gera frustração e churn. Remover da lista negativa quando a frente 'cobertura-trabalhista-eleitoral-jec' for entregue."
+    }
+  },
+
+  "metricas_e_rastreamento": {
+    "eventos_ja_instrumentados": ["login", "logout", "signup", "consulta", "resumo_ia", "chat_ia", "lead", "page_view"],
+    "dimensoes_capturadas": ["user_id", "tipo", "processo_id", "numero_cnj", "assunto", "classe", "tribunal", "dados (jsonb)", "ip_hash", "user_agent", "dia", "hora"],
+    "visao_agregada": "ap_dashboard_v1 — total de eventos e usuários distintos por dia, hora, tipo e assunto.",
+    "kpis_sugeridos": [
+      "Taxa de conclusão do stepper (quantos chegam ao Passo 4 e confirmam).",
+      "Taxa de resultado útil (consultas que retornam ao menos um processo).",
+      "Divisão entre busca por CPF (paga) e busca por CNJ (gratuita) — indicador direto de margem.",
+      "Custo médio por consulta frente ao número de tribunais selecionados.",
+      "Taxa de uso do chat de IA após o resultado — proxy de engajamento e de delegação de atendimento.",
+      "Retorno à aba 'Meus processos' — proxy de retenção.",
+      "Tribunais mais cancelados durante a varredura — indicador de fonte problemática."
+    ]
+  },
+
+  "roadmap_resumido": {
+    "implementado": 14,
+    "pendente": 9,
+    "prioridade_sugerida": [
+      { "ordem": 1, "item": "monitoramento-continuo + alertas-andamento", "motivo": "São a funcionalidade mais vendável do segmento e já têm toda a interface e a persistência de preferência prontas — falta só o motor (cron, diff e envio). Maior retorno sobre esforço restante." },
+      { "ordem": 2, "item": "cobertura-trabalhista-eleitoral-jec", "motivo": "Lacuna que gera frustração real: o parser CNJ já reconhece TRTs, mas a varredura por CPF não chega lá. Hoje exige keyword negativa em campanha." },
+      { "ordem": 3, "item": "cobertura-2grau-superiores", "motivo": "Completa a cobertura e sustenta o discurso de panorama completo." },
+      { "ordem": 4, "item": "billing-uso-api-por-conta", "motivo": "Pré-requisito para qualquer modelo de cobrança por consumo. A lógica de custo já existe." },
+      { "ordem": 5, "item": "documentos-integra", "motivo": "Alto valor, alta complexidade de integração. Destrava a análise de carteira." },
+      { "ordem": 6, "item": "analise-carteira", "motivo": "Produto adjacente para a operação de compra e venda de processos e precatórios. Depende dos itens 3 e 5." }
+    ],
+    "divida_tecnica_prioritaria": [
+      "Refatorar ProcessTracker.tsx (1444 linhas, cerca de 30 useState) — desmontar o chat quando fechado e isolar o estado de digitação.",
+      "Mover a checagem de sessão do AuthGuard para o servidor, eliminando a tela em branco inicial.",
+      "Adicionar loading.tsx ou Suspense nas rotas autenticadas.",
+      "Remover ProcessDashboardSplit.tsx (código morto) e a dependência @tabler/icons-react.",
+      "Reescrever o README.md, hoje descrevendo o protótipo mock original."
+    ]
+  },
+
+  "glossario": {
+    "CNJ": "Conselho Nacional de Justiça — órgão que padroniza e publica dados do Judiciário brasileiro.",
+    "Número CNJ": "Padrão unificado de 20 dígitos no formato NNNNNNN-DD.AAAA.J.TR.OOOO, onde J identifica o ramo da justiça e TR o tribunal. É o que permite identificar o tribunal de origem sem perguntar ao usuário.",
+    "DataJud": "Base Nacional de Dados do Poder Judiciário — API pública e gratuita do CNJ. Busca apenas por número de processo, nunca por CPF ou CNPJ.",
+    "Infosimples": "API comercial paga que raspa os portais dos tribunais. É a única fonte do sistema capaz de buscar processos a partir de um CPF.",
+    "TPU": "Tabela Processual Unificada — padronização de classes, assuntos e movimentos processuais do CNJ.",
+    "Sisbajud": "Sistema de Busca de Ativos do Poder Judiciário, sucessor do Bacenjud — usado para bloqueio de valores em conta. Palavra-chave de risco máximo na classificação.",
+    "eproc": "Sistema de processo eletrônico usado por alguns tribunais, com endpoint próprio na Infosimples — por isso aparece como fonte separada (ex.: 'TJSP (eproc)').",
+    "RLS": "Row Level Security — recurso do Postgres que restringe o acesso linha a linha. Garante o isolamento entre usuários no próprio banco, não apenas na aplicação.",
+    "NDJSON": "Newline-Delimited JSON — um objeto JSON por linha. Formato do streaming que permite mostrar cada tribunal chegando individualmente.",
+    "Consultante": "Perfil de pessoa física no sistema (role 'cliente'), com documento fixado no cadastro e imutável por trigger de banco.",
+    "Stepper": "Assistente de 4 passos que conduz a consulta: Como buscar, Onde procurar, Avisos, Revisar e consultar."
+  }
+}

@@ -498,11 +498,15 @@ function DataCard({ label, value }: { label: string; value: string }) {
         borderRadius: 8,
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        padding: '14px 16px'
+        padding: '14px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        minHeight: 74
       }}
     >
       <div style={{ fontSize: 10, letterSpacing: 1, color: MUTED, marginBottom: 4 }}>{label.toUpperCase()}</div>
-      <div style={{ fontSize: 13.5, color: TEXT, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ fontSize: 13.5, color: TEXT, fontWeight: 600, wordBreak: 'break-word', lineHeight: 1.45 }}>
         {value}
       </div>
     </div>

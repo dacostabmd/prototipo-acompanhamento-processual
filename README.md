@@ -1,113 +1,97 @@
-# Blindagem Financeira — Acompanhamento de Processos (Next.js)
+# Prosec — Acompanhamento Processual Inteligente
 
-Exportação fiel do protótipo em Next.js 15 (App Router, React 19, TypeScript). Os estilos foram
-mantidos **inline**, com os mesmos valores do protótipo, para fidelidade visual 1:1. Só o que não
-pode ser inline (reset, `@keyframes`, fonte) está em `app/globals.css` / `app/layout.tsx`.
+Sistema completo de consulta, tradução e inteligência sobre processos judiciais brasileiros (Next.js 15, React 19, TypeScript, Supabase, Redis Upstash e integrações com IA / DataJud / Infosimples / Bitrix24).
 
-## Rodando
+---
+
+## 📌 Visão Geral
+
+O **Prosec** resolve o problema da dispersão de dados processuais no Brasil. Em vez de consultar dezenas de sites de tribunais manualmente (cada um com layout, login e captcha distintos), o sistema:
+
+1. **Busca por Número CNJ (Direta e Gratuita)**: Identifica automaticamente a Justiça e Tribunal (27 TJs, TRFs 1–6, TRTs 1–24, STJ, STF, TST, TSE) via [`lib/cnj.ts`](file:///d:/projetos/Andamento%20Processual/Prosec/lib/cnj.ts) e consulta diretamente a API pública do **DataJud (CNJ)** sem custo por chamada.
+2. **Varredura Multi-Tribunal por CPF**: Consulta 14 bases judiciais em paralelo via **Infosimples** com streaming em tempo real (NDJSON) e cancelamento sob demanda.
+3. **Enriquecimento Oficial (DataJud CNJ)**: Complementa processos encontrados com assuntos da Tabela Processual Unificada (TPU), órgão julgador, grau e histórico de movimentações.
+4. **Classificação Automática de Riscos**: Categoriza cada evento em `urgente` (penhora, bloqueio Sisbajud, leilão, execução), `positivo` (deferimento, procedência, arquivamento), `andamento` ou `informativo`.
+5. **Resumo Executivo por IA**: Gera síntese clara em português acessível via OpenAI (com fallback para Anthropic Claude).
+6. **Chat Jurídico Especializado**: Assistente de triagem contextualizado nos processos retornados.
+7. **Perfis de Acesso**: Separação clara entre perfil **Advogado** (busca livre e gestão de múltiplos processos) e **Consultante** (travado no próprio CPF/CNPJ de cadastro).
+8. **Automação Comercial e CRM (Bitrix24)**: Mapeamento de funis, etapas e automações para captura de leads e acompanhamento de carteiras.
+
+---
+
+## 🚀 Como Executar
+
+### Pré-requisitos
+* Node.js 18+ ou 20+
+* Variáveis de ambiente configuradas em `.env.local`
 
 ```bash
+# 1. Instalar dependências
 npm install
-cp .env.example .env.local   # preencha ANTHROPIC_API_KEY
+
+# 2. Configurar variáveis de ambiente
+cp .env.example .env.local
+
+# 3. Iniciar o servidor de desenvolvimento
 npm run dev
 ```
 
-Abre em `http://localhost:3000`.
+Acesse em `http://localhost:3000`.
 
-## Estrutura
+---
+
+## 🔐 Variáveis de Ambiente (`.env.local`)
+
+| Variável | Descrição |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave anônima do Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Chave de serviço (backend) do Supabase |
+| `DATAJUD_API_KEY` | Chave pública da API do DataJud (CNJ) |
+| `INFOSIMPLES_API_TOKEN` | Token da API da Infosimples (consultas por CPF) |
+| `OPENAI_API_KEY` | Chave OpenAI para resumos e chat (gpt-4o-mini) |
+| `ANTHROPIC_API_KEY` | Chave Anthropic Claude (fallback de IA) |
+| `UPSTASH_REDIS_REST_URL` | URL REST do Upstash Redis (cache de leitura) |
+| `UPSTASH_REDIS_REST_TOKEN` | Token do Upstash Redis |
+| `BITRIX24_WEBHOOK_URL` | Webhook de integração do Bitrix24 |
+
+---
+
+## 🏗️ Estrutura do Repositório
 
 ```
 app/
-  layout.tsx              fonte Poppins (next/font) + metadata
-  globals.css             reset, ::placeholder, links, @keyframes das animações
-  page.tsx                monta <ProcessTracker />
-  api/processos/route.ts  consulta real de processos (Infosimples)
-  api/ai/summary/route.ts resumo do andamento processual (OpenAI / Anthropic)
-  api/ai/chat/route.ts    chat de triagem jurídica (OpenAI / Anthropic)
+  (app)/                     Rotas autenticadas dentro do shell
+    consulta/                Tela principal de consulta e acompanhamento
+    processos/               Tabela 'Meus processos' com cache Redis e filtros
+    automacao/               Painel de automações de funil Bitrix24
+    perfil/                  Dados do usuário e documento travado
+  api/
+    processos/route.ts       Varredura multi-tribunal (NDJSON) + Busca CNJ DataJud
+    processos/cancelar/      Cancelamento em tempo real de tribunal na varredura
+    processos/listar/        Listagem com cache Redis (Upstash)
+    ai/summary/route.ts      Resumo executivo por IA (OpenAI / Claude)
+    ai/chat/route.ts         Chat contextualizado nos processos
+    automacao/               Execução e webhook de automações Bitrix
 components/
-  ProcessTracker.tsx      tela única: busca, timeline, resumo IA, WhatsApp, modais
-  GhostFibers.tsx         fundo animado WebGL (shader, via ogl)
+  AppShellLayout.tsx         Shell autenticado dark/glass com sidebar retrátil
+  ProcessTracker.tsx         Stepper de busca em 4 passos e tela de scanning
+  ProcessResultView.tsx      Tela de resultados (cards, resumo IA, timeline, chat)
+  GhostFibers.tsx            Fundo animado WebGL/Shader persistente
 lib/
-  format.ts               máscaras CPF/telefone, validação de CPF (mod 11), normalização de nome
-  mockProcesses.ts        dados mockados + montagem da timeline + TAG_META
-public/
-  blindagem-logo.png      logo em PNG com fundo transparente
+  cnj.ts                     Parser CNJ de 20 dígitos (identificação de Justiça/Tribunal)
+  datajud.ts                 Cliente HTTP da API pública do DataJud (CNJ)
+  infosimplesPricing.ts      Cálculo do custo real por tribunal da Infosimples
+  redis.ts                   Cliente Upstash Redis com TTL e invalidação
+  classify.ts                Classificação de movimentações por risco (tags)
+  format.ts                  Máscaras e validações (CPF, CNPJ, CNJ, telefone)
+  track.ts                   Auditoria e tracking de eventos de negócio
+supabase/
+  migrations/                Migrations SQL versionadas do Supabase
 ```
 
-## Design tokens
+---
 
-| Token | Valor | Uso |
-| --- | --- | --- |
-| Azul da marca | `#2455b8` | cabeçalho, faixa do cliente, botões primários, bordas de destaque |
-| Azul claro | `#a9c3ef` | rótulos sobre azul |
-| Azul hover/link | `#17347a` | `a:hover` |
-| Quase preto | `#0b0b0d` | fundo base da página (atrás do shader) |
-| Papel | `#ffffff` | cards e "papel" dos resultados |
-| Creme | `#f5f2ea` / `#f5efe1` | fundo do chat / texto sobre azul |
-| Borda | `#e3ddd0` | bordas de cards e divisores |
-| Input | borda `#d7d0c0`, fundo `#fbf9f4` | campos de formulário |
-| Texto | `#1b2733` (corpo), `#000000` (títulos/rótulos), `#5b6b78` (secundário) | |
-| Erro | `#8a3a3a` | mensagens de validação |
-| WhatsApp | `#25603f` | botão de envio por WhatsApp |
-| Status | urgente `#8a3a3a`, andamento `#3a6b8a`, informativo `#4a5a6a`, favorável `#4a7a5c` | pontos e etiquetas da timeline |
+## 📊 Roadmap e Checklist de Features
 
-Tipografia: **Poppins** (300/400/500/600/700) em todo o sistema.
-Escalas fluidas: `clamp(20px,5vw,25px)` no H1, `clamp(10px,2.4vw,12px)` no subtítulo do header,
-paddings `clamp(...)` no header, cards e main (responsivo sem media queries).
-
-## Animações (`app/globals.css`)
-
-| Nome | Uso |
-| --- | --- |
-| `bf-spin` | spinner (anel incompleto) abaixo do botão de consulta |
-| `bf-fadein` | entrada do painel de resultados (0.7s ease) |
-| `bf-letter-fade` | letras do texto de carregamento sumindo em fade-out (1.9s, delay `i * 0.035s`) |
-| `bf-wave-sweep` | onda azul translúcida (`mix-blend-mode: multiply`) varrendo as letras |
-| `bf-blink` | indicador "Digitando..." no chat |
-
-Transições inline: expansão dos nós da timeline (`max-height 0.35s ease`, 0 → 600px), modais
-(`opacity 0.3s` + `transform scale(0.94 → 1)`).
-
-## Fluxo e comportamento
-
-1. **Busca** — nome completo (normalizado no blur, com `de/da/do/das/dos/e` minúsculos), CPF com
-   máscara e validação real (dígitos verificadores mod 11) e telefone com máscara BR. Validações
-   exibem mensagem única abaixo do botão. Delay simulado de 900ms com spinner.
-2. **Resultado (mock)** — o protótipo **sempre** retorna os 3 processos de `lib/mockProcesses.ts`.
-   O ramo "nenhum processo localizado" existe no componente (`notFound`) e é o caminho a ligar
-   quando a API real responder vazio.
-3. **Timeline** — movimentos de todos os processos achatados e ordenados por data (mais recente
-   primeiro). Clique no card expande os detalhes com transição suave.
-4. **Resumo por IA** — `POST /api/ai/summary`; o loading fica no ar por **no mínimo 3 segundos**
-   (requisito de prototipação) para a animação de ondas + letras ser vista.
-5. **Envio por WhatsApp** — hoje é mock de 900ms; ponto de integração marcado com `TODO(dev)`.
-6. **Auxílio jurídico** — o botão abre primeiro um **modal informativo** e, no "Continuar", o
-   **modal do chat** (525px, 80vh) com o assistente de triagem (`POST /api/ai/chat`), anexo de
-   arquivos (apenas nomes, sem upload) e "Finalizar e enviar dossiê ao advogado", que encerra a
-   conversa com a mensagem de confirmação.
-
-## O que ainda é mock (pontos de integração)
-
-- **Infosimples**: integrado via `app/api/processos/route.ts` (token seguro no servidor, busca real por CPF via endpoint `tribunal/tjsp/primeiro-grau`).
-- **WhatsApp**: `sendWhatsapp()` em `ProcessTracker.tsx` → WhatsApp Cloud API com template aprovado.
-- **Upload de documentos**: o input de arquivos guarda só os nomes; falta storage (S3/UploadThing)
-  e anexar os arquivos ao dossiê.
-- **Dossiê ao advogado**: `finalizeChat()` apenas confirma na conversa; falta persistir o caso
-  (cliente, CPF, telefone, processos, resumo de IA, transcrição do chat, arquivos) e notificar o
-  advogado parceiro.
-- **Persistência / auth**: não há banco nem sessão; todo o estado é local ao componente.
-
-## Props do componente
-
-`<ProcessTracker aiModel="claude-haiku-4-5" chatTone="Acolhedor" />`
-
-- `aiModel`: `claude-haiku-4-5` | `claude-sonnet-4-5`
-- `chatTone`: `Acolhedor` | `Formal` (ajusta o system prompt da triagem)
-
-## Observações
-
-- `GhostFibers.tsx` é o componente que você enviou, sem alterações além de `'use client'` e do
-  `position:absolute; inset:0` no container. Requer `ogl` e WebGL2; respeita
-  `prefers-reduced-motion` e pausa fora da viewport.
-- A logo em `public/blindagem-logo.png` foi gerada a partir do arquivo enviado, com o fundo azul
-  removido (chroma key) para uso sobre qualquer cor.
+Consulte sempre [`roadmap.json`](file:///d:/projetos/Andamento%20Processual/Prosec/roadmap.json) e [`para_entender_o_projeto.json`](file:///d:/projetos/Andamento%20Processual/Prosec/para_entender_o_projeto.json) na raiz do projeto para o checklist atualizado de funcionalidades implementadas e pendentes.

@@ -8,9 +8,10 @@ import { AppShell, Burger, Tooltip, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { motion } from 'motion/react';
 import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
-import { NAV_ITEMS, navIndex } from '@/lib/nav';
+import { NAV_ITEMS } from '@/lib/nav';
 import { getSupabase } from '@/lib/supabase';
 import { authFetch } from '@/lib/authFetch';
+import { useProfile } from '@/lib/useProfile';
 import PageTransition from './PageTransition';
 import UserChip from './UserChip';
 import GhostFibers from './GhostFibers';
@@ -24,7 +25,8 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(true);
   const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure(false);
-  const active = navIndex(pathname);
+  const { profile } = useProfile();
+  const navItems = NAV_ITEMS.filter(item => !item.roles || item.roles.includes(profile.role));
 
   useEffect(() => {
     try {
@@ -97,8 +99,8 @@ export default function AppShellLayout({ children }: { children: ReactNode }) {
         </span>
 
         <nav aria-label="Principal" className="bf-side-nav">
-          {NAV_ITEMS.map((item, i) => {
-            const isActive = i === active;
+          {navItems.map(item => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             const Icon = item.icon;
             return (
               <Tooltip key={item.href} label={item.label} position="right" offset={14} withArrow disabled={expanded || mobileOpened}>

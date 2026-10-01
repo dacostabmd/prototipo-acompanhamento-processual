@@ -1,7 +1,16 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
 
-export type TipoEvento = 'login' | 'logout' | 'signup' | 'consulta' | 'resumo_ia' | 'chat_ia' | 'lead' | 'page_view';
+export type TipoEvento =
+  | 'login'
+  | 'logout'
+  | 'signup'
+  | 'consulta'
+  | 'resumo_ia'
+  | 'chat_ia'
+  | 'lead'
+  | 'page_view'
+  | 'automacao_bitrix';
 
 export interface EventoInput {
   tipo: TipoEvento;
