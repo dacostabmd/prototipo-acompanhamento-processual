@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
@@ -102,12 +101,6 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
           </span>
           <span className="bf-nav-label">Recolher</span>
         </UnstyledButton>
-
-        <div className="bf-side-brand">
-          <Link href="/painel" aria-label="Blindagem Financeira — início" className="bf-side-logo">
-            <Image src="/blindagem-logo.png" alt="Blindagem Financeira" width={122} height={40} priority />
-          </Link>
-        </div>
 
         <span className="bf-side-caption" aria-hidden>
           Navegação

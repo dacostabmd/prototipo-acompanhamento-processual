@@ -54,7 +54,10 @@ export default function ProcessResultView({
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // block: 'nearest' restringe o scroll ao container do chat (overflowY próprio), em vez de
+    // rolar a página inteira até esse ponto — scrollIntoView por padrão (block: 'end') sobe
+    // qualquer ancestral com overflow, incluindo a janela.
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [chatMessages, chatLoading]);
 
   const principal = caseData.processes[0];

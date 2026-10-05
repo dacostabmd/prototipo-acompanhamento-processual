@@ -560,20 +560,6 @@ export default function ProcessTracker({
           boxSizing: 'border-box'
         }}
       >
-        {/* Logotipo Blindagem Financeira */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <img
-            src="/blindagem-logo.png"
-            alt="Blindagem Financeira"
-            style={{
-              height: 48,
-              width: 'auto',
-              filter: 'brightness(1.1) drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
-              display: 'inline-block'
-            }}
-          />
-        </div>
-
         {/* ═════════════════════════════════════════════════════════════════
             FASE 1: FORMULÁRIO EM STEPPER ANIMADO (4 PASSOS)
             ═════════════════════════════════════════════════════════════════ */}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Table, TextInput, Select } from '@mantine/core';
 import { Gavel, Search } from 'lucide-react';
+import { motion } from 'motion/react';
 import { authFetch } from '@/lib/authFetch';
 import { useSharedProfile } from '@/components/ProfileProvider';
 
@@ -125,8 +126,22 @@ export default function Processos() {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {listaFiltrada.map(p => (
-                  <Table.Tr key={p.id}>
+                {listaFiltrada.map((p, index) => (
+                  <Table.Tr
+                    key={p.id}
+                    renderRoot={(props) => (
+                      <motion.tr
+                        {...props}
+                        initial={{ opacity: 0, x: -24 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{
+                          duration: 0.45,
+                          delay: Math.min(index * 0.045, 0.8),
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                      />
+                    )}
+                  >
                     <Table.Td className="!text-white font-medium">
                       <span className="inline-flex items-center gap-1.5">
                         <Gavel size={16} strokeWidth={1.8} className="text-white/40" />

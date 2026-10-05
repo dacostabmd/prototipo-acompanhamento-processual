@@ -267,40 +267,6 @@ a:hover {
   transition: width 260ms var(--bf-ease), transform 260ms var(--bf-ease);
 }
 
-.bf-side-brand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 72px;
-  padding: 0 10px;
-  flex: none;
-  width: 100%;
-}
-
-.bf-side-logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 40px;
-  overflow: hidden;
-  transition: width 260ms var(--bf-ease);
-  margin: 0 auto;
-}
-
-.bf-side-logo img {
-  display: block;
-  max-width: 100%;
-  height: 38px;
-  width: auto;
-  object-fit: contain;
-}
-
-.bf-side[data-expanded] .bf-side-logo {
-  width: 100%;
-  max-width: 160px;
-}
-
 .bf-side-caption {
   flex: none;
   height: 32px;
@@ -415,9 +381,6 @@ a:hover {
     opacity: 1;
     transform: none;
   }
-  .bf-side .bf-side-logo {
-    width: 122px;
-  }
 }
 
 .bf-topbar.bf-topbar {
@@ -522,7 +485,6 @@ a:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .bf-side.bf-side,
-  .bf-side-logo,
   .bf-nav-label,
   .bf-spot {
     transition: none;

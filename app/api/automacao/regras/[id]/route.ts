@@ -27,7 +27,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!dono) return NextResponse.json({ error: 'Regra não encontrada.' }, { status: 404 });
 
   const { data: perfil } = await db.from('ap_perfis').select('role').eq('id', userId).maybeSingle();
-  if (dono !== userId && perfil?.role !== 'admin') {
+  if (dono !== userId && perfil?.role !== 'admin' && perfil?.role !== 'owner') {
     return NextResponse.json({ error: 'Sem permissão para editar esta regra.' }, { status: 403 });
   }
 
@@ -96,7 +96,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (!dono) return NextResponse.json({ error: 'Regra não encontrada.' }, { status: 404 });
 
   const { data: perfil } = await db.from('ap_perfis').select('role').eq('id', userId).maybeSingle();
-  if (dono !== userId && perfil?.role !== 'admin') {
+  if (dono !== userId && perfil?.role !== 'admin' && perfil?.role !== 'owner') {
     return NextResponse.json({ error: 'Sem permissão para excluir esta regra.' }, { status: 403 });
   }
 

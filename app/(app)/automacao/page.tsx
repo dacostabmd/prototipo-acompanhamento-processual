@@ -25,17 +25,22 @@ export default function AutomacaoPage() {
   }, [carregandoPerfil, profile.role, router]);
 
   useEffect(() => {
-    // Lista as regras já conhecidas primeiro (rápido, só Postgres). A sincronização com o
-    // Bitrix (2 chamadas externas + sincronismo de regras) só roda no primeiro acesso, quando
-    // ainda não há nenhuma regra salva — sem isso, toda navegação para /automacao reconsultava
-    // o Bitrix do zero, mesmo sem nenhum funil novo.
-    authFetch('/api/automacao/regras')
-      .then(res => res.json())
-      .then(async data => {
+    let unmounted = false;
+
+    async function carregar() {
+      try {
+        const res = await authFetch('/api/automacao/regras');
+        if (!res.ok) {
+          if (!unmounted) setRegras([]);
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
         const lista: AutomacaoRegra[] = data.regras ?? [];
         if (lista.length > 0) {
-          setRegras(lista);
-          setAbaAtiva(prev => prev ?? lista[0].id);
+          if (!unmounted) {
+            setRegras(lista);
+            setAbaAtiva(prev => prev ?? lista[0].id);
+          }
           return;
         }
 
@@ -44,12 +49,26 @@ export default function AutomacaoPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({})
         });
-        const data2 = await res2.json();
+        if (!res2.ok) {
+          if (!unmounted) setRegras([]);
+          return;
+        }
+        const data2 = await res2.json().catch(() => ({}));
         const lista2: AutomacaoRegra[] = data2.regras ?? [];
-        setRegras(lista2);
-        if (lista2.length > 0) setAbaAtiva(prev => prev ?? lista2[0].id);
-      })
-      .catch(() => setRegras([]));
+        if (!unmounted) {
+          setRegras(lista2);
+          if (lista2.length > 0) setAbaAtiva(prev => prev ?? lista2[0].id);
+        }
+      } catch (err) {
+        console.warn('[AutomacaoPage] erro ao carregar regras:', err);
+        if (!unmounted) setRegras([]);
+      }
+    }
+
+    carregar();
+    return () => {
+      unmounted = true;
+    };
   }, []);
 
   const onRegraSalva = (regra: AutomacaoRegra) => {

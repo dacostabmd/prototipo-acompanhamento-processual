@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionIcon, Badge, Button, Group, NumberInput, Pagination, Select, Table, Tooltip, TextInput } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Eye, Play, Search } from 'lucide-react';
+import { motion } from 'motion/react';
 import { authFetch } from '@/lib/authFetch';
 import { ESFERA_LABEL, type AutomacaoDeal, type AutomacaoRegra } from '@/lib/automacao';
 import ModalDetalheDeal from './ModalDetalheDeal';
@@ -46,10 +47,21 @@ export default function AutomacaoTabela({ regra }: Props) {
     if (filtrosAplicados.valorMax !== '') params.set('valorMax', String(filtrosAplicados.valorMax));
     if (filtrosAplicados.busca.trim()) params.set('busca', filtrosAplicados.busca.trim());
 
-    const res = await authFetch(`/api/automacao/deals?${params.toString()}`);
-    const data = await res.json();
-    setDeals(data.deals ?? []);
-    setTotal(data.total ?? 0);
+    try {
+      const res = await authFetch(`/api/automacao/deals?${params.toString()}`);
+      if (!res.ok) {
+        setDeals([]);
+        setTotal(0);
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      setDeals(data.deals ?? []);
+      setTotal(data.total ?? 0);
+    } catch (err) {
+      console.warn('[AutomacaoTabela] erro ao carregar deals:', err);
+      setDeals([]);
+      setTotal(0);
+    }
   }, [regra.id, page, filtrosAplicados]);
 
   useEffect(() => {
@@ -71,6 +83,10 @@ export default function AutomacaoTabela({ regra }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ regraId: regra.id, numeroProcesso })
       });
+      if (!res.ok) {
+        console.warn('[AutomacaoTabela] falha na requisição de processamento:', res.status);
+        return;
+      }
       const reader = res.body?.getReader();
       if (!reader) return;
       const decoder = new TextDecoder();
@@ -84,28 +100,32 @@ export default function AutomacaoTabela({ regra }: Props) {
         buffer = linhas.pop() ?? '';
         for (const linha of linhas) {
           if (!linha.trim()) continue;
-          const evento = JSON.parse(linha);
-          if (evento.type !== 'progress' || !evento.dealId) continue;
+          try {
+            const evento = JSON.parse(linha);
+            if (evento.type !== 'progress' || !evento.dealId) continue;
 
-          setScanItems(prev => {
-            const idx = itemsPorDealId.current.get(evento.dealId);
-            if (evento.status === 'iniciado') {
-              if (idx !== undefined) return prev;
-              const novoIdx = prev.length;
-              itemsPorDealId.current.set(evento.dealId, novoIdx);
-              return [...prev, { dealId: evento.dealId, label: evento.dealTitulo ?? `Deal #${evento.dealId}`, status: 'loading' }];
-            }
-            if (idx === undefined) return prev;
-            const copia = [...prev];
-            copia[idx] = {
-              ...copia[idx],
-              status: evento.status === 'enriquecido' ? 'found' : 'not-found',
-              numeroCnj: evento.numeroCnj ?? undefined
-            };
-            return copia;
-          });
+            setScanItems(prev => {
+              const idx = itemsPorDealId.current.get(evento.dealId);
+              if (evento.status === 'iniciado') {
+                if (idx !== undefined) return prev;
+                const novoIdx = prev.length;
+                itemsPorDealId.current.set(evento.dealId, novoIdx);
+                return [...prev, { dealId: evento.dealId, label: evento.dealTitulo ?? `Deal #${evento.dealId}`, status: 'loading' }];
+              }
+              if (idx === undefined) return prev;
+              const copia = [...prev];
+              copia[idx] = {
+                ...copia[idx],
+                status: evento.status === 'enriquecido' ? 'found' : 'not-found',
+                numeroCnj: evento.numeroCnj ?? undefined
+              };
+              return copia;
+            });
+          } catch {}
         }
       }
+    } catch (e) {
+      console.warn('[AutomacaoTabela] erro durante stream de processamento:', e);
     } finally {
       setProcessando(false);
       setPage(1);
@@ -206,8 +226,22 @@ export default function AutomacaoTabela({ regra }: Props) {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {deals.map(deal => (
-                    <Table.Tr key={deal.id}>
+                  {deals.map((deal, index) => (
+                    <Table.Tr
+                      key={deal.id}
+                      renderRoot={(props) => (
+                        <motion.tr
+                          {...props}
+                          initial={{ opacity: 0, x: -24 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{
+                            duration: 0.45,
+                            delay: Math.min(index * 0.045, 0.8),
+                            ease: [0.22, 1, 0.36, 1],
+                          }}
+                        />
+                      )}
+                    >
                       <Table.Td className="!text-white font-medium">{deal.dealTitulo ?? `Deal #${deal.dealId}`}</Table.Td>
                       <Table.Td className="!text-white/70">{deal.numeroCnjFormatado ?? '—'}</Table.Td>
                       <Table.Td className="!text-white/70">{deal.tribunalLabel ?? '—'}</Table.Td>

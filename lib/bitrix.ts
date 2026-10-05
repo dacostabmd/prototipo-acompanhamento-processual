@@ -131,17 +131,13 @@ export async function listarDeals(params: {
   return { deals: r.result, next: r.next, simulated: r.simulated };
 }
 
-/** Busca um deal específico pelo ID. Usado pelo webhook de evento do Bitrix (ONCRMDEALADD/UPDATE), que só informa o ID. */
-export async function buscarDealPorId(params: {
-  dealId: number;
-  campoProcesso: string;
-}): Promise<{ deal: BitrixDeal | null; simulated: boolean }> {
+/**
+ * Busca um deal específico pelo ID (crm.deal.get sempre retorna todos os campos, sem `select`).
+ * Usado pelo webhook de evento do Bitrix (ONCRMDEALADD/UPDATE), que só informa o ID.
+ */
+export async function buscarDealPorId(dealId: number): Promise<{ deal: BitrixDeal | null; simulated: boolean }> {
   const mock: BitrixDeal | null = null;
-  const r = await callBitrix<BitrixDeal | null>(
-    'crm.deal.get',
-    { id: params.dealId },
-    mock
-  );
+  const r = await callBitrix<BitrixDeal | null>('crm.deal.get', { id: dealId }, mock);
   if (!r.result) return { deal: null, simulated: r.simulated };
   return { deal: r.result, simulated: r.simulated };
 }

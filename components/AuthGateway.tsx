@@ -188,15 +188,6 @@ export default function AuthGateway() {
             gap: 28
           }}
         >
-          <img
-            src="/blindagem-logo.png"
-            alt="Blindagem Financeira"
-            style={{
-              width: 'min(285px, 52.5%)',
-              height: 'auto',
-              filter: 'brightness(1.1) drop-shadow(0 4px 16px rgba(0,0,0,0.6))'
-            }}
-          />
           <div style={{ maxWidth: 560 }}>
             <h1
               style={{

@@ -41,7 +41,7 @@ export async function GET(request: Request) {
   if (!regra) return NextResponse.json({ error: 'Regra não encontrada.' }, { status: 404 });
 
   const { data: perfil } = await db.from('ap_perfis').select('role').eq('id', userId).maybeSingle();
-  if (regra.user_id !== userId && perfil?.role !== 'admin') {
+  if (regra.user_id !== userId && perfil?.role !== 'admin' && perfil?.role !== 'owner') {
     return NextResponse.json({ error: 'Sem permissão para ver esta regra.' }, { status: 403 });
   }
 
