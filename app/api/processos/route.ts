@@ -65,10 +65,48 @@ async function fetchInfosimples(
   }
 }
 
+/** Campo que alguns serviços devolvem como texto e outros como objeto ({ nome, ... }) — ex.: orgao_julgador do TJRJ eproc. */
+function textoDoCampo(v: any): string {
+  if (typeof v === 'string') return v.trim();
+  if (v && typeof v === 'object' && typeof v.nome === 'string') return v.nome.trim();
+  return '';
+}
+
+/** "- BANCO VOTORANTIM S A   (59.5****)" (ou [parte, advogado...]) → "BANCO VOTORANTIM S A". */
+function nomeDaParte(entrada: any): string {
+  const bruto = Array.isArray(entrada) ? entrada[0] : entrada;
+  if (typeof bruto !== 'string') return '';
+  return bruto.replace(/^[\s-]+/, '').replace(/\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Registros de processo dentro de data[0] da Infosimples. Os serviços variam: lista (processos,
+ * lista_processos...), detalhe único em "processo" (objeto) ou o próprio data[0] já como detalhe. Atenção:
+ * alguns serviços (ex.: TJRJ eproc) mandam a lista VAZIA junto com o detalhe preenchido, então a lista só
+ * vale se tiver itens — com `||` o array vazio (truthy) escondia o processo encontrado.
+ */
+function extrairProcessosInfosimples(dado: any): any[] {
+  if (!dado) return [];
+  const lista = [dado.processos, dado.lista_processos, dado.processos_lista, dado.lista_processos_encontrados].find(
+    l => Array.isArray(l) && l.length > 0
+  );
+  if (lista) return lista;
+  if (dado.processo && typeof dado.processo === 'object') return [dado.processo];
+  if (dado.processo || dado.numero || dado.numero_processo || dado.classe_acao) return [dado];
+  return [];
+}
+
 /** Converte um registro bruto de processo retornado pela Infosimples para o formato LegalProcess. */
 function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName?: string): LegalProcess {
   const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').trim();
   const movs: Movement[] = [];
+  const orgao = textoDoCampo(p.vara) || textoDoCampo(p.foro) || textoDoCampo(p.orgao_julgador);
+  // Partes: reqte/reqdo/autor/reu (lista) ou partes_representantes.{exequente|autor...}/{executado|reu...} (eproc).
+  const partesRep = p.partes_representantes && typeof p.partes_representantes === 'object' ? p.partes_representantes : {};
+  const autor: string =
+    p.reqte || p.autor || nomeDaParte(partesRep.exequente?.[0] ?? partesRep.autor?.[0] ?? partesRep.requerente?.[0]);
+  const reu: string =
+    p.reqdo || p.reu || p.exectdo || nomeDaParte(partesRep.executado?.[0] ?? partesRep.reu?.[0] ?? partesRep.requerido?.[0]);
 
   const rawMovs =
     p.ultimas_movimentacoes ||
@@ -85,7 +123,7 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
       if (titulo.length < fullText.length && !titulo.endsWith('...')) {
         titulo += '...';
       }
-      const responsavel = m.responsavel || m.magistrado || m.orgao_julgador || m.orgao;
+      const responsavel = m.responsavel || m.magistrado || textoDoCampo(m.orgao_julgador) || m.orgao;
       const complemento = m.complemento || m.observacao || m.detalhe;
       const extras = [
         responsavel && `Responsável: ${responsavel}`,
@@ -93,7 +131,7 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
       ].filter(Boolean);
       const descricaoCompleta = extras.length > 0 ? `${fullText} — ${extras.join(' · ')}` : fullText;
       movs.push({
-        data: convertBrDateToIso(m.data || m.data_evento || m.data_hora_movimentacao),
+        data: convertBrDateToIso(m.data || m.data_evento || m.data_hora || m.data_hora_movimentacao),
         titulo: titulo || 'Movimentação processual',
         descricao: descricaoCompleta || 'Sem descrição detalhada.',
         tag: classifyTag(fullText)
@@ -103,9 +141,9 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
 
   if (movs.length === 0) {
     const classeInfo = p.classe || p.classe_acao || p.assunto;
-    const varaInfo = p.vara || p.foro || p.orgao_julgador;
+    const varaInfo = orgao;
     const valorInfo = p.valor_acao || p.valor_causa;
-    const partesInfo = [p.reqte || p.autor, p.reqdo || p.reu || p.exectdo].filter(Boolean).join(' x ');
+    const partesInfo = [autor, reu].filter(Boolean).join(' x ');
     const situacaoInfo = p.situacao || p.status || p.fase;
     const detalhes = [
       classeInfo && `Classe: ${classeInfo}`,
@@ -131,8 +169,6 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
 
   let parteContraria = 'Não informada';
   const normUser = (fullName || '').toLowerCase().trim();
-  const autor = p.reqte || p.autor || '';
-  const reu = p.reqdo || p.reu || p.exectdo || '';
 
   if (autor && reu) {
     if (normUser && autor.toLowerCase().includes(normUser)) {
@@ -153,7 +189,7 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
 
   return {
     numero: num,
-    tribunal: `${tribunalLabel} · ${p.vara || p.foro || p.orgao_julgador || '1º Grau'}`,
+    tribunal: `${tribunalLabel} · ${orgao || '1º Grau'}`,
     tipo: p.classe || p.classe_acao || p.assunto || 'Ação Judicial',
     parteContraria,
     valorCausa: valorCausa || 'Não informado',
@@ -389,17 +425,7 @@ export async function POST(request: Request) {
               // Resposta de busca por número pode vir como objeto de detalhe único (campo "processo",
               // singular, ou o próprio result.data[0] já sem wrapper) ou como lista (mesmo formato do
               // fluxo por CPF), dependendo do serviço — tenta todos os formatos observados.
-              const rawList: any[] =
-                result?.code === 200 && result.data?.[0]
-                  ? result.data[0].processos ||
-                    result.data[0].lista_processos ||
-                    result.data[0].processos_lista ||
-                    result.data[0].lista_processos_encontrados ||
-                    (result.data[0].processo ? [result.data[0].processo] : null) ||
-                    (result.data[0].numero || result.data[0].numero_processo || result.data[0].classe_acao
-                      ? [result.data[0]]
-                      : [])
-                  : [];
+              const rawList: any[] = result?.code === 200 ? extrairProcessosInfosimples(result.data?.[0]) : [];
 
               const achou = rawList.find((p: any) => {
                 const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').replace(/\D/g, '');
@@ -579,12 +605,7 @@ export async function POST(request: Request) {
           );
 
           if (result && result.code === 200 && result.data?.[0]) {
-            const rawList: any[] =
-              result.data[0].processos ||
-              result.data[0].lista_processos ||
-              result.data[0].processos_lista ||
-              result.data[0].lista_processos_encontrados ||
-              [];
+            const rawList = extrairProcessosInfosimples(result.data[0]);
 
             rawList.forEach((p: any) => {
               const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').trim();
