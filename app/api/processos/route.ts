@@ -20,6 +20,7 @@ import { isValidCnpj, isValidCpf } from '@/lib/format';
 import { classifyTag } from '@/lib/classify';
 import { custoTotal, custoServico } from '@/lib/infosimplesPricing';
 import { criarRegistroConsulta, limparRegistroConsulta } from '@/lib/consultaAbort';
+import { precoDaRespostaInfosimples, registrarHistoricoConsulta } from '@/lib/historicoConsultas';
 
 function convertBrDateToIso(dateStr?: string): string {
   if (!dateStr) return new Date().toISOString().split('T')[0];
@@ -104,9 +105,9 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
   // Partes: reqte/reqdo/autor/reu (lista) ou partes_representantes.{exequente|autor...}/{executado|reu...} (eproc).
   const partesRep = p.partes_representantes && typeof p.partes_representantes === 'object' ? p.partes_representantes : {};
   const autor: string =
-    p.reqte || p.autor || nomeDaParte(partesRep.exequente?.[0] ?? partesRep.autor?.[0] ?? partesRep.requerente?.[0]);
+    textoDoCampo(p.reqte) || textoDoCampo(p.autor) || nomeDaParte(partesRep.exequente?.[0] ?? partesRep.autor?.[0] ?? partesRep.requerente?.[0]);
   const reu: string =
-    p.reqdo || p.reu || p.exectdo || nomeDaParte(partesRep.executado?.[0] ?? partesRep.reu?.[0] ?? partesRep.requerido?.[0]);
+    textoDoCampo(p.reqdo) || textoDoCampo(p.reu) || textoDoCampo(p.exectdo) || nomeDaParte(partesRep.executado?.[0] ?? partesRep.reu?.[0] ?? partesRep.requerido?.[0]);
 
   const rawMovs =
     p.ultimas_movimentacoes ||
@@ -211,7 +212,11 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
     parteContraria,
     valorCausa: valorCausa || 'Não informado',
     distribuicao: p.distribuicao || p.data_autuacao || 'Não informada',
-    movimentos: movs
+    movimentos: movs,
+    assunto: textoDoCampo(p.assunto) || (Array.isArray(p.assuntos) ? p.assuntos.filter((a: unknown) => typeof a === 'string').join(', ') : '') || undefined,
+    varaForo: [textoDoCampo(p.vara) || textoDoCampo(p.orgao_julgador), textoDoCampo(p.foro)].filter(Boolean).join(' - ') || undefined,
+    autor: autor || undefined,
+    reu: reu || undefined
   };
 }
 
@@ -404,6 +409,7 @@ export async function POST(request: Request) {
           // (raspagem direta do portal do tribunal) — nunca uma como fallback da outra, pois cada
           // uma pode ter dado que a outra não tem (cobertura, atraso de indexação, campos extras).
           let custoEstimado = 0;
+          let custoCobrado = 0;
           const token = process.env.INFOSIMPLES_API_TOKEN || process.env.INFOSIMPLES_TOKEN;
           const formattedNumber = cnjInfo?.numeroFormatado || cleanProcessNumber;
 
@@ -447,6 +453,7 @@ export async function POST(request: Request) {
                   infosimplesAbort.signal
                 );
                 custoEstimado += custoServico(target.service);
+                custoCobrado += precoDaRespostaInfosimples(result);
                 const desfecho = desfechoInfosimples(result);
 
                 if (result) {
@@ -541,6 +548,15 @@ export async function POST(request: Request) {
               processos: allProcesses.map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
             }
           });
+          await registrarHistoricoConsulta(userId, {
+            tipoBusca: 'numero',
+            termo: formattedNumber,
+            nomeParte: fullName,
+            tribunais: [targetLabel],
+            totalProcessos: allProcesses.length,
+            custoEstimado,
+            custoCobrado
+          });
 
           if (userId && allProcesses.length > 0) {
             await salvarProcessos(userId, cpfParaPerfil, fullName, allProcesses);
@@ -614,6 +630,7 @@ export async function POST(request: Request) {
     }
 
     const custoEstimado = custoTotal(targets.map(t => t.service));
+    let custoCobrado = 0;
 
     console.log(
       `[api/processos] Consulta multi-tribunal para ${fullName || 'Cliente'} (${tipoBusca.toUpperCase()}: ${isBuscaPorNome ? cleanNomeParte : cleanDocumento}, Estado: ${state || 'Auto'}, DDD: ${ddd || 'N/I'}) nos tribunais:`,
@@ -700,6 +717,7 @@ export async function POST(request: Request) {
           abortControllers.set(target.label, abortController);
           emit({ type: 'progress', label: target.label, fonte: 'infosimples', status: 'loading' });
           const result = await fetchInfosimples(target.service, token, { ...target.fixos, [target.campo]: target.valor }, abortController.signal);
+          custoCobrado += precoDaRespostaInfosimples(result);
           const cancelado = abortController.signal.aborted;
           abortControllers.delete(target.label);
 
@@ -762,6 +780,15 @@ export async function POST(request: Request) {
             estado: selectedState || null,
             processos: filteredProcesses.slice(0, 20).map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
           }
+        });
+        await registrarHistoricoConsulta(userId, {
+          tipoBusca,
+          termo: valorBusca,
+          nomeParte: fullName,
+          tribunais: tribunaisConsultados,
+          totalProcessos: filteredProcesses.length,
+          custoEstimado,
+          custoCobrado
         });
 
         if (userId) {

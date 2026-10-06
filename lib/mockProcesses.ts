@@ -15,6 +15,14 @@ export interface LegalProcess {
   valorCausa: string;
   distribuicao: string;
   movimentos: Movement[];
+  /** Assunto do processo conforme o tribunal (Infosimples); `tipo` guarda a classe. */
+  assunto?: string;
+  /** Vara/órgão e foro, como o tribunal informa (ex.: "7ª Vara de Fazenda Pública - Foro Central"). */
+  varaForo?: string;
+  /** Parte autora/exequente, às vezes já com os advogados ("Fulano, Advogado: Beltrano"). */
+  autor?: string;
+  /** Parte ré/executada, às vezes já com os advogados. */
+  reu?: string;
   /** Fonte(s) que localizaram este processo: só Infosimples, só DataJud, ou achado nas duas. */
   origem?: 'infosimples' | 'datajud' | 'ambos';
   /** true quando dados adicionais foram mesclados a partir da API pública DataJud (CNJ). */

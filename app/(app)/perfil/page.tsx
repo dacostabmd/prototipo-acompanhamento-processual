@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { User, Mail, CreditCard, Phone, Gavel, Lock, Pencil, Check, X, Loader2, KeyRound } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
-import { formatDocumento } from '@/lib/format';
+import { formatDocumento, isValidCpf } from '@/lib/format';
 
 interface Dados {
   nome: string;
@@ -35,6 +35,10 @@ export default function Perfil() {
   const [editandoEmail, setEditandoEmail] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [salvandoEmail, setSalvandoEmail] = useState(false);
+
+  const [editandoCpf, setEditandoCpf] = useState(false);
+  const [cpfInput, setCpfInput] = useState('');
+  const [salvandoCpf, setSalvandoCpf] = useState(false);
 
   const [editandoSenha, setEditandoSenha] = useState(false);
   const [senhaAtual, setSenhaAtual] = useState('');
@@ -113,6 +117,28 @@ export default function Perfil() {
       setMensagem({ tipo: 'erro', texto: e?.message || 'Não foi possível atualizar o telefone.' });
     } finally {
       setSalvandoTelefone(false);
+    }
+  };
+
+  const salvarCpf = async () => {
+    const supabase = getSupabase();
+    if (!supabase || !userId) return;
+    const cpf = cpfInput.replace(/\D/g, '');
+    if (!isValidCpf(cpf)) {
+      setMensagem({ tipo: 'erro', texto: 'CPF inválido. Verifique os números.' });
+      return;
+    }
+    setSalvandoCpf(true);
+    try {
+      const { error } = await supabase.from('ap_perfis').update({ cpf }).eq('id', userId);
+      if (error) throw error;
+      setD(prev => ({ ...prev, cpf }));
+      setEditandoCpf(false);
+      setMensagem({ tipo: 'ok', texto: 'CPF atualizado.' });
+    } catch (e: any) {
+      setMensagem({ tipo: 'erro', texto: e?.message || 'Não foi possível atualizar o CPF.' });
+    } finally {
+      setSalvandoCpf(false);
     }
   };
 
@@ -285,9 +311,37 @@ export default function Perfil() {
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/80">
                 <CreditCard size={20} strokeWidth={1.8} />
               </span>
-              <div>
+              <div className="flex-1">
                 <dt className="text-white/60">CPF</dt>
-                <dd className="mt-0.5 font-medium text-white">{fmtCpf(d.cpf) || '—'}</dd>
+                {editandoCpf ? (
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      autoFocus
+                      inputMode="numeric"
+                      value={cpfInput}
+                      onChange={e => setCpfInput(fmtCpf(e.target.value.replace(/\D/g, '').slice(0, 11)))}
+                      onKeyDown={e => e.key === 'Enter' && salvarCpf()}
+                      className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-1.5 text-white outline-none focus:border-white/40"
+                    />
+                    <button onClick={salvarCpf} disabled={salvandoCpf} className="rounded-lg bg-emerald-500/20 p-1.5 text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-50">
+                      {salvandoCpf ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                    </button>
+                    <button onClick={() => setEditandoCpf(false)} className="rounded-lg bg-white/10 p-1.5 text-white/70 hover:bg-white/20">
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <dd className="mt-0.5 flex items-center gap-2 font-medium text-white">
+                    {fmtCpf(d.cpf) || '—'}
+                    <button
+                      onClick={() => { setCpfInput(fmtCpf(d.cpf)); setEditandoCpf(true); }}
+                      className="rounded-md p-1 text-white/40 hover:bg-white/10 hover:text-white/80"
+                      aria-label="Editar CPF"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </dd>
+                )}
               </div>
             </div>
           )}

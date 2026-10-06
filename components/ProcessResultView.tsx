@@ -3,7 +3,7 @@
 import { authFetch } from '@/lib/authFetch';
 import React, { useRef, useState, useEffect } from 'react';
 import { formatChatMessageHtml, formatDateLabel } from '@/lib/format';
-import { TAG_META, type CaseData } from '@/lib/mockProcesses';
+import { TAG_META, type CaseData, type LegalProcess } from '@/lib/mockProcesses';
 import { Check, FileText, Maximize2, ShieldCheck, X } from 'lucide-react';
 import AiSummaryLoadingBar from './AiSummaryLoadingBar';
 
@@ -391,6 +391,29 @@ export default function ProcessResultView({
             {principal?.distribuicao && <DataCard label="Distribuição" value={principal.distribuicao} />}
           </div>
 
+          {/* Todos os processos localizados (os cards acima detalham só o primeiro) */}
+          {caseData.processes.length > 0 && (
+            <div
+              style={{
+                background: GLASS,
+                border: `1px solid ${BORDER}`,
+                borderRadius: 8,
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                padding: '20px 24px'
+              }}
+            >
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 14 }}>
+                PROCESSOS LOCALIZADOS ({caseData.processes.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 620, overflowY: 'auto', paddingRight: 2 }}>
+                {caseData.processes.map((p, i) => (
+                  <ProcessoCard key={`${p.numero}-${i}`} processo={p} indice={i + 1} />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Últimas movimentações */}
           <div
             style={{
@@ -637,6 +660,50 @@ export default function ProcessResultView({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Ficha de um processo: número, tribunal e os campos que o tribunal informou (os vazios não aparecem). */
+function ProcessoCard({ processo, indice }: { processo: LegalProcess; indice: number }) {
+  const tribunal = processo.tribunal.split(' · ')[0];
+  const vazio = (v?: string) => !v || v === 'Não informada' || v === 'Não informado';
+  const campos: { label: string; value?: string; larga?: boolean }[] = [
+    { label: 'Classe', value: processo.tipo },
+    { label: 'Assunto', value: processo.assunto },
+    { label: 'Vara / Foro', value: processo.varaForo, larga: true },
+    { label: 'Valor da causa', value: processo.valorCausa },
+    { label: 'Distribuição', value: processo.distribuicao },
+    { label: 'Autor / Exequente', value: processo.autor, larga: true },
+    { label: 'Réu / Executado', value: processo.reu, larga: true }
+  ].filter(c => !vazio(c.value));
+
+  return (
+    <div style={{ border: `1px solid ${BORDER}`, borderRadius: 6, background: 'rgba(255,255,255,0.03)', padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 11, color: MUTED, fontWeight: 700 }}>#{indice}</span>
+        <span style={{ fontSize: 13.5, color: TEXT, fontWeight: 700, wordBreak: 'break-all' }}>{processo.numero}</span>
+        <span
+          style={{
+            fontSize: 10,
+            color: BLUE_LIGHT,
+            border: `1px solid ${BORDER}`,
+            borderRadius: 10,
+            padding: '1px 8px',
+            letterSpacing: 0.5
+          }}
+        >
+          {tribunal}
+        </span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px 16px' }}>
+        {campos.map(c => (
+          <div key={c.label} style={{ minWidth: 0, gridColumn: c.larga ? '1 / -1' : undefined }}>
+            <div style={{ fontSize: 10, letterSpacing: 1, color: MUTED, marginBottom: 2 }}>{c.label.toUpperCase()}</div>
+            <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{c.value}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
