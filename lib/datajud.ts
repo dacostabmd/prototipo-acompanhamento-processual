@@ -1,29 +1,7 @@
 import type { Movement, LegalProcess } from './mockProcesses';
 import { classifyTag } from './classify';
 import { parseCnj, formatProcessNumber } from './cnj';
-
-/**
- * Mapa dos labels de tribunal já usados na varredura Infosimples (ProcessTracker.tsx / route.ts)
- * para o alias da API pública DataJud (CNJ). Variantes de sistema (eproc) apontam para o mesmo
- * alias base, pois o DataJud indexa por tribunal, não por sistema de origem do processo.
- * Lista de aliases confirmada no tutorial oficial do CNJ (datajud-wiki.cnj.jus.br).
- */
-const DATAJUD_ALIAS_BY_TRIBUNAL_LABEL: Record<string, string> = {
-  TJSP: 'tjsp',
-  'TJSP (eproc)': 'tjsp',
-  TJRJ: 'tjrj',
-  TJMG: 'tjmg',
-  TJPR: 'tjpr',
-  TJBA: 'tjba',
-  TJRS: 'tjrs',
-  TJSC: 'tjsc',
-  TRF1: 'trf1',
-  TRF2: 'trf2',
-  'TRF2 (eproc)': 'trf2',
-  TRF3: 'trf3',
-  TRF5: 'trf5',
-  TRF6: 'trf6'
-};
+import { FONTE_INFOSIMPLES_POR_ID } from './fontesInfosimples';
 
 interface DataJudMovimento {
   nome?: string;
@@ -70,20 +48,29 @@ export function parseDataAjuizamento(raw: string): string | undefined {
 
 /**
  * Consulta a API pública do DataJud (CNJ) por número de processo, para enriquecer um processo
- * já localizado pela Infosimples. Nunca lança erro — sem DATAJUD_API_KEY configurada, ou em
+ * já localizado pela Infosimples. Respeita os endpoints marcados no Passo 2 (aliasesPermitidos).
+ * Nunca lança erro — sem DATAJUD_API_KEY configurada, ou em
  * qualquer falha/timeout, retorna null e o fluxo principal segue sem o enriquecimento.
  */
-export async function consultarDataJud(tribunalLabel: string, numeroProcessoDigits: string): Promise<DataJudResultado | null> {
+export async function consultarDataJud(
+  tribunalLabel: string,
+  numeroProcessoDigits: string,
+  aliasesPermitidos: Set<string> | null = null
+): Promise<DataJudResultado | null> {
   const apiKey = process.env.DATAJUD_API_KEY;
   if (!apiKey) return null;
 
-  let alias = DATAJUD_ALIAS_BY_TRIBUNAL_LABEL[tribunalLabel];
+  // O alias vem do catálogo (variantes de sistema, como "TJSP (eproc)", apontam para o mesmo
+  // endpoint, pois o DataJud indexa por tribunal) ou, na falta, do próprio número CNJ.
+  let alias = FONTE_INFOSIMPLES_POR_ID.get(tribunalLabel)?.datajud;
   if (!alias) {
     const cnjInfo = parseCnj(numeroProcessoDigits);
     if (cnjInfo?.datajudAlias) alias = cnjInfo.datajudAlias;
   }
 
   if (!alias || numeroProcessoDigits.length !== 20) return null;
+  // Endpoint desmarcado no Passo 2: não consulta (aliasesPermitidos null = todos habilitados).
+  if (aliasesPermitidos && !aliasesPermitidos.has(alias)) return null;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);

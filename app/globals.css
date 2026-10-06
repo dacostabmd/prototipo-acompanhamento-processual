@@ -723,3 +723,18 @@ a:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
   transition: none !important;
 }
+
+/* Seleção de fontes (Passo 2): grupos recolhíveis com seta que gira ao abrir */
+.bf-fontes-group > summary {
+  list-style: none;
+}
+.bf-fontes-group > summary::-webkit-details-marker {
+  display: none;
+}
+.bf-fontes-group .bf-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+.bf-fontes-group[open] > summary .bf-chevron {
+  transform: rotate(90deg);
+}

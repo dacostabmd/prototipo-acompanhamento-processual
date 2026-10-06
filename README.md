@@ -15,7 +15,7 @@ O **Prosec** resolve o problema da dispersão de dados processuais no Brasil. Em
 5. **Resumo Executivo por IA**: Gera síntese clara em português acessível via OpenAI (com fallback para Anthropic Claude).
 6. **Chat Jurídico Especializado**: Assistente de triagem contextualizado nos processos retornados.
 7. **Perfis de Acesso**: Separação clara entre perfil **Advogado** (busca livre e gestão de múltiplos processos) e **Consultante** (travado no próprio CPF/CNPJ de cadastro).
-8. **Automação Comercial e CRM (Bitrix24)**: Mapeamento de funis, etapas e automações para captura de leads e acompanhamento de carteiras.
+8. **Captura de Lead (Bitrix24)**: Envio de leads comerciais ao CRM Bitrix24 via webhook.
 
 ---
 
@@ -64,7 +64,6 @@ app/
   (app)/                     Rotas autenticadas dentro do shell
     consulta/                Tela principal de consulta e acompanhamento
     processos/               Tabela 'Meus processos' com cache Redis e filtros
-    automacao/               Painel de automações de funil Bitrix24
     perfil/                  Dados do usuário e documento travado
   api/
     processos/route.ts       Varredura multi-tribunal (NDJSON) + Busca CNJ DataJud
@@ -72,7 +71,6 @@ app/
     processos/listar/        Listagem com cache Redis (Upstash)
     ai/summary/route.ts      Resumo executivo por IA (OpenAI / Claude)
     ai/chat/route.ts         Chat contextualizado nos processos
-    automacao/               Execução e webhook de automações Bitrix
 components/
   AppShellLayout.tsx         Shell autenticado dark/glass com sidebar retrátil
   ProcessTracker.tsx         Stepper de busca em 4 passos e tela de scanning

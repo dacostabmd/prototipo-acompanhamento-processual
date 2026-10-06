@@ -3,10 +3,15 @@
 import { authFetch } from '@/lib/authFetch';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { SegmentedControl, Switch, Checkbox, Tooltip } from '@mantine/core';
-import { Lock, Check, X, Info, XCircle, Scale } from 'lucide-react';
+import { SegmentedControl, Switch, Tooltip } from '@mantine/core';
+import { Lock, Check, X, Info, XCircle, Scale, AlertTriangle } from 'lucide-react';
 import Stepper, { Step } from './Stepper';
 import ProcessResultView from './ProcessResultView';
+import FontesSelector, {
+  IDS_TODOS_DATAJUD,
+  custoFontesSelecionadas,
+  fontesInfosimplesDoTribunal
+} from './FontesSelector';
 import {
   buildCaseData,
   buildCaseDataFromProcesses,
@@ -15,7 +20,6 @@ import {
 } from '@/lib/mockProcesses';
 import {
   cleanDigits,
-  formatCpf,
   formatDocumento,
   formatPhone,
   isValidCpf,
@@ -28,7 +32,8 @@ import { useDevPagante } from '@/lib/devPagante';
 import { extractDdd, prioritizeByDdd } from '@/lib/ddd';
 import { useSharedProfile } from '@/components/ProfileProvider';
 import { getAvgMs, recordSample } from '@/lib/tribunalTiming';
-import { custoServico, custoTotal } from '@/lib/infosimplesPricing';
+import { custoTotal, formatarReais } from '@/lib/infosimplesPricing';
+import { fontesInfosimplesPara, IDS_PRINCIPAIS_INFOSIMPLES, type TipoBusca } from '@/lib/fontesInfosimples';
 
 /* ── Design tokens (tema dark/glass) ─────────────────────────────────── */
 const BLUE = '#5f5f5f';
@@ -53,43 +58,17 @@ export interface ProcessTrackerProps {
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
-type ScanStatus = 'pending' | 'loading' | 'found' | 'not-found' | 'cancelled';
-type ScanItem = { label: string; status: ScanStatus; startedAt?: number; elapsedMs?: number };
+// 'error' = a fonte FALHOU (≠ 'not-found', que é a fonte respondendo que não há processo).
+type ScanStatus = 'pending' | 'loading' | 'found' | 'not-found' | 'cancelled' | 'error';
+type ScanItem = { label: string; status: ScanStatus; startedAt?: number; elapsedMs?: number; erro?: string };
 
 const MOSS_GREEN = '#3d6b4f';
+const WARN = '#d4a65f';
 const RUBY_RED = '#9b2c3f';
 
-// Espelha a lógica multi-tribunal do backend (app/api/processos/route.ts) para exibir o progresso real
-// da varredura e o custo estimado (services usados em lib/infosimplesPricing.ts para o cálculo).
-const ALL_TRIBUNAIS: { service: string; label: string }[] = [
-  { service: 'tribunal/tjsp/primeiro-grau', label: 'TJSP' },
-  { service: 'tribunal/tjsp/eproc-lista', label: 'TJSP (eproc)' },
-  { service: 'tribunal/tjrj/processo-eproc', label: 'TJRJ' },
-  { service: 'tribunal/tjmg/processo', label: 'TJMG' },
-  { service: 'tribunal/tjpr/processo', label: 'TJPR' },
-  { service: 'tribunal/tjba/primeiro-grau', label: 'TJBA' },
-  { service: 'tribunal/tjrs/primeiro-grau', label: 'TJRS' },
-  { service: 'tribunal/tjsc/processo', label: 'TJSC' },
-  { service: 'tribunal/trf1/processo', label: 'TRF1' },
-  { service: 'tribunal/trf2/processo', label: 'TRF2' },
-  { service: 'tribunal/trf2/processo-eproc', label: 'TRF2 (eproc)' },
-  { service: 'tribunal/trf3/consulta-publica', label: 'TRF3' },
-  { service: 'tribunal/trf5/processo', label: 'TRF5' },
-  { service: 'tribunal/trf6/processo', label: 'TRF6' }
-];
-const ALL_TRIBUNAL_LABELS = ALL_TRIBUNAIS.map(t => t.label);
-const SERVICE_BY_LABEL = new Map(ALL_TRIBUNAIS.map(t => [t.label, t.service]));
-
-/** Custo estimado (R$) de consultar os tribunais dados pelos labels (ou todos, se null/vazio). */
-function custoEstimadoLabels(labels: string[] | null): number {
-  const targets = !labels || labels.length === 0 ? ALL_TRIBUNAL_LABELS : labels;
-  return custoTotal(targets.map(l => SERVICE_BY_LABEL.get(l) ?? '').filter(Boolean));
-}
-
-function getTargetTribunals(ddd: number, tribunaisFiltro: string[] | null): string[] {
-  const base = prioritizeByDdd(ALL_TRIBUNAIS, ddd).map(t => t.label);
-  if (!tribunaisFiltro || tribunaisFiltro.length === 0) return base;
-  return base.filter(label => tribunaisFiltro.includes(label));
+/** Ordena os ids das fontes colocando primeiro o tribunal do DDD informado (mesma regra do backend). */
+function ordenarPorDdd(ids: string[], ddd: number): string[] {
+  return prioritizeByDdd(ids.map(label => ({ label })), ddd).map(i => i.label);
 }
 
 export default function ProcessTracker({
@@ -116,9 +95,10 @@ export default function ProcessTracker({
     }
   }, [isConsultante, profile.documento, profile.nome]);
 
-  // Passo 2 · Onde procurar
-  const [buscarTodosTribunais, setBuscarTodosTribunais] = useState(true);
-  const [tribunaisSelecionados, setTribunaisSelecionados] = useState<string[]>([]);
+  // Passo 2 · Onde procurar. Por CPF/CNPJ/nome: ids das fontes Infosimples (começa nas principais) e
+  // endpoints DataJud (começa em todos, são gratuitos). Por número CNJ: só liga/desliga as 2 fontes.
+  const [infosimplesSel, setInfosimplesSel] = useState<string[]>(IDS_PRINCIPAIS_INFOSIMPLES);
+  const [datajudSel, setDatajudSel] = useState<string[]>(IDS_TODOS_DATAJUD);
 
   // Passo 3 · Avisos
   const [avisarNovidades, setAvisarNovidades] = useState(false);
@@ -177,23 +157,52 @@ export default function ProcessTracker({
   }, [searchMode, processNumberInput]);
 
   // Validações por passo do novo Stepper: 1·Como buscar 2·Onde procurar 3·Avisos 4·Revisar e consultar
+  // O campo de documento aceita CPF (11 dígitos) ou CNPJ (14), identificado pelo tamanho.
   const cpfInputDigits = cleanDigits(cpfInput);
-  const isCpfValid =
-    isConsultante && profile.documentoTipo === 'cnpj'
-      ? cpfInputDigits.length === 14 && isValidCnpj(cpfInputDigits)
-      : cpfInputDigits.length === 11 && isValidCpf(cpfInputDigits);
+  const isDocValid =
+    (cpfInputDigits.length === 11 && isValidCpf(cpfInputDigits)) ||
+    (cpfInputDigits.length === 14 && isValidCnpj(cpfInputDigits));
   const isProcessNumberValid = cleanDigits(processNumberInput).length === 20;
+  const docLabel = cpfInputDigits.length === 14 ? 'CNPJ' : 'CPF';
+  const tipoBusca: TipoBusca =
+    searchMode === 'numero' ? 'numero' : searchMode === 'nome' ? 'nome' : cpfInputDigits.length === 14 ? 'cnpj' : 'cpf';
+
+  // Passo 2: fontes efetivas. Por número, o tribunal vem do CNJ e só há 2 fontes (DataJud e Infosimples).
+  const aliasDatajudCnj = detectedTribunal?.datajudAlias ?? '';
+  const servicosDoNumero = fontesInfosimplesDoTribunal(aliasDatajudCnj);
+  const usaDatajudNumero = !!aliasDatajudCnj && datajudSel.includes(aliasDatajudCnj);
+  const idsInfosimplesEfetivos =
+    tipoBusca === 'numero'
+      ? servicosDoNumero.filter(s => infosimplesSel.includes(s.id)).map(s => s.id)
+      : fontesInfosimplesPara(tipoBusca)
+          .filter(f => infosimplesSel.includes(f.id))
+          .map(f => f.id);
+  // Custo previsto: Infosimples é pago por consulta; o DataJud é sempre gratuito. Por número, o
+  // valor é o máximo (os sistemas do tribunal são consultados em sequência até achar o processo).
+  const custoPrevisto =
+    tipoBusca === 'numero'
+      ? custoTotal(servicosDoNumero.filter(s => infosimplesSel.includes(s.id)).map(s => s.service))
+      : custoFontesSelecionadas(tipoBusca, infosimplesSel);
+  const custoPrevistoLabel =
+    tipoBusca === 'numero'
+      ? custoPrevisto === 0
+        ? 'Gratuito (DataJud CNJ)'
+        : `${idsInfosimplesEfetivos.length > 1 ? 'até ' : ''}${formatarReais(custoPrevisto)}`
+      : formatarReais(custoPrevisto);
+  const qtdDatajudEfetivos = tipoBusca === 'numero' ? (usaDatajudNumero ? 1 : 0) : datajudSel.length;
 
   // Ao buscar por número de processo, o CNJ (20 dígitos) é o dado principal e Nome/CPF tornam-se opcionais.
+  // Por nome da parte, o nome é o dado principal e o documento é opcional (no modo, fullName = nome da parte).
   const isStep1Valid =
     searchMode === 'numero'
-      ? isProcessNumberValid && (cpfInputDigits.length === 0 || isCpfValid)
-      : fullName.trim().length >= 3 &&
-        isCpfValid &&
-        (searchMode !== 'nome' || (isPagante && partyNameInput.trim().length >= 3));
-  const isStep2Valid = true;
+      ? isProcessNumberValid && (cpfInputDigits.length === 0 || isDocValid)
+      : searchMode === 'nome'
+      ? isPagante && partyNameInput.trim().length >= 3 && (cpfInputDigits.length === 0 || isDocValid)
+      : fullName.trim().length >= 3 && isDocValid;
+  const isStep2Valid = tipoBusca === 'numero' ? usaDatajudNumero || idsInfosimplesEfetivos.length > 0 : idsInfosimplesEfetivos.length > 0;
   const isStep3Valid = true;
-  const isStep4Valid = cleanDigits(phoneInput).length >= 10;
+  // Celular opcional (da parte pesquisada): vazio é válido; se preenchido, exige DDD + número.
+  const isStep4Valid = cleanDigits(phoneInput).length === 0 || cleanDigits(phoneInput).length >= 10;
 
   const canAdvanceCurrentStep = useMemo(() => {
     switch (currentStepIndex) {
@@ -258,25 +267,20 @@ export default function ProcessTracker({
       return;
     }
 
-    // A Infosimples só consulta por CPF hoje (ver app/api/processos/route.ts); consultante PJ
-    // ainda não tem cobertura real de busca — gap registrado no roadmap.
-    if (isConsultante && profile.documentoTipo === 'cnpj') {
-      setFormError('Consulta por CNPJ ainda não está disponível. Em breve habilitaremos a busca para consultantes PJ.');
-      return;
-    }
-
     setFormError('');
     setSearching(true);
     setHasSearched(false);
 
     // O backend transmite o progresso em streaming (NDJSON).
-    // Quando a busca for por número CNJ, direciona o scan para o tribunal específico do processo.
+    // Quando a busca for por número CNJ, o scan mostra só as fontes ligadas no Passo 2 para o
+    // tribunal do processo (DataJud e/ou Infosimples); nas demais, as fontes Infosimples marcadas.
     const isBuscaNumero = searchMode === 'numero';
     const cnjParsed = isBuscaNumero ? parseCnj(processNumberInput) : null;
-    const targets =
-      isBuscaNumero && cnjParsed?.valido
-        ? ['DataJud (CNJ)', cnjParsed.tribunalLabel]
-        : getTargetTribunals(extractDdd(phoneDigits), buscarTodosTribunais ? null : tribunaisSelecionados);
+    const targets = isBuscaNumero
+      ? [usaDatajudNumero && 'DataJud (CNJ)', idsInfosimplesEfetivos.length > 0 && cnjParsed?.tribunalLabel].filter(
+          (l): l is string => !!l
+        )
+      : ordenarPorDdd(idsInfosimplesEfetivos, extractDdd(phoneDigits));
     const scanStartedAt = Date.now();
     setScanItems(targets.map(label => ({ label, status: 'loading', startedAt: scanStartedAt })));
     consultaIdRef.current = null;
@@ -288,12 +292,21 @@ export default function ProcessTracker({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cpf: digits,
+          documento: digits,
+          nomeParte: searchMode === 'nome' ? partyNameInput.trim() : '',
           fullName: fullName.trim() || (isBuscaNumero ? 'Consulta por Número' : ''),
           phone: phoneDigits,
           state: stateInput,
           processNumber: isBuscaNumero ? processNumberInput : '',
-          tribunaisSelecionados: buscarTodosTribunais ? null : tribunaisSelecionados,
+          // Fontes do Passo 2: ids Infosimples (lista explícita) e endpoints DataJud (null = todos).
+          tribunaisSelecionados: idsInfosimplesEfetivos,
+          datajudSelecionados: isBuscaNumero
+            ? usaDatajudNumero
+              ? [aliasDatajudCnj]
+              : []
+            : datajudSel.length === IDS_TODOS_DATAJUD.length
+            ? null
+            : datajudSel,
           avisarMovimentacao: avisarNovidades,
           canalAviso: !avisarNovidades ? 'nenhum' : canalEmail && canalWhatsapp ? 'ambos' : canalEmail ? 'email' : canalWhatsapp ? 'whatsapp' : 'nenhum',
           resumoLinguagemSimples: resumoSimples
@@ -341,8 +354,13 @@ export default function ProcessTracker({
                 if (item.label !== evt.label) return item;
                 const elapsedMs = item.startedAt ? Date.now() - item.startedAt : undefined;
                 // Tribunal cancelado pelo usuário não entra na média histórica (não é um tempo real de resposta).
-                if (elapsedMs && !evt.cancelado) recordSample(item.label, elapsedMs);
-                return { ...item, status: evt.cancelado ? 'cancelled' : evt.found ? 'found' : 'not-found', elapsedMs };
+                if (elapsedMs && !evt.cancelado && !evt.erro) recordSample(item.label, elapsedMs);
+                return {
+                  ...item,
+                  status: evt.cancelado ? 'cancelled' : evt.found ? 'found' : evt.erro ? 'error' : 'not-found',
+                  erro: evt.erro,
+                  elapsedMs
+                };
               })
             );
           } else if (evt.type === 'done') {
@@ -381,7 +399,7 @@ export default function ProcessTracker({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             fullName,
-            cpf: formatCpf(digits),
+            cpf: formatDocumento(digits),
             phone: formatPhone(phoneDigits),
             state: stateInput,
             processNumber: processNumberInput,
@@ -607,7 +625,7 @@ export default function ProcessTracker({
 
                 {searchMode === 'numero' ? (
                   (() => {
-                    const doneCount = scanItems.filter(i => i.status === 'found' || i.status === 'not-found' || i.status === 'cancelled').length;
+                    const doneCount = scanItems.filter(i => i.status === 'found' || i.status === 'not-found' || i.status === 'cancelled' || i.status === 'error').length;
                     const totalCount = scanItems.length || 1;
                     const algumEncontrado = scanItems.some(i => i.status === 'found');
                     const todasConcluidas = doneCount === totalCount;
@@ -675,7 +693,7 @@ export default function ProcessTracker({
                 ) : (
                   <>
                 {(() => {
-                  const doneCount = scanItems.filter(i => i.status === 'found' || i.status === 'not-found' || i.status === 'cancelled').length;
+                  const doneCount = scanItems.filter(i => i.status === 'found' || i.status === 'not-found' || i.status === 'cancelled' || i.status === 'error').length;
                   const totalCount = scanItems.length || 1;
                   const pct = Math.round((doneCount / totalCount) * 100);
                   return (
@@ -725,7 +743,7 @@ export default function ProcessTracker({
                       const avgMs = getAvgMs(item.label);
                       const isOverdue = item.status === 'loading' && liveElapsedMs > avgMs;
                       const estimatedPct =
-                        item.status === 'found' || item.status === 'not-found'
+                        item.status === 'found' || item.status === 'not-found' || item.status === 'error'
                           ? 100
                           : item.status === 'loading'
                           ? Math.min(96, Math.round((liveElapsedMs / avgMs) * 100))
@@ -788,6 +806,7 @@ export default function ProcessTracker({
                               {(item.status === 'not-found' || item.status === 'cancelled') && (
                                 <X size={16} strokeWidth={2.5} style={{ color: RUBY_RED }} />
                               )}
+                              {item.status === 'error' && <AlertTriangle size={16} strokeWidth={2.2} style={{ color: WARN }} />}
                             </span>
                             <span
                               style={{
@@ -810,6 +829,8 @@ export default function ProcessTracker({
                                 color:
                                   item.status === 'found'
                                     ? MOSS_GREEN
+                                    : item.status === 'error'
+                                    ? WARN
                                     : item.status === 'not-found' || item.status === 'cancelled'
                                     ? RUBY_RED
                                     : MUTED
@@ -819,6 +840,7 @@ export default function ProcessTracker({
                               {item.status === 'loading' && `${estimatedPct}% · ${elapsedLabel}`}
                               {item.status === 'found' && `Encontrado · ${elapsedLabel}`}
                               {item.status === 'not-found' && `Sem processos · ${elapsedLabel}`}
+                              {item.status === 'error' && `Falhou · ${elapsedLabel}`}
                               {item.status === 'cancelled' && 'Cancelado'}
                             </span>
                             {item.status === 'loading' && (
@@ -869,17 +891,23 @@ export default function ProcessTracker({
                                 }}
                               />
                             )}
-                            {(item.status === 'found' || item.status === 'not-found' || item.status === 'cancelled') && (
+                            {(item.status === 'found' || item.status === 'not-found' || item.status === 'cancelled' || item.status === 'error') && (
                               <div
                                 style={{
                                   height: '100%',
                                   width: '100%',
                                   borderRadius: 2,
-                                  background: item.status === 'found' ? MOSS_GREEN : RUBY_RED
+                                  background: item.status === 'found' ? MOSS_GREEN : item.status === 'error' ? WARN : RUBY_RED
                                 }}
                               />
                             )}
                           </div>
+
+                          {item.status === 'error' && item.erro && (
+                            <div title={item.erro} style={{ fontSize: 10.5, color: WARN, lineHeight: 1.3, overflowWrap: 'anywhere' }}>
+                              {item.erro}
+                            </div>
+                          )}
 
                           {stageLabel && (
                             <div style={{ fontSize: 10.5, color: isOverdue ? '#d4a65f' : MUTED, lineHeight: 1.3 }}>
@@ -925,7 +953,7 @@ export default function ProcessTracker({
                         value={searchMode}
                         onChange={v => setSearchMode(v as 'cpf' | 'numero' | 'nome')}
                         data={[
-                          { label: 'CPF', value: 'cpf' },
+                          { label: 'CPF / CNPJ', value: 'cpf' },
                           { label: 'Nº do processo', value: 'numero' },
                           {
                             label: (
@@ -973,28 +1001,50 @@ export default function ProcessTracker({
                       </div>
                     )}
 
-                    <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
-                      {searchMode === 'numero' && !isConsultante ? 'NOME COMPLETO (OPCIONAL)' : 'NOME COMPLETO'}
-                    </label>
-                    <input
-                      type="text"
-                      value={fullName}
-                      onChange={e => setFullName(e.target.value)}
-                      placeholder={
-                        searchMode === 'numero' && !isConsultante
-                          ? 'Nome do titular ou da parte (opcional)'
-                          : 'Nome completo exatamente como consta no documento ou processo'
-                      }
-                      style={{ ...inputStyle, marginBottom: 16 }}
-                      autoFocus={!isConsultante && searchMode !== 'numero'}
-                    />
+                    {/* Nome: na busca por nome da parte o campo é um só (nome da parte = nome completo). */}
+                    {searchMode === 'nome' ? (
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
+                          NOME DA PARTE
+                        </label>
+                        <input
+                          type="text"
+                          value={partyNameInput}
+                          onChange={e => {
+                            setPartyNameInput(e.target.value);
+                            setFullName(e.target.value);
+                          }}
+                          placeholder="Nome completo da parte, como consta no processo"
+                          style={inputStyle}
+                          autoFocus
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
+                          {searchMode === 'numero' && !isConsultante ? 'NOME COMPLETO (OPCIONAL)' : 'NOME COMPLETO'}
+                        </label>
+                        <input
+                          type="text"
+                          value={fullName}
+                          onChange={e => setFullName(e.target.value)}
+                          placeholder={
+                            searchMode === 'numero' && !isConsultante
+                              ? 'Nome do titular ou da parte (opcional)'
+                              : 'Nome completo exatamente como consta no documento ou processo'
+                          }
+                          style={{ ...inputStyle, marginBottom: 16 }}
+                          autoFocus={!isConsultante && searchMode !== 'numero'}
+                        />
+                      </>
+                    )}
 
                     <label style={{ display: 'flex', alignItems: 'center', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
                       {isConsultante
                         ? 'SEU CPF/CNPJ'
                         : searchMode === 'numero' || searchMode === 'nome'
-                        ? 'CPF DO TITULAR (OPCIONAL)'
-                        : 'CPF DO TITULAR'}
+                        ? 'CPF OU CNPJ (OPCIONAL)'
+                        : 'CPF OU CNPJ DO TITULAR'}
                       <Tooltip
                         label={
                           isConsultante
@@ -1002,8 +1052,8 @@ export default function ProcessTracker({
                             : searchMode === 'numero'
                             ? 'Opcional na busca por processo CNJ'
                             : searchMode === 'nome'
-                            ? 'Opcional, mas ajuda a evitar resultados de homônimos'
-                            : 'Sempre usamos o processo pelo CPF ligado a ele'
+                            ? 'Opcional. Identifica o titular no resumo e no contato; não filtra homônimos.'
+                            : 'Digite 11 dígitos para CPF ou 14 para CNPJ — o sistema identifica sozinho.'
                         }
                         withArrow
                       >
@@ -1018,32 +1068,20 @@ export default function ProcessTracker({
                       onChange={e => setCpfInput(formatDocumento(e.target.value))}
                       placeholder={
                         (searchMode === 'numero' || searchMode === 'nome') && !isConsultante
-                          ? '000.000.000-00 (opcional)'
-                          : '000.000.000-00'
+                          ? 'CPF ou CNPJ (opcional)'
+                          : '000.000.000-00 ou 00.000.000/0000-00'
                       }
                       maxLength={18}
+                      inputMode="numeric"
                       style={inputStyle}
                       disabled={isConsultante}
                     />
-                    {!isCpfValid && cpfInputDigits.length >= 11 && (
+                    {!isDocValid && cpfInputDigits.length >= 11 && (
                       <span style={{ fontSize: 11, color: DANGER, marginTop: 4, display: 'block' }}>
-                        Dígito verificador do documento inválido. Verifique os números.
+                        {cpfInputDigits.length === 11 || cpfInputDigits.length === 14
+                          ? `Dígito verificador do ${docLabel} inválido. Verifique os números.`
+                          : 'O CPF tem 11 dígitos e o CNPJ tem 14.'}
                       </span>
-                    )}
-
-                    {searchMode === 'nome' && isPagante && (
-                      <div style={{ marginTop: 16 }}>
-                        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
-                          NOME DA PARTE
-                        </label>
-                        <input
-                          type="text"
-                          value={partyNameInput}
-                          onChange={e => setPartyNameInput(e.target.value)}
-                          placeholder="Nome da parte envolvida no processo"
-                          style={inputStyle}
-                        />
-                      </div>
                     )}
                   </div>
                 </Step>
@@ -1060,103 +1098,34 @@ export default function ProcessTracker({
                     <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
                       {searchMode === 'numero' && detectedTribunal?.valido
                         ? 'Tribunal de origem identificado a partir do número CNJ.'
-                        : 'Recomendamos todos, para não perder nada.'}
+                        : 'Já deixamos marcadas as fontes principais. Abra cada grupo para ver todas, com o custo de cada uma.'}
                     </p>
 
-                    {searchMode === 'numero' && detectedTribunal?.valido && (
-                      <div
-                        style={{
-                          padding: '14px 16px',
-                          borderRadius: 4,
-                          border: `1px solid ${BLUE}`,
-                          background: 'rgba(36,85,184,0.15)',
-                          marginBottom: 14
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <span style={{ fontSize: 13.5, color: TEXT, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Scale size={14} color={BLUE_LIGHT} />
-                            {detectedTribunal.tribunalLabel} — {detectedTribunal.tribunalNome}
-                          </span>
-                          <span style={{ fontSize: 12, color: BLUE_LIGHT, fontWeight: 600 }}>Gratuito (DataJud CNJ)</span>
-                        </div>
-                        <p style={{ margin: 0, fontSize: 12, color: MUTED }}>
-                          A consulta será direcionada diretamente a este tribunal.
-                        </p>
-                      </div>
-                    )}
+                    <FontesSelector
+                      tipoBusca={tipoBusca}
+                      detectado={detectedTribunal}
+                      infosimplesSel={infosimplesSel}
+                      onInfosimplesChange={setInfosimplesSel}
+                      datajudSel={datajudSel}
+                      onDatajudChange={setDatajudSel}
+                    />
 
                     <div
-                      onClick={() => setBuscarTodosTribunais(true)}
                       style={{
+                        marginTop: 14,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '14px 16px',
+                        gap: 12,
+                        flexWrap: 'wrap',
+                        padding: '10px 14px',
                         borderRadius: 4,
-                        border: `1px solid ${buscarTodosTribunais ? BLUE : INPUT_BORDER}`,
-                        background: buscarTodosTribunais ? 'rgba(36,85,184,0.15)' : 'transparent',
-                        cursor: 'pointer',
-                        marginBottom: 10
+                        border: `1px solid ${INPUT_BORDER}`,
+                        background: 'rgba(255,255,255,0.04)'
                       }}
                     >
-                      <span style={{ fontSize: 13.5, color: TEXT, fontWeight: 600 }}>
-                        Todos os tribunais <span style={{ color: MUTED, fontWeight: 400 }}>(recomendado — 14 fontes)</span>
-                      </span>
-                      <span style={{ fontSize: 12, color: MUTED }}>
-                        {searchMode === 'numero' ? 'Gratuito (CNJ)' : `R$ ${custoEstimadoLabels(null).toFixed(2).replace('.', ',')}`}
-                      </span>
-                    </div>
-
-                    <div
-                      onClick={() => setBuscarTodosTribunais(false)}
-                      style={{
-                        padding: '14px 16px',
-                        borderRadius: 4,
-                        border: `1px solid ${!buscarTodosTribunais ? BLUE : INPUT_BORDER}`,
-                        background: !buscarTodosTribunais ? 'rgba(36,85,184,0.15)' : 'transparent',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 13.5, color: TEXT, fontWeight: 600 }}>Escolher tribunais</span>
-                        <span style={{ fontSize: 12, color: MUTED }}>
-                          a partir de R$ {Math.min(...ALL_TRIBUNAIS.map(t => custoServico(t.service))).toFixed(2).replace('.', ',')}
-                        </span>
-                      </div>
-                      {!buscarTodosTribunais && (
-                        <div
-                          style={{
-                            marginTop: 12,
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-                            gap: 8
-                          }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          {ALL_TRIBUNAIS.map(({ label, service }) => (
-                            <Checkbox
-                              key={label}
-                              label={
-                                <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, width: '100%' }}>
-                                  <span>{label}</span>
-                                  <span style={{ color: MUTED, fontWeight: 400 }}>
-                                    R$ {custoServico(service).toFixed(2).replace('.', ',')}
-                                  </span>
-                                </span>
-                              }
-                              size="xs"
-                              checked={tribunaisSelecionados.includes(label)}
-                              onChange={e =>
-                                setTribunaisSelecionados(prev =>
-                                  e.target.checked ? [...prev, label] : prev.filter(l => l !== label)
-                                )
-                              }
-                              styles={{ label: { color: TEXT, fontSize: 12, flex: 1 }, body: { alignItems: 'center' } }}
-                            />
-                          ))}
-                        </div>
-                      )}
+                      <span style={{ fontSize: 12, color: MUTED, letterSpacing: 0.5 }}>CUSTO ESTIMADO (INFOSIMPLES + DATAJUD)</span>
+                      <span style={{ fontSize: 14, color: TEXT, fontWeight: 700 }}>{custoPrevistoLabel}</span>
                     </div>
                   </div>
                 </Step>
@@ -1237,10 +1206,10 @@ export default function ProcessTracker({
                         label="Buscar por"
                         value={
                           searchMode === 'numero'
-                            ? `Nº ${processNumberInput || '—'}${cpfInput ? ` · CPF ${cpfInput}` : ''}${fullName ? ` · ${fullName}` : ''}`
-                            : `${isConsultante && profile.documentoTipo === 'cnpj' ? 'CNPJ' : 'CPF'} ${cpfInput || '—'}${
-                                !isConsultante && searchMode === 'nome' ? ` · Nome ${partyNameInput || '—'}` : ''
-                              }`
+                            ? `Nº ${processNumberInput || '—'}${cpfInput ? ` · ${docLabel} ${cpfInput}` : ''}${fullName ? ` · ${fullName}` : ''}`
+                            : searchMode === 'nome'
+                            ? `Nome ${partyNameInput || '—'}${cpfInput ? ` · ${docLabel} ${cpfInput}` : ''}`
+                            : `${docLabel} ${cpfInput || '—'}`
                         }
                         onEdit={() => setCurrentStepIndex(1)}
                       />
@@ -1248,10 +1217,8 @@ export default function ProcessTracker({
                         label="Onde"
                         value={
                           searchMode === 'numero' && detectedTribunal?.valido
-                            ? `${detectedTribunal.tribunalLabel} (Direto via CNJ)`
-                            : buscarTodosTribunais
-                            ? 'Todos os tribunais (14 fontes)'
-                            : `${tribunaisSelecionados.length || 0} tribunal(is) selecionado(s)`
+                            ? `${detectedTribunal.tribunalLabel} · ${[usaDatajudNumero && 'DataJud', idsInfosimplesEfetivos.length > 0 && 'Infosimples'].filter(Boolean).join(' + ') || 'nenhuma fonte'}`
+                            : `${idsInfosimplesEfetivos.length} fonte(s) Infosimples · ${qtdDatajudEfetivos} endpoint(s) DataJud`
                         }
                         onEdit={() => setCurrentStepIndex(2)}
                       />
@@ -1267,7 +1234,7 @@ export default function ProcessTracker({
                     </div>
 
                     <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
-                      NÚMERO DE CELULAR (COM DDD)
+                      CELULAR DA PARTE PESQUISADA (OPCIONAL, COM DDD)
                     </label>
                     <input
                       type="text"
@@ -1277,9 +1244,13 @@ export default function ProcessTracker({
                       maxLength={15}
                       style={{ ...inputStyle, marginBottom: 16 }}
                     />
-                    {!isStep4Valid && cleanDigits(phoneInput).length > 0 && (
+                    {!isStep4Valid && cleanDigits(phoneInput).length > 0 ? (
                       <span style={{ fontSize: 11, color: DANGER, marginTop: -12, marginBottom: 16, display: 'block' }}>
                         Informe o DDD e os 9 dígitos do celular.
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 11, color: MUTED, marginTop: -12, marginBottom: 16, display: 'block' }}>
+                        Telefone de quem está sendo pesquisado, não o seu. Com o DDD, consultamos primeiro o tribunal do estado dele.
                       </span>
                     )}
 
@@ -1295,14 +1266,8 @@ export default function ProcessTracker({
                       }}
                     >
                       <span style={{ fontSize: 12.5, color: MUTED }}>CUSTO DESTA CONSULTA</span>
-                      <span style={{ fontSize: 15, color: TEXT, fontWeight: 700 }}>
-                        {searchMode === 'numero' ? (
-                          <span style={{ color: '#8fb99a' }}>Gratuito (DataJud CNJ)</span>
-                        ) : (
-                          `R$ ${custoEstimadoLabels(buscarTodosTribunais ? null : tribunaisSelecionados)
-                            .toFixed(2)
-                            .replace('.', ',')}`
-                        )}
+                      <span style={{ fontSize: 15, color: custoPrevisto === 0 ? '#8fb99a' : TEXT, fontWeight: 700 }}>
+                        {custoPrevistoLabel}
                       </span>
                     </div>
                   </div>
@@ -1315,6 +1280,7 @@ export default function ProcessTracker({
         {/* ═════════════════════════════════════════════════════════════════
             FASE 2: NENHUM PROCESSO ENCONTRADO
             ═════════════════════════════════════════════════════════════════ */}
+        {hasSearched && notFound && <FontesComErroAviso itens={scanItems} />}
         {hasSearched && notFound && (
           <section
             style={{
@@ -1360,7 +1326,7 @@ export default function ProcessTracker({
               )}
             </div>
             <p style={{ margin: '0 0 22px', fontSize: 14, color: MUTED, lineHeight: 1.7 }}>
-              A consulta automática para {searchMode === 'numero' ? `o processo ${processNumberInput || 'informado'}` : `o CPF ${cpfInput || 'informado'}`} não retornou processos públicos ativos no tribunal consultado ({tribunaisConsultados.join(', ') || stateInput}).
+              A consulta automática para {searchMode === 'numero' ? `o processo ${processNumberInput || 'informado'}` : searchMode === 'nome' ? `o nome ${partyNameInput || 'informado'}` : `o ${docLabel} ${cpfInput || 'informado'}`} não retornou processos públicos ativos no tribunal consultado ({tribunaisConsultados.join(', ') || stateInput}).
               Isso não significa que não existam pendências, pois processos em segredo de justiça ou em outros estados exigem verificação especializada.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
@@ -1411,7 +1377,7 @@ export default function ProcessTracker({
                     transition: 'all 0.2s'
                   }}
                 >
-                  {searchMode === 'numero' ? 'Tentar outro processo' : 'Tentar outro CPF'}
+                  {searchMode === 'numero' ? 'Tentar outro processo' : searchMode === 'nome' ? 'Tentar outro nome' : 'Tentar outro CPF/CNPJ'}
                 </button>
               </div>
             </div>
@@ -1421,6 +1387,7 @@ export default function ProcessTracker({
         {/* ═════════════════════════════════════════════════════════════════
             FASE 3: DASHBOARD SPLIT 70% / 30% (TRANSITION AUTOMÁTICA EM FADE)
             ═════════════════════════════════════════════════════════════════ */}
+        {found && caseData && <FontesComErroAviso itens={scanItems} />}
         {found && caseData && (
           <ProcessResultView
             fullName={fullName || 'Cliente'}
@@ -1720,6 +1687,43 @@ export default function ProcessTracker({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Aviso das fontes que FALHARAM na consulta — diferente de "sem processos": o processo pode existir lá. */
+function FontesComErroAviso({ itens }: { itens: ScanItem[] }) {
+  const comErro = itens.filter(i => i.status === 'error');
+  if (comErro.length === 0) return null;
+  return (
+    <div
+      role="alert"
+      style={{
+        width: '100%',
+        maxWidth: 720,
+        boxSizing: 'border-box',
+        margin: '0 0 16px',
+        padding: '12px 16px',
+        borderRadius: 4,
+        border: `1px solid ${WARN}`,
+        background: 'rgba(212,166,95,0.1)',
+        color: TEXT,
+        fontSize: 12.5,
+        lineHeight: 1.5,
+        textAlign: 'left'
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, marginBottom: 6 }}>
+        <AlertTriangle size={15} style={{ color: WARN }} />
+        {comErro.length} de {itens.length} fonte(s) falharam — o processo pode existir nelas
+      </div>
+      <ul style={{ margin: 0, paddingLeft: 18, color: MUTED }}>
+        {comErro.map(i => (
+          <li key={i.label}>
+            <strong style={{ color: TEXT }}>{i.label}:</strong> {i.erro}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

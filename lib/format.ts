@@ -1,6 +1,6 @@
 export const cleanDigits = (value: string): string => (value || '').replace(/\D/g, '');
 
-export { formatProcessNumber, isValidProcessNumber, parseCnj } from './cnj';
+export { formatProcessNumber, parseCnj } from './cnj';
 
 export const formatCpf = (value: string): string => {
   const d = cleanDigits(value).slice(0, 11);
@@ -67,22 +67,6 @@ export const formatPhone = (value: string): string => {
   if (d.length > 2) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
   return d;
 };
-
-const LOWER_WORDS = ['de', 'da', 'do', 'das', 'dos', 'e'];
-
-/** Normaliza nome completo: espaços colapsados + capitalização brasileira. */
-export const normalizeName = (value: string): string =>
-  (value || '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map((word, index) => {
-      const lower = word.toLowerCase();
-      if (index > 0 && LOWER_WORDS.includes(lower)) return lower;
-      return lower.charAt(0).toUpperCase() + lower.slice(1);
-    })
-    .join(' ');
 
 /** '2026-08-22' -> '22/08/2026' */
 export const formatDateLabel = (isoDate: string): string => {

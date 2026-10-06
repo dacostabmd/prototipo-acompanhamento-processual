@@ -108,7 +108,12 @@ export default function AuthGateway() {
     e.preventDefault();
     setError('');
     setInfo('');
-    if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Informe um e-mail válido.');
+    const trimmedInput = email.trim().toLowerCase();
+    const normalizedEmail = trimmedInput === 'admin' ? 'admin@dap.com.br' : trimmedInput;
+
+    if (trimmedInput !== 'admin' && !/^\S+@\S+\.\S+$/.test(trimmedInput)) {
+      return setError('Informe um e-mail válido.');
+    }
     if (password.length < 6) return setError('A senha deve ter ao menos 6 caracteres.');
     if (mode === 'signup' && name.trim().length < 3) return setError('Informe seu nome completo.');
     if (mode === 'signup' && perfil === 'cliente' && !isDocumentoValido) {
@@ -132,8 +137,8 @@ export default function AuthGateway() {
 
       if (!supabase) {
         try {
-          localStorage.setItem('bf-demo-user', email);
-          localStorage.setItem('bf-demo-role', mode === 'signup' ? perfil : 'advogado');
+          localStorage.setItem('bf-demo-user', normalizedEmail);
+          localStorage.setItem('bf-demo-role', mode === 'signup' ? perfil : 'admin');
           if (mode === 'signup' && perfil === 'cliente') {
             localStorage.setItem('bf-demo-documento', documentoDigits);
             localStorage.setItem('bf-demo-documento-tipo', documentoDigits.length === 14 ? 'cnpj' : 'cpf');
@@ -144,7 +149,7 @@ export default function AuthGateway() {
 
       if (mode === 'signup') {
         const { data, error: err } = await supabase.auth.signUp({
-          email,
+          email: normalizedEmail,
           password,
           options: {
             data: {
@@ -160,14 +165,15 @@ export default function AuthGateway() {
         if (err) return setError(err.message);
         if (!data.session) return setInfo('Conta criada! Confirme seu e-mail para acessar.');
       } else {
-        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-        if (err) return setError('E-mail ou senha incorretos.');
+        const { error: err } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+        if (err) return setError('E-mail/usuário ou senha incorretos.');
       }
       finish();
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <main className="bf-auth">
@@ -289,16 +295,16 @@ export default function AuthGateway() {
             )}
             <div>
               <label style={label} htmlFor="bf-email">
-                E-mail
+                E-mail ou Usuário
               </label>
               <input
                 id="bf-email"
-                type="email"
+                type="text"
                 className="bf-input"
-                placeholder="voce@exemplo.com"
+                placeholder={mode === 'signup' ? 'voce@exemplo.com' : 'admin ou voce@exemplo.com'}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
             <div>

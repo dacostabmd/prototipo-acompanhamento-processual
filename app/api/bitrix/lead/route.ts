@@ -28,8 +28,8 @@ export async function POST(request: Request) {
           COMMENTS:
             `=== CONSULTA PROCESSUAL BLINDAGEM FINANCEIRA ===\n` +
             `Cliente: ${fullName}\n` +
-            `CPF: ${cpf}\n` +
-            `Telefone (WhatsApp): ${phone}\n` +
+            `CPF/CNPJ: ${cpf || 'não informado'}\n` +
+            `Telefone da parte pesquisada (WhatsApp): ${phone || 'não informado'}\n` +
             `Estado/Tribunal selecionado: ${state || 'Não informado'}\n` +
             `Número de Processo informado: ${processNumber || 'Nenhum'}\n` +
             `Total de Processos localizados: ${processesCount || 0}\n` +

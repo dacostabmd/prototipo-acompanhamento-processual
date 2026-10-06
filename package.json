@@ -13,7 +13,6 @@
     "@mantine/core": "^8.3.18",
     "@mantine/hooks": "^8.3.18",
     "@supabase/supabase-js": "^2.117.2",
-    "@tabler/icons-react": "^3.48.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@upstash/redis": "^1.39.0",
     "canvas-confetti": "^1.9.4",

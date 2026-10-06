@@ -22,12 +22,11 @@ export function setDevPagante(value: boolean) {
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
-/** Só reflete o estado real em desenvolvimento; fora disso, sempre false. */
+/** Reflete o estado da simulação de conta pagante/não pagante do protótipo (sincronizado via localStorage). */
 export function useDevPagante(): boolean {
   const [value, setValue] = useState(false);
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
     setValue(getDevPagante());
     const onChange = () => setValue(getDevPagante());
     window.addEventListener(CHANGE_EVENT, onChange);
@@ -40,3 +39,4 @@ export function useDevPagante(): boolean {
 
   return value;
 }
+

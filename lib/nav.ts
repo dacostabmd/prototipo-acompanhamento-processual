@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Search, Gavel, Workflow, User } from 'lucide-react';
+import { LayoutDashboard, Search, Gavel, User } from 'lucide-react';
 import type { ProfileRole } from './useProfile';
 
 export interface NavItem {
@@ -15,7 +15,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/painel', label: 'Visão geral', icon: LayoutDashboard },
   { href: '/consulta', label: 'Consultar processos', icon: Search },
   { href: '/processos', label: 'Meus processos', icon: Gavel },
-  { href: '/crm', label: 'CRM', icon: Workflow, roles: ['advogado', 'broker', 'admin', 'owner'] },
   { href: '/perfil', label: 'Meu perfil', icon: User }
 ];
 

@@ -39,18 +39,9 @@ export function formatProcessNumber(value: string): string {
   return d;
 }
 
-/**
- * Validação de formato de número de processo CNJ (20 dígitos).
- */
-export function isValidProcessNumber(value: string): boolean {
-  const d = cleanDigits(value);
-  if (d.length !== 20) return false;
-  const info = parseCnj(d);
-  return !!info && info.valido;
-}
-
-// Mapeamento dos Tribunais de Justiça Estaduais (J = 8)
-const TRIBUNAIS_ESTADUAIS: Record<string, { label: string; nome: string; alias: string }> = {
+// Mapeamento dos Tribunais de Justiça Estaduais (J = 8). O código TR de 2 dígitos é o mesmo usado
+// pelos TREs (J = 6) e pela Justiça Militar estadual (J = 9).
+export const TRIBUNAIS_ESTADUAIS: Record<string, { label: string; nome: string; alias: string }> = {
   '01': { label: 'TJAC', nome: 'Tribunal de Justiça do Acre', alias: 'tjac' },
   '02': { label: 'TJAL', nome: 'Tribunal de Justiça de Alagoas', alias: 'tjal' },
   '03': { label: 'TJAP', nome: 'Tribunal de Justiça do Amapá', alias: 'tjap' },
@@ -80,8 +71,19 @@ const TRIBUNAIS_ESTADUAIS: Record<string, { label: string; nome: string; alias: 
   '27': { label: 'TJTO', nome: 'Tribunal de Justiça do Tocantins', alias: 'tjto' }
 };
 
+// Justiça Militar estadual (J = 9): só 3 estados têm tribunal próprio (aliases confirmados na lista
+// oficial de endpoints do DataJud: tjmmg, tjmrs, tjmsp).
+export const TRIBUNAIS_MILITARES_ESTADUAIS: Record<string, { label: string; nome: string; alias: string }> = {
+  '13': { label: 'TJMMG', nome: 'Tribunal de Justiça Militar de Minas Gerais', alias: 'tjmmg' },
+  '21': { label: 'TJMRS', nome: 'Tribunal de Justiça Militar do Rio Grande do Sul', alias: 'tjmrs' },
+  '26': { label: 'TJMSP', nome: 'Tribunal de Justiça Militar de São Paulo', alias: 'tjmsp' }
+};
+
+/** Sufixo de UF de um alias de TJ (tjsp -> sp, tjdft -> dft), usado no alias dos TREs (tre-sp, tre-dft). */
+export const ufDoAliasTj = (alias: string): string => alias.slice(2);
+
 // Mapeamento dos Tribunais Regionais Federais (J = 4)
-const TRIBUNAIS_FEDERAIS: Record<string, { label: string; nome: string; alias: string }> = {
+export const TRIBUNAIS_FEDERAIS: Record<string, { label: string; nome: string; alias: string }> = {
   '01': { label: 'TRF1', nome: 'Tribunal Regional Federal da 1ª Região', alias: 'trf1' },
   '02': { label: 'TRF2', nome: 'Tribunal Regional Federal da 2ª Região', alias: 'trf2' },
   '03': { label: 'TRF3', nome: 'Tribunal Regional Federal da 3ª Região', alias: 'trf3' },
@@ -152,11 +154,12 @@ export function parseCnj(cnjOrDigits: string): CnjInfo | null {
       }
       break;
     }
+    // STF e CNJ são ramos válidos do número CNJ, mas não têm endpoint na API pública do DataJud
+    // (lista oficial): o alias fica vazio e a busca por número os trata como "sem fonte".
     case '1': {
       ramoDescricao = 'Supremo Tribunal Federal';
       tribunalLabel = 'STF';
       tribunalNome = 'Supremo Tribunal Federal';
-      datajudAlias = 'stf';
       valido = true;
       break;
     }
@@ -164,7 +167,6 @@ export function parseCnj(cnjOrDigits: string): CnjInfo | null {
       ramoDescricao = 'Conselho Nacional de Justiça';
       tribunalLabel = 'CNJ';
       tribunalNome = 'Conselho Nacional de Justiça';
-      datajudAlias = 'cnj';
       valido = true;
       break;
     }
@@ -184,10 +186,15 @@ export function parseCnj(cnjOrDigits: string): CnjInfo | null {
         datajudAlias = 'tse';
         valido = true;
       } else {
-        tribunalLabel = `TRE-${tribunalCodigo}`;
-        tribunalNome = `Tribunal Regional Eleitoral (${tribunalCodigo})`;
-        datajudAlias = `tre-${tribunalCodigo}`;
-        valido = true;
+        // O alias do TRE usa a UF (tre-sp), não o código numérico do número CNJ.
+        const tj = TRIBUNAIS_ESTADUAIS[tribunalCodigo];
+        if (tj) {
+          const uf = ufDoAliasTj(tj.alias);
+          tribunalLabel = `TRE-${uf.toUpperCase()}`;
+          tribunalNome = `Tribunal Regional Eleitoral (${uf.toUpperCase()})`;
+          datajudAlias = `tre-${uf}`;
+          valido = true;
+        }
       }
       break;
     }
@@ -201,10 +208,13 @@ export function parseCnj(cnjOrDigits: string): CnjInfo | null {
     }
     case '9': {
       ramoDescricao = 'Justiça Militar Estadual';
-      tribunalLabel = `TJM${tribunalCodigo}`;
-      tribunalNome = `Tribunal de Justiça Militar (${tribunalCodigo})`;
-      datajudAlias = `tjm${tribunalCodigo}`;
-      valido = true;
+      const tjm = TRIBUNAIS_MILITARES_ESTADUAIS[tribunalCodigo];
+      if (tjm) {
+        tribunalLabel = tjm.label;
+        tribunalNome = tjm.nome;
+        datajudAlias = tjm.alias;
+        valido = true;
+      }
       break;
     }
     default:

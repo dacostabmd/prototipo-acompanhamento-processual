@@ -6,7 +6,17 @@ import type { LegalProcess, Movement } from '@/lib/mockProcesses';
 import { extractDdd, prioritizeByDdd } from '@/lib/ddd';
 import { invalidateProcessosCache } from '@/lib/redis';
 import { consultarDataJud, buscarProcessoDiretoDataJud } from '@/lib/datajud';
+import { aliasesDatajudPermitidos } from '@/lib/fontesDatajud';
+import {
+  FONTES_INFOSIMPLES,
+  IDS_PRINCIPAIS_INFOSIMPLES,
+  fontesInfosimplesPara,
+  type FonteInfosimples,
+  type TipoBusca
+} from '@/lib/fontesInfosimples';
 import { parseCnj } from '@/lib/cnj';
+import { desfechoInfosimples } from '@/lib/infosimplesResposta';
+import { isValidCnpj, isValidCpf } from '@/lib/format';
 import { classifyTag } from '@/lib/classify';
 import { custoTotal, custoServico } from '@/lib/infosimplesPricing';
 import { criarRegistroConsulta, limparRegistroConsulta } from '@/lib/consultaAbort';
@@ -42,8 +52,11 @@ async function fetchInfosimples(
       signal
     });
 
-    if (!res.ok) return null;
-    return await res.json().catch(() => null);
+    // A Infosimples descreve a falha no próprio envelope ({ code, code_message }), às vezes com HTTP de
+    // erro: devolve o corpo sempre que ele vier, para a tela mostrar o motivo em vez de "sem processos".
+    const body = await res.json().catch(() => null);
+    if (body && typeof body.code === 'number') return body;
+    return res.ok ? body : { code: res.status, code_message: `HTTP ${res.status}` };
   } catch (err) {
     if ((err as { name?: string })?.name !== 'AbortError') {
       console.error(`[api/processos] Erro ao consultar ${service}:`, err);
@@ -178,15 +191,14 @@ async function salvarPreferencias(
 }
 
 /** Salva os processos pesquisados (com hash) e completa o perfil. Nunca lança erro. */
-async function salvarProcessos(userId: string, cpf: string, phone: string | undefined, fullName: string | undefined, list: LegalProcess[]) {
+async function salvarProcessos(userId: string, cpf: string, fullName: string | undefined, list: LegalProcess[]) {
   try {
     const db = getAdminClient();
     if (!db) return;
 
+    // O celular do stepper é da parte pesquisada (opcional), não do usuário logado: não vai para o perfil.
     const perfil: Record<string, string> = {};
     if (cpf) perfil.cpf = cpf;
-    const tel = (phone || '').replace(/\D/g, '');
-    if (tel) perfil.telefone = tel;
     if (fullName?.trim()) perfil.nome = fullName.trim();
     if (Object.keys(perfil).length > 0) {
       const up = await db.from('ap_perfis').update(perfil).eq('id', userId);
@@ -218,32 +230,30 @@ async function salvarProcessos(userId: string, cpf: string, phone: string | unde
   }
 }
 
-// Multi-tribunal: consulta todos os tribunais com API de busca (por CPF ou número de processo) na Infosimples.
-// campoNumero: nome exato do parâmetro de busca direta por número de processo daquele serviço,
-// confirmado na documentação oficial (infosimples.com/consultas/<slug>) — não é uniforme entre
-// serviços (a maioria usa "numero_processo", mas tjsp/primeiro-grau, trf1/processo e trf5/processo
-// usam "processo"). null quando o serviço não tem nenhum campo de busca por número (só CPF/CNPJ/nome/OAB).
-const ALL_TARGETS: { service: string; label: string; campoNumero: string | null }[] = [
-  { service: 'tribunal/tjsp/primeiro-grau', label: 'TJSP', campoNumero: 'processo' },
-  { service: 'tribunal/tjsp/eproc-lista', label: 'TJSP (eproc)', campoNumero: null },
-  { service: 'tribunal/tjrj/processo-eproc', label: 'TJRJ', campoNumero: 'numero_processo' },
-  { service: 'tribunal/tjmg/processo', label: 'TJMG', campoNumero: 'numero_processo' },
-  { service: 'tribunal/tjpr/processo', label: 'TJPR', campoNumero: 'numero_processo' },
-  // TJBA e TJRS: "primeiro-grau" aqui é na verdade o serviço de Certidão (antecedentes), não consulta
-  // processual — a Infosimples não tem, hoje, um serviço de busca de processos para esses 2 tribunais
-  // (confirmado na documentação oficial). Mantidos só para a varredura por CPF (que já falhava
-  // silenciosamente, pois os dados retornados não têm formato de lista de processos); nunca entram
-  // na busca por número, que exige campoNumero.
-  { service: 'tribunal/tjba/primeiro-grau', label: 'TJBA', campoNumero: null },
-  { service: 'tribunal/tjrs/primeiro-grau', label: 'TJRS', campoNumero: null },
-  { service: 'tribunal/tjsc/processo', label: 'TJSC', campoNumero: 'numero_processo' },
-  { service: 'tribunal/trf1/processo', label: 'TRF1', campoNumero: 'processo' },
-  { service: 'tribunal/trf2/processo', label: 'TRF2', campoNumero: 'numero_processo' },
-  { service: 'tribunal/trf2/processo-eproc', label: 'TRF2 (eproc)', campoNumero: 'numero_processo' },
-  { service: 'tribunal/trf3/consulta-publica', label: 'TRF3', campoNumero: 'numero_processo' },
-  { service: 'tribunal/trf5/processo', label: 'TRF5', campoNumero: 'processo' },
-  { service: 'tribunal/trf6/processo', label: 'TRF6', campoNumero: 'numero_processo' }
-];
+/**
+ * Alvo de uma consulta: uma fonte do catálogo (lib/fontesInfosimples.ts) já com o parâmetro e o valor
+ * que serão enviados à Infosimples. `label` é o id da fonte (usado nos eventos de progresso e no DDD).
+ */
+interface Alvo {
+  service: string;
+  label: string;
+  campo: string;
+  valor: string;
+}
+
+/**
+ * Fontes Infosimples a consultar para um tipo de busca. `selecionadas` vem do Passo 2 do stepper
+ * (ids do catálogo); ausente (null) = as fontes principais. Só entram serviços que aceitam o tipo
+ * de busca — o nome do parâmetro varia por serviço e vem do catálogo.
+ */
+function resolverAlvos(tipo: TipoBusca, valor: string, selecionadas: unknown): Alvo[] {
+  const ids = Array.isArray(selecionadas)
+    ? new Set(selecionadas.filter((s): s is string => typeof s === 'string'))
+    : new Set(IDS_PRINCIPAIS_INFOSIMPLES);
+  return fontesInfosimplesPara(tipo)
+    .filter((f: FonteInfosimples) => ids.has(f.id))
+    .map(f => ({ service: f.service, label: f.id, campo: f.params[tipo]!, valor }));
+}
 
 export async function POST(request: Request) {
   const unauthorized = await requireUser(request);
@@ -252,23 +262,48 @@ export async function POST(request: Request) {
   try {
     const {
       cpf,
+      documento,
+      nomeParte,
       fullName,
       phone,
       state,
       processNumber,
       tribunaisSelecionados,
+      datajudSelecionados,
       avisarMovimentacao,
       canalAviso,
       resumoLinguagemSimples
     } = await request.json();
-    const cleanCpf = (cpf || '').replace(/\D/g, '');
+    // "documento" aceita CPF (11 dígitos) ou CNPJ (14); "cpf" é o nome legado do mesmo campo.
+    const cleanDocumento = ((documento ?? cpf) || '').replace(/\D/g, '');
     const cleanProcessNumber = (processNumber || '').replace(/\D/g, '');
+    const cleanNomeParte = typeof nomeParte === 'string' ? nomeParte.trim().replace(/\s+/g, ' ') : '';
+    // DataJud: ausente = todos os endpoints; lista (inclusive vazia) = só os marcados no Passo 2.
+    const datajudPermitidos = aliasesDatajudPermitidos(datajudSelecionados);
 
     const isBuscaPorNumero = cleanProcessNumber.length === 20;
+    const isBuscaPorNome = !isBuscaPorNumero && cleanNomeParte.length > 0;
+    const documentoValido =
+      (cleanDocumento.length === 11 && isValidCpf(cleanDocumento)) ||
+      (cleanDocumento.length === 14 && isValidCnpj(cleanDocumento));
+    const tipoDocumento: 'cpf' | 'cnpj' | null =
+      cleanDocumento.length === 11 ? 'cpf' : cleanDocumento.length === 14 ? 'cnpj' : null;
+    // Só o CPF é gravado no perfil do usuário (a coluna cpf de ap_perfis).
+    const cpfParaPerfil = tipoDocumento === 'cpf' && documentoValido ? cleanDocumento : '';
 
-    if (!isBuscaPorNumero && cleanCpf.length !== 11) {
+    if (isBuscaPorNome) {
+      if (cleanNomeParte.length < 3) {
+        return NextResponse.json({ error: 'Informe o nome da parte com ao menos 3 caracteres.' }, { status: 400 });
+      }
+      if (cleanDocumento && !documentoValido) {
+        return NextResponse.json({ error: 'O CPF/CNPJ informado é inválido.' }, { status: 400 });
+      }
+    } else if (!isBuscaPorNumero && !documentoValido) {
       return NextResponse.json(
-        { error: 'Informe um CPF válido (11 dígitos) ou um número de processo CNJ válido (20 dígitos).' },
+        {
+          error:
+            'Informe um CPF ou CNPJ válido, o nome da parte ou um número de processo CNJ válido (20 dígitos).'
+        },
         { status: 400 }
       );
     }
@@ -284,6 +319,24 @@ export async function POST(request: Request) {
         `[api/processos] Consulta direta por Número CNJ: ${cleanProcessNumber} (Tribunal: ${targetLabel} - ${cnjInfo?.tribunalNome || 'Detectado'})`
       );
 
+      // Fontes do Passo 2: serviços Infosimples do tribunal do CNJ que buscam por número (ausente =
+      // todos) e o endpoint DataJud desse tribunal (ausente = habilitado). O DataJud é gratuito.
+      const aliasDoCnj = cnjInfo?.datajudAlias ?? '';
+      const idsSelecionados = Array.isArray(tribunaisSelecionados)
+        ? new Set(tribunaisSelecionados.filter((s: unknown): s is string => typeof s === 'string'))
+        : null;
+      const tribunaisDoCnj = FONTES_INFOSIMPLES.filter(
+        f => f.params.numero && aliasDoCnj && f.datajud === aliasDoCnj && (!idsSelecionados || idsSelecionados.has(f.id))
+      ).map(f => ({ service: f.service, label: f.id, campoNumero: f.params.numero as string }));
+      const usarDataJud = !!aliasDoCnj && (!datajudPermitidos || datajudPermitidos.has(aliasDoCnj));
+
+      if (!usarDataJud && tribunaisDoCnj.length === 0) {
+        return NextResponse.json(
+          { error: `Nenhuma fonte habilitada para ${targetLabel}. Marque o DataJud ou a Infosimples no Passo 2.` },
+          { status: 400 }
+        );
+      }
+
       const stream = new ReadableStream({
         async start(controller) {
           const emit = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
@@ -294,31 +347,36 @@ export async function POST(request: Request) {
           // uma pode ter dado que a outra não tem (cobertura, atraso de indexação, campos extras).
           let custoEstimado = 0;
           const token = process.env.INFOSIMPLES_API_TOKEN || process.env.INFOSIMPLES_TOKEN;
-          const tribunaisDoCnj = ALL_TARGETS.filter(
-            t => (t.label === targetLabel || t.label.startsWith(`${targetLabel} (`)) && t.campoNumero
-          );
           const formattedNumber = cnjInfo?.numeroFormatado || cleanProcessNumber;
 
-          const dataJudPromise = buscarProcessoDiretoDataJud(cleanProcessNumber).then(processo => {
-            emit({ type: 'progress', label: 'DataJud (CNJ)', found: !!processo });
-            return processo;
-          });
+          const dataJudPromise: Promise<LegalProcess | null> = usarDataJud
+            ? buscarProcessoDiretoDataJud(cleanProcessNumber).then(processo => {
+                emit({ type: 'progress', label: 'DataJud (CNJ)', found: !!processo });
+                return processo;
+              })
+            : Promise.resolve(null);
 
           const infosimplesPromise = (async () => {
-            if (!token || tribunaisDoCnj.length === 0) {
-              emit({ type: 'progress', label: targetLabel, found: false });
+            if (tribunaisDoCnj.length === 0) return null;
+            if (!token) {
+              emit({ type: 'progress', label: targetLabel, found: false, erro: 'Token da Infosimples não configurado no servidor.' });
               return null;
             }
+
+            // Serviços que FALHARAM (≠ responderam "nada encontrado"): se todos falharem, a tela mostra o erro.
+            const errosDosServicos: string[] = [];
 
             for (const target of tribunaisDoCnj) {
               const controller = new AbortController();
               const result = await fetchInfosimples(
                 target.service,
                 token,
-                { [target.campoNumero!]: formattedNumber },
+                { [target.campoNumero]: formattedNumber },
                 controller.signal
               );
               custoEstimado += custoServico(target.service);
+              const desfecho = desfechoInfosimples(result);
+              if (desfecho.erro) errosDosServicos.push(`${target.label}: ${desfecho.erro}`);
 
               if (result) {
                 console.log(
@@ -355,7 +413,12 @@ export async function POST(request: Request) {
               }
             }
 
-            emit({ type: 'progress', label: targetLabel, found: false });
+            emit({
+              type: 'progress',
+              label: targetLabel,
+              found: false,
+              ...(errosDosServicos.length === tribunaisDoCnj.length ? { erro: errosDosServicos.join(' | ') } : {})
+            });
             return null;
           })();
 
@@ -405,7 +468,7 @@ export async function POST(request: Request) {
           });
 
           if (userId && allProcesses.length > 0) {
-            await salvarProcessos(userId, cleanCpf, phone, fullName, allProcesses);
+            await salvarProcessos(userId, cpfParaPerfil, fullName, allProcesses);
             await salvarPreferencias(userId, [targetLabel], {
               avisarMovimentacao,
               canalAviso,
@@ -446,7 +509,7 @@ export async function POST(request: Request) {
       });
     }
 
-    // ── FLUXO B: VARREDURA MULTI-TRIBUNAL POR CPF (INFOSIMPLES) ──
+    // ── FLUXO B: VARREDURA MULTI-TRIBUNAL POR CPF, CNPJ OU NOME DA PARTE (INFOSIMPLES) ──
     const token = process.env.INFOSIMPLES_API_TOKEN || process.env.INFOSIMPLES_TOKEN;
 
     if (!token) {
@@ -460,17 +523,24 @@ export async function POST(request: Request) {
     const ddd = extractDdd(cleanPhone);
     const selectedState = (state || '').toUpperCase();
 
-    const orderedTargets = prioritizeByDdd(ALL_TARGETS, ddd);
+    // Tipo de busca -> valor enviado à Infosimples. Na busca por nome só o nome vai ao serviço (o
+    // CPF/CNPJ, se informado, identifica o titular no perfil e no resumo, não filtra homônimos).
+    const tipoBusca: TipoBusca = isBuscaPorNome ? 'nome' : (tipoDocumento as 'cpf' | 'cnpj');
+    const valorBusca = isBuscaPorNome ? cleanNomeParte : cleanDocumento;
 
-    const hasTribunalFilter = Array.isArray(tribunaisSelecionados) && tribunaisSelecionados.length > 0;
-    const targets = hasTribunalFilter
-      ? orderedTargets.filter(t => tribunaisSelecionados.includes(t.label))
-      : orderedTargets;
+    const targets = prioritizeByDdd(resolverAlvos(tipoBusca, valorBusca, tribunaisSelecionados), ddd);
+
+    if (targets.length === 0) {
+      return NextResponse.json(
+        { error: 'Nenhuma fonte habilitada aceita este tipo de busca. Revise as fontes no Passo 2.' },
+        { status: 400 }
+      );
+    }
 
     const custoEstimado = custoTotal(targets.map(t => t.service));
 
     console.log(
-      `[api/processos] Consulta multi-tribunal para ${fullName || 'Cliente'} (CPF: ${cleanCpf}, Estado: ${state || 'Auto'}, DDD: ${ddd || 'N/I'}) nos tribunais:`,
+      `[api/processos] Consulta multi-tribunal para ${fullName || 'Cliente'} (${tipoBusca.toUpperCase()}: ${isBuscaPorNome ? cleanNomeParte : cleanDocumento}, Estado: ${state || 'Auto'}, DDD: ${ddd || 'N/I'}) nos tribunais:`,
       targets.map(t => t.label).join(', ')
     );
 
@@ -491,7 +561,7 @@ export async function POST(request: Request) {
           tribunaisConsultados.push(target.label);
           const abortController = new AbortController();
           abortControllers.set(target.label, abortController);
-          const result = await fetchInfosimples(target.service, token, { cpf: cleanCpf }, abortController.signal);
+          const result = await fetchInfosimples(target.service, token, { [target.campo]: target.valor }, abortController.signal);
           const cancelado = abortController.signal.aborted;
           abortControllers.delete(target.label);
 
@@ -501,9 +571,12 @@ export async function POST(request: Request) {
           }
 
           let foundInThisTribunal = false;
-          if (result) {
-            console.log(`[api/processos] ${target.label}: code ${result.code} - "${result.code_message}" (data_count: ${result.data_count})`);
-          }
+          const desfecho = desfechoInfosimples(result);
+          console.log(
+            result
+              ? `[api/processos] ${target.label} (${target.campo}): code ${result.code} - "${result.code_message}" (data_count: ${result.data_count})${desfecho.erro ? ' [ERRO]' : ''}`
+              : `[api/processos] ${target.label} (${target.campo}): sem resposta da Infosimples [ERRO]`
+          );
 
           if (result && result.code === 200 && result.data?.[0]) {
             const rawList: any[] =
@@ -523,7 +596,13 @@ export async function POST(request: Request) {
             });
           }
 
-          emit({ type: 'progress', label: target.label, found: foundInThisTribunal });
+          // "erro" só quando a fonte falhou; fonte que respondeu "nada encontrado" segue como found:false.
+          emit({
+            type: 'progress',
+            label: target.label,
+            found: foundInThisTribunal,
+            ...(desfecho.erro && !foundInThisTribunal ? { erro: desfecho.erro, codigo: desfecho.codigo } : {})
+          });
         });
 
         await Promise.allSettled(perTribunalPromises);
@@ -537,7 +616,7 @@ export async function POST(request: Request) {
           filteredProcesses.map(async p => {
             const tribunalLabel = p.tribunal.split(' · ')[0];
             const numeroDigits = p.numero.replace(/\D/g, '');
-            const enriquecido = await consultarDataJud(tribunalLabel, numeroDigits);
+            const enriquecido = await consultarDataJud(tribunalLabel, numeroDigits, datajudPermitidos);
             if (!enriquecido) return;
 
             let mudou = false;
@@ -578,13 +657,14 @@ export async function POST(request: Request) {
           tribunal: tribunaisConsultados.join(', '),
           dados: {
             totalProcessos: filteredProcesses.length,
+            modo: tipoBusca,
             estado: selectedState || null,
             processos: filteredProcesses.slice(0, 20).map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
           }
         });
 
         if (userId) {
-          await salvarProcessos(userId, cleanCpf, phone, fullName, filteredProcesses);
+          await salvarProcessos(userId, cpfParaPerfil, fullName, filteredProcesses);
           await salvarPreferencias(userId, tribunaisSelecionados, {
             avisarMovimentacao,
             canalAviso,
@@ -593,7 +673,7 @@ export async function POST(request: Request) {
         }
 
         if (filteredProcesses.length === 0) {
-          console.log(`[api/processos] Nenhum processo localizado nos tribunais consultados (${tribunaisConsultados.join(', ')}) para o CPF ${cleanCpf}.`);
+          console.log(`[api/processos] Nenhum processo localizado nos tribunais consultados (${tribunaisConsultados.join(', ')}) para a busca por ${tipoBusca}.`);
           emit({ type: 'done', notFound: true, totalProcessos: 0, processes: [], tribunaisConsultados, custoEstimado });
         } else {
           console.log(`[api/processos] Sucesso: ${filteredProcesses.length} processo(s) consolidado(s) de ${tribunaisConsultados.join(', ')}. Custo estimado: R$ ${custoEstimado.toFixed(2)}`);

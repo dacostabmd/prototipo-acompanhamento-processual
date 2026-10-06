@@ -64,12 +64,22 @@
   "funcionalidades_implementadas": [
     {
       "id": "busca-multi-tribunal-cpf",
-      "nome": "Varredura multi-tribunal por CPF",
-      "o_que_faz": "Com um único CPF, consulta simultaneamente 14 serviços judiciais e consolida todos os processos encontrados, deduplicando por número.",
-      "fontes_cobertas": ["TJSP", "TJSP (eproc)", "TJRJ", "TJMG", "TJPR", "TJBA", "TJRS", "TJSC", "TRF1", "TRF2", "TRF2 (eproc)", "TRF3", "TRF5", "TRF6"],
-      "abrangencia_real": "1º grau. 2º grau, tribunais superiores, Justiça do Trabalho e Eleitoral ainda não entram na varredura por CPF.",
-      "detalhe_tecnico": "Promise.allSettled sobre 14 chamadas à API Infosimples, com streaming NDJSON — cada tribunal emite sua linha de progresso assim que responde, sem esperar o mais lento.",
-      "valor_para_o_usuario": "Substitui 14 abas de navegador, 14 captchas e 14 layouts diferentes por uma tela."
+      "nome": "Varredura multi-tribunal por CPF ou CNPJ",
+      "o_que_faz": "Com um único CPF ou CNPJ, consulta em paralelo as fontes marcadas no Passo 2 (14 principais por padrão) e consolida todos os processos encontrados, deduplicando por número.",
+      "fontes_cobertas": ["TJSP", "TJSP (2º grau)", "TJSP (eproc)", "TJRJ", "TJRJ (portal)", "TJMG", "TJPR", "TJSC", "TRF1", "TRF2", "TRF2 (eproc)", "TRF3", "TRF5", "TRF6"],
+      "abrangencia_real": "Principalmente 1º grau, mais o 2º grau do TJSP. Justiça do Trabalho só por número; superiores e demais estados não têm serviço de consulta processual na Infosimples (ver catalogo-fontes-cpf-cnpj-nome).",
+      "detalhe_tecnico": "Promise.allSettled sobre as chamadas à API Infosimples, com streaming NDJSON — cada tribunal emite sua linha de progresso assim que responde, sem esperar o mais lento.",
+      "valor_para_o_usuario": "Substitui uma dúzia de abas de navegador, captchas e layouts diferentes por uma tela."
+    },
+    {
+      "id": "catalogo-fontes-cpf-cnpj-nome",
+      "nome": "Catálogo completo de fontes com custo, filtros e busca por CPF, CNPJ, número ou nome da parte",
+      "o_que_faz": "O Passo 2 lista todas as fontes disponíveis, cada uma com o custo: 40 serviços de consulta processual da Infosimples (TJSP em 4 sistemas, TJRJ, TJMG, TJPR, TJSC, TRF1/2/3/5/6, TSE/TREs e 22 TRTs) e os 91 endpoints do DataJud (gratuitos). Já vêm marcadas as 14 fontes principais; o usuário pode filtrar por texto, estado (ex.: Tribunais RJ, Tribunais SP) e tipo de justiça, e marcar ou desmarcar só as fontes filtradas.",
+      "tipos_de_busca": "CPF (11 dígitos) ou CNPJ (14) no mesmo campo, identificado pelo tamanho e validado pelo dígito verificador; número CNJ; nome da parte. Cada tipo só consulta os serviços que aceitam aquele parâmetro (CPF: 17, CNPJ: 16, nome: 16). O celular do Passo 4 é opcional e é da parte pesquisada: serve para priorizar o tribunal do DDD e entra no lead do Bitrix, não é gravado no perfil do usuário.",
+      "correcoes_de_cobertura": "TJBA e TJRS saíram da lista: os serviços usados (primeiro-grau) são certidões, não consulta processual. Os adicionais de TJSP eproc, TJRJ eproc e TJPR foram corrigidos de R$ 0,00 para R$ 0,04. Os aliases dos TREs e da Justiça Militar estadual no DataJud estavam errados no parser CNJ e foram corrigidos; STF e CNJ não têm endpoint no DataJud.",
+      "limites": "A Infosimples não tem consulta processual para os TJs dos demais estados, STF, STJ, TRF4, TRT3 e TRT23. Os TRTs só buscam por número. Os parâmetros obrigatórios de cada serviço e os valores aceitos de 'grau' nos TRTs não são publicados no site.",
+      "detalhe_tecnico": "lib/fontesInfosimples.ts (catálogo), lib/fontesDatajud.ts (91 endpoints), lib/regioes.ts (UF de cada tribunal), components/FontesSelector.tsx (Passo 2). O servidor e a tela usam o mesmo catálogo.",
+      "valor_para_o_usuario": "Escolhe onde pesquisar vendo quanto cada fonte custa, em vez de pagar por uma varredura fixa."
     },
     {
       "id": "busca-numero-cnj",
@@ -116,20 +126,7 @@
       "nome": "Chat jurídico contextualizado",
       "o_que_faz": "Abre uma conversa com IA que já conhece todos os processos daquele CPF — número, tribunal, classe, parte contrária e valor da causa — sem o usuário precisar explicar nada.",
       "ajuste_de_tom": "Dois tons configuráveis: 'Acolhedor' (empático, para o cliente final) e 'Formal' (técnico, para o advogado).",
-      "anexos": "Aceita documentos com validação de segurança antes de entrar no contexto.",
       "valor_para_o_usuario": "Triagem instantânea 24/7, que absorve as perguntas repetitivas que hoje caem no telefone do escritório."
-    },
-    {
-      "id": "seguranca-de-anexos",
-      "nome": "Inspeção de arquivos maliciosos",
-      "o_que_faz": "Antes de aceitar qualquer anexo, valida em três camadas.",
-      "camadas": [
-        "Tamanho: bloqueia arquivo vazio e acima de 15 MB.",
-        "Extensão: lista branca (PDF, PNG, JPG, JPEG, WEBP, DOC, DOCX) e lista negra de 29 extensões executáveis, com detecção de ataque de dupla extensão (ex.: 'contrato.pdf.exe').",
-        "Magic bytes: lê os 8 primeiros bytes e confirma a assinatura binária real — bloqueia executável Windows PE (MZ) e ELF Linux, e verifica a assinatura legítima de PDF, PNG e JPEG."
-      ],
-      "detalhe_tecnico": "lib/security.ts",
-      "valor_para_o_usuario": "Um escritório que recebe documento de cliente desconhecido não vira vetor de malware."
     },
     {
       "id": "conta-e-carteira",
@@ -209,7 +206,7 @@
       {
         "id": "busca-por-nome",
         "nome": "Busca por nome da parte",
-        "estado_real": "Aba desabilitada no Passo 1 — não há endpoint real na Infosimples para isso. Liberada apenas sob flag de desenvolvimento."
+        "estado_real": "Implementada no backend: 16 serviços da Infosimples aceitam nome da parte (o nome do parâmetro varia: parte, nome_parte, nome ou parte_advogado). A aba segue bloqueada para não pagantes e só abre com a flag de desenvolvimento 'pagante'. A busca por nome não filtra homônimos; no TRF5 o parâmetro casa o nome como parte OU como advogado."
       },
       {
         "id": "cobertura-2grau-superiores",
@@ -220,11 +217,6 @@
         "id": "cobertura-trabalhista-eleitoral-jec",
         "nome": "Justiça Trabalhista, Eleitoral e JEC na varredura por CPF",
         "estado_real": "Pendente."
-      },
-      {
-        "id": "busca-por-cnpj",
-        "nome": "Busca por CNPJ",
-        "estado_real": "O cadastro aceita e valida CNPJ, mas a busca é bloqueada no submit — a Infosimples só aceita CPF hoje."
       },
       {
         "id": "analise-carteira",
@@ -264,7 +256,6 @@
       "isolamento": "Row Level Security no Postgres — cada usuário só enxerga os próprios dados, garantido no banco e não apenas na aplicação.",
       "segregacao_de_perfil": "O consultante tem o documento travado por trigger de banco. Não existe caminho de interface ou de API que permita contornar.",
       "privacidade_de_dados_sensiveis": "IP e CPF em histórico são gravados como hash, nunca em claro.",
-      "antivirus_de_anexos": "Validação por magic bytes impede executável disfarçado de PDF.",
       "indexacao": "Toda a área autenticada (/painel, /consulta, /processos, /perfil e /api) está bloqueada em robots.txt e marcada noindex — dado de cliente não vaza para buscador."
     },
     "escalabilidade_comercial": {
@@ -356,7 +347,7 @@
       { "rota": "POST /api/processos/cancelar", "funcao": "Recebe { consultaId, label } e aborta a chamada daquele tribunal específico.", "autenticado": true },
       { "rota": "GET /api/processos/listar", "funcao": "Lista a carteira do usuário. Tenta o cache Redis (chave ap:processos:{userId}, TTL 300s); em miss consulta o Postgres e popula o cache.", "autenticado": true },
       { "rota": "POST /api/ai/summary", "funcao": "Resumo executivo dos processos. OpenAI com fallback Anthropic, 800 tokens, temperatura 0.6.", "autenticado": true },
-      { "rota": "POST /api/ai/chat", "funcao": "Chat jurídico com contexto dos processos, tom configurável e anexos validados.", "autenticado": true },
+      { "rota": "POST /api/ai/chat", "funcao": "Chat jurídico com contexto dos processos e tom configurável.", "autenticado": true },
       { "rota": "POST /api/bitrix/lead", "funcao": "Envia lead ao CRM Bitrix24 via webhook.", "autenticado": true },
       { "rota": "POST /api/eventos", "funcao": "Rastreamento de eventos de negócio.", "autenticado": true }
     ],
@@ -452,8 +443,6 @@
       "AuthGuard.tsx e AppShellLayout.tsx são 'use client' e envolvem todas as rotas autenticadas — a renderização fica bloqueada até a checagem de sessão Supabase no cliente, produzindo tela em branco inicial em /consulta e /processos.",
       "Nenhuma rota usa loading.tsx ou Suspense.",
       "ProcessTracker.tsx tem 1444 linhas e cerca de 30 useState — re-renderiza toda a árvore a cada tecla digitada no chat, que permanece sempre montado no DOM.",
-      "ProcessDashboardSplit.tsx (1226 linhas) é código morto, sem nenhum importador.",
-      "@tabler/icons-react continua no package.json sem uso, depois da migração para lucide-react.",
       "O registro de cancelamento (lib/consultaAbort.ts) vive em memória da instância Node — não sobrevive a cold start nem a instância diferente. Aceitável para o ciclo de vida de segundos de uma consulta, mas não é durável."
     ],
     "observacao": "Os gargalos acima vieram de uma investigação de performance registrada no roadmap. São diagnóstico, não correção aplicada."
@@ -495,9 +484,7 @@
       "app/(app)/painel/page.tsx": "Visão geral com atalhos.",
       "app/(app)/consulta/page.tsx": "Stepper de consulta e resultado.",
       "app/(app)/processos/page.tsx": "Carteira em tabela Mantine filtrável.",
-      "app/(app)/perfil/page.tsx": "Perfil, com documento travado para consultante.",
-      "app/(app)/historico/page.tsx": "Histórico de atividade.",
-      "app/(app)/documentacoes/": "Documentação técnica interna (autenticação)."
+      "app/(app)/perfil/page.tsx": "Perfil, com documento travado para consultante."
     },
     "componentes_principais": {
       "components/ProcessTracker.tsx": "Orquestrador da consulta (1444 linhas) — stepper, varredura, estado e chat. Candidato prioritário a refatoração.",
@@ -507,8 +494,7 @@
       "components/AppShellLayout.tsx": "Sidebar recolhível, topbar e GhostFibers persistente.",
       "components/GhostFibers.tsx": "Fundo WebGL via ogl.",
       "components/AiSummaryLoadingBar.tsx": "Animação de carregamento do resumo.",
-      "components/DevMetrics.tsx": "Métricas de desenvolvimento e flag 'pagante'.",
-      "components/ProcessDashboardSplit.tsx": "CÓDIGO MORTO — 1226 linhas sem importador."
+      "components/DevMetrics.tsx": "Métricas de desenvolvimento e flag 'pagante'."
     },
     "bibliotecas_internas": {
       "lib/cnj.ts": "Parsing e máscara do número CNJ, com mapa completo de tribunais por ramo da justiça.",
@@ -519,7 +505,6 @@
       "lib/consultaAbort.ts": "Registro em memória de AbortControllers por consulta e tribunal.",
       "lib/tribunalTiming.ts": "Média móvel do tempo de resposta por tribunal em localStorage.",
       "lib/redis.ts": "Cache Upstash com no-op na ausência de credenciais.",
-      "lib/security.ts": "Validação de anexos por tamanho, extensão e magic bytes.",
       "lib/requireUser.ts": "Guarda de autenticação e auditoria nas rotas de API.",
       "lib/track.ts": "Cliente admin, identificação de usuário e registro de eventos.",
       "lib/useProfile.ts": "Hook de role e documento, com fallback para modo demonstração.",
@@ -551,7 +536,7 @@
   },
 
   "copywriting_e_conversao": {
-    "nota_de_uso": "Material para landing pages, anúncios e sequências. Toda peça deve ser conferida contra 'o_que_ainda_nao_existe' antes de publicar. Nunca prometer alerta automático ou monitoramento contínuo enquanto essas frentes estiverem pendentes.",
+    "nota_de_uso": "Material para landing pages, anúncios e sequências. Toda peça deve ser conferida contra 'o_que_ainda_nao_existe' antes de publicar. Nunca prometer alerta automático ou monitoramento contínuo enquanto essas frentes estiverem pendentes. ATENÇÃO — 'gratuita': desde 2026-10-01 a busca por número consulta também a Infosimples em paralelo (R$ 0,20 a R$ 0,26 por serviço do tribunal); só o DataJud é gratuito. A consulta só é de graça se o usuário desmarcar a Infosimples no Passo 2.",
 
     "proposta_de_valor_central": {
       "para_advogados": "Pare de abrir 14 sites de tribunal para descobrir onde seu cliente é réu. Digite um CPF e receba, em segundos, todos os processos encontrados — já classificados por risco e traduzidos para uma linguagem que seu cliente entende.",
@@ -632,7 +617,7 @@
       ],
       "secao_objecoes": [
         { "objecao": "Já uso outra plataforma de busca processual.", "resposta": "A maioria entrega dado bruto e cobra por volume. Aqui você vê o custo antes de consultar, escolhe quais tribunais varrer, cancela o que está lento e recebe o resultado já traduzido — não uma tabela para interpretar sozinho." },
-        { "objecao": "É seguro colocar meu CPF?", "resposta": "Seus dados ficam isolados por usuário diretamente no banco (Row Level Security). Seu IP nunca é guardado em claro, só como hash. Toda a área logada é invisível para buscadores. E anexos passam por inspeção binária antes de serem aceitos." },
+        { "objecao": "É seguro colocar meu CPF?", "resposta": "Seus dados ficam isolados por usuário diretamente no banco (Row Level Security). Seu IP nunca é guardado em claro, só como hash. Toda a área logada é invisível para buscadores." },
         { "objecao": "Vai me cobrar uma fortuna por consulta?", "resposta": "O custo estimado aparece na tela antes de você confirmar. E se você já tem o número do processo, a consulta é gratuita." },
         { "objecao": "A informação é confiável?", "resposta": "Vem do DataJud, a base pública oficial do Conselho Nacional de Justiça, combinada com os portais dos próprios tribunais. Não é estimativa nem base proprietária fechada." },
         { "objecao": "Meu cliente não entende nada de processo.", "resposta": "É exatamente o ponto. O resumo sai em linguagem simples, pronto para encaminhar, e o chat responde as dúvidas dele sem consumir sua hora." }
@@ -709,8 +694,6 @@
       "consultar processo TJRJ por CPF",
       "consultar processo TJMG por CPF",
       "consultar processo TJPR por CPF",
-      "consultar processo TJBA por CPF",
-      "consultar processo TJRS por CPF",
       "consultar processo TJSC por CPF",
       "consultar processo TRF1",
       "consultar processo TRF2",
@@ -804,7 +787,6 @@
       "Refatorar ProcessTracker.tsx (1444 linhas, cerca de 30 useState) — desmontar o chat quando fechado e isolar o estado de digitação.",
       "Mover a checagem de sessão do AuthGuard para o servidor, eliminando a tela em branco inicial.",
       "Adicionar loading.tsx ou Suspense nas rotas autenticadas.",
-      "Remover ProcessDashboardSplit.tsx (código morto) e a dependência @tabler/icons-react.",
       "Reescrever o README.md, hoje descrevendo o protótipo mock original."
     ]
   },
