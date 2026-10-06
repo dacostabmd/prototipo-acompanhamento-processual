@@ -15,6 +15,8 @@ export interface LegalProcess {
   valorCausa: string;
   distribuicao: string;
   movimentos: Movement[];
+  /** Fonte(s) que localizaram este processo: só Infosimples, só DataJud, ou achado nas duas. */
+  origem?: 'infosimples' | 'datajud' | 'ambos';
   /** true quando dados adicionais foram mesclados a partir da API pública DataJud (CNJ). */
   enriquecidoDataJud?: boolean;
   /** Assuntos do processo conforme Tabela Processual Unificada (DataJud). */

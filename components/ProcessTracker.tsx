@@ -60,7 +60,19 @@ type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
 // 'error' = a fonte FALHOU (≠ 'not-found', que é a fonte respondendo que não há processo).
 type ScanStatus = 'pending' | 'loading' | 'found' | 'not-found' | 'cancelled' | 'error';
-type ScanItem = { label: string; status: ScanStatus; startedAt?: number; elapsedMs?: number; erro?: string };
+/** De onde o card está consultando: Infosimples (raspagem do portal) ou DataJud (API pública do CNJ). */
+type ScanFonte = 'infosimples' | 'datajud';
+/** Progresso de uma única fonte dentro do card do tribunal. */
+type ScanFonteProgresso = { status: ScanStatus; startedAt?: number; elapsedMs?: number; erro?: string };
+/**
+ * Um card por tribunal/estado (não mais um card por fonte): reúne o progresso da Infosimples e do
+ * DataJud para o mesmo tribunal num só lugar, já que as duas consultam o mesmo processo.
+ */
+type ScanItem = {
+  label: string;
+  infosimples?: ScanFonteProgresso;
+  datajud?: ScanFonteProgresso;
+};
 
 const MOSS_GREEN = '#3d6b4f';
 const WARN = '#d4a65f';
@@ -83,6 +95,9 @@ export default function ProcessTracker({
   const [fullName, setFullName] = useState('');
   const [searchMode, setSearchMode] = useState<'cpf' | 'numero' | 'nome'>('cpf');
   const [cpfInput, setCpfInput] = useState('');
+  // Documentos extras (CPF/CNPJ adicionais do mesmo titular, ex.: empresas dele) — cada um roda
+  // como uma busca completa própria, em sequência, depois do documento principal (botão "+").
+  const [extraDocsInput, setExtraDocsInput] = useState<string[]>([]);
   const [processNumberInput, setProcessNumberInput] = useState('');
   const [partyNameInput, setPartyNameInput] = useState('');
   const [stateInput] = useState('AUTO');
@@ -123,6 +138,16 @@ export default function ProcessTracker({
   // Id da consulta em andamento (recebido no evento 'started' do streaming), usado para cancelar
   // um tribunal específico via POST /api/processos/cancelar sem afetar os demais.
   const consultaIdRef = useRef<string | null>(null);
+  // No fluxo por número (Fluxo A), o evento do DataJud vem como "DataJud (CNJ)" sem o nome do
+  // tribunal embutido — guarda o único tribunal-alvo da busca para rotear a sub-fonte certa no card.
+  const targetTribunalRef = useRef<string>('');
+  // Múltiplos documentos (botão "+" no Passo 1): rodam em sequência, cada um como uma busca completa.
+  // O ref permite interromper a fila assim que o usuário clicar em "cancelar busca" (lido de forma
+  // síncrona entre um documento e o próximo, sem esperar o próximo render do state).
+  const buscaCanceladaRef = useRef(false);
+  const [documentoAtualIdx, setDocumentoAtualIdx] = useState(0);
+  const [totalDocumentos, setTotalDocumentos] = useState(1);
+  const [custoAcumulado, setCustoAcumulado] = useState(0);
   const [cancelingLabels, setCancelingLabels] = useState<Set<string>>(new Set());
 
   // Atualiza o cronômetro/% estimado de cada card de tribunal enquanto a varredura está em curso.
@@ -179,15 +204,25 @@ export default function ProcessTracker({
           .map(f => f.id);
   // Custo previsto: Infosimples é pago por consulta; o DataJud é sempre gratuito. Por número, o
   // valor é o máximo (os sistemas do tribunal são consultados em sequência até achar o processo).
-  const custoPrevisto =
+  // Documentos adicionais (botão "+") rodam como buscas completas à parte: o custo soma por documento.
+  const qtdDocumentosValidos =
+    1 +
+    extraDocsInput.filter(d => {
+      const digits = cleanDigits(d);
+      return (digits.length === 11 && isValidCpf(digits)) || (digits.length === 14 && isValidCnpj(digits));
+    }).length;
+  const custoPrevistoPorDocumento =
     tipoBusca === 'numero'
       ? custoTotal(servicosDoNumero.filter(s => infosimplesSel.includes(s.id)).map(s => s.service))
       : custoFontesSelecionadas(tipoBusca, infosimplesSel);
+  const custoPrevisto = custoPrevistoPorDocumento * (tipoBusca === 'numero' ? 1 : qtdDocumentosValidos);
   const custoPrevistoLabel =
     tipoBusca === 'numero'
       ? custoPrevisto === 0
         ? 'Gratuito (DataJud CNJ)'
         : `${idsInfosimplesEfetivos.length > 1 ? 'até ' : ''}${formatarReais(custoPrevisto)}`
+      : qtdDocumentosValidos > 1
+      ? `${formatarReais(custoPrevisto)} (${qtdDocumentosValidos} documentos)`
       : formatarReais(custoPrevisto);
   const qtdDatajudEfetivos = tipoBusca === 'numero' ? (usaDatajudNumero ? 1 : 0) : datajudSel.length;
 
@@ -257,9 +292,178 @@ export default function ProcessTracker({
     }, 280);
   };
 
-  // Envio final do Stepper e Execução da Busca + Bitrix
+  // Busca completa para UM documento (CPF ou CNPJ) — usada tanto pelo documento principal quanto
+  // por cada documento adicional (botão "+"), em sequência. Devolve os processos achados e o custo
+  // real desta rodada; null se cancelada pelo usuário no meio do caminho.
+  const executarBuscaDocumento = async (
+    digits: string
+  ): Promise<{ processes: any[]; custo: number; tribunaisConsultados: string[] } | null> => {
+    const phoneDigits = cleanDigits(phoneInput);
+    const isBuscaNumero = searchMode === 'numero';
+    const cnjParsed = isBuscaNumero ? parseCnj(processNumberInput) : null;
+    const scanStartedAt = Date.now();
+    const usaInfosimples = isBuscaNumero ? idsInfosimplesEfetivos.length > 0 : true;
+    const targets = isBuscaNumero
+      ? cnjParsed?.tribunalLabel
+        ? [cnjParsed.tribunalLabel]
+        : []
+      : ordenarPorDdd(idsInfosimplesEfetivos, extractDdd(phoneDigits));
+    // No fluxo multi-tribunal, o DataJud só consegue confirmar um processo já achado pela Infosimples
+    // (a API do CNJ não busca por CPF/CNPJ/nome) — mas a sub-fonte já nasce "pending" dentro do card,
+    // deixando claro desde o início que as duas fontes vão trabalhar em paralelo assim que houver um
+    // número de processo para consultar. No fluxo por número, as duas já têm o número e começam juntas.
+    const usaDataJudAgora = isBuscaNumero ? usaDatajudNumero : datajudSel.length > 0;
+    targetTribunalRef.current = isBuscaNumero ? cnjParsed?.tribunalLabel || '' : '';
+    setScanItems(
+      targets.map(label => ({
+        label,
+        infosimples: usaInfosimples ? { status: 'loading', startedAt: scanStartedAt } : undefined,
+        datajud: usaDataJudAgora
+          ? isBuscaNumero
+            ? { status: 'loading', startedAt: scanStartedAt }
+            : { status: 'pending' }
+          : undefined
+      }))
+    );
+    consultaIdRef.current = null;
+    setCancelingLabels(new Set());
+
+    const res = await authFetch('/api/processos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        documento: digits,
+        nomeParte: searchMode === 'nome' ? partyNameInput.trim() : '',
+        fullName: fullName.trim() || (isBuscaNumero ? 'Consulta por Número' : ''),
+        phone: phoneDigits,
+        state: stateInput,
+        processNumber: isBuscaNumero ? processNumberInput : '',
+        // Fontes do Passo 2: ids Infosimples (lista explícita) e endpoints DataJud (null = todos).
+        tribunaisSelecionados: idsInfosimplesEfetivos,
+        datajudSelecionados: isBuscaNumero
+          ? usaDatajudNumero
+            ? [aliasDatajudCnj]
+            : []
+          : datajudSel.length === IDS_TODOS_DATAJUD.length
+          ? null
+          : datajudSel,
+        avisarMovimentacao: avisarNovidades,
+        canalAviso: !avisarNovidades ? 'nenhum' : canalEmail && canalWhatsapp ? 'ambos' : canalEmail ? 'email' : canalWhatsapp ? 'whatsapp' : 'nenhum',
+        resumoLinguagemSimples: resumoSimples
+      })
+    });
+
+    if (!res.ok) {
+      let errMsg = 'Falha ao consultar processos.';
+      try {
+        const errData = await res.json();
+        errMsg = errData.error || errMsg;
+      } catch {
+        errMsg = `Erro na resposta do servidor (${res.status}).`;
+      }
+      throw new Error(errMsg);
+    }
+
+    if (!res.body) {
+      throw new Error('Resposta do servidor sem corpo de dados.');
+    }
+
+    // Lê o NDJSON incrementalmente: uma linha "progress" por tribunal + uma linha "done" final.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let data: any = null;
+
+    while (true) {
+      if (buscaCanceladaRef.current) {
+        void reader.cancel().catch(() => {});
+        return null;
+      }
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let newlineIdx: number;
+      while ((newlineIdx = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, newlineIdx).trim();
+        buffer = buffer.slice(newlineIdx + 1);
+        if (!line) continue;
+
+        const evt = JSON.parse(line);
+        if (evt.type === 'started') {
+          consultaIdRef.current = evt.consultaId;
+        } else if (evt.type === 'progress') {
+          // O backend rotula o evento do DataJud como "DataJud (CNJ)" (fluxo por número, sem o nome
+          // do tribunal embutido — usa o tribunal-alvo guardado no ref) ou "DataJud · <tribunal>"
+          // (fluxo multi-tribunal) — normaliza para o nome puro do tribunal (chave do card único,
+          // ex.: "TJSP") e direciona o progresso para a sub-fonte certa dentro dele.
+          const dataJudMatch = evt.fonte === 'datajud' ? /^DataJud · (.+)$/.exec(evt.label) : null;
+          const tribunalLabel: string =
+            evt.fonte === 'datajud' ? dataJudMatch?.[1] ?? targetTribunalRef.current : evt.label;
+          const chave: 'infosimples' | 'datajud' = evt.fonte === 'datajud' ? 'datajud' : 'infosimples';
+
+          setScanItems(prev => {
+            const existe = prev.some(item => item.label === tribunalLabel);
+            const novoProgresso = (anterior: ScanFonteProgresso | undefined): ScanFonteProgresso => {
+              if (evt.status === 'loading') {
+                return { status: 'loading', startedAt: anterior?.startedAt ?? Date.now() };
+              }
+              const elapsedMs = anterior?.startedAt ? Date.now() - anterior.startedAt : undefined;
+              // Tribunal cancelado pelo usuário não entra na média histórica (não é um tempo real de resposta).
+              if (elapsedMs && !evt.cancelado && !evt.erro) recordSample(`${tribunalLabel} (${chave})`, elapsedMs);
+              const status: ScanStatus = evt.cancelado ? 'cancelled' : evt.found ? 'found' : evt.erro ? 'error' : 'not-found';
+              return { status, erro: evt.erro, elapsedMs };
+            };
+
+            // O card do DataJud por um processo achado num tribunal que não tinha varredura própria
+            // (não deveria acontecer hoje, mas por segurança) entra dinamicamente se for novo.
+            if (!existe) {
+              if (evt.status !== 'loading') return prev;
+              const novoItem: ScanItem = { label: tribunalLabel, [chave]: novoProgresso(undefined) };
+              return [...prev, novoItem];
+            }
+
+            const proximo = prev.map((item): ScanItem => {
+              if (item.label !== tribunalLabel) return item;
+              return { ...item, [chave]: novoProgresso(item[chave]) };
+            });
+
+            // Infosimples terminou sem achar nada neste tribunal: o DataJud deste card, se ainda
+            // "pending" (esperando um número de processo que nunca vai existir), fecha como "sem achado".
+            if (chave === 'infosimples' && evt.status !== 'loading' && !evt.found) {
+              return proximo.map((item): ScanItem =>
+                item.label === tribunalLabel && item.datajud?.status === 'pending'
+                  ? { ...item, datajud: { status: 'not-found' } }
+                  : item
+              );
+            }
+            return proximo;
+          });
+        } else if (evt.type === 'done') {
+          data = evt;
+        }
+      }
+    }
+
+    if (buscaCanceladaRef.current) return null;
+    if (!data) {
+      throw new Error('Falha ao processar resposta do servidor.');
+    }
+
+    return {
+      processes: data.notFound || !data.processes ? [] : data.processes,
+      custo: typeof data.custoEstimado === 'number' ? data.custoEstimado : 0,
+      tribunaisConsultados: data.tribunaisConsultados || []
+    };
+  };
+
+  // Envio final do Stepper e Execução da Busca + Bitrix. Documentos adicionais (botão "+" do Passo 1)
+  // rodam em sequência, depois do documento principal — cada um é uma busca completa à parte.
   const handleFinalStepCompleted = async () => {
-    const digits = cleanDigits(cpfInput);
+    const documentosDigits = [cpfInput, ...extraDocsInput]
+      .map(d => cleanDigits(d))
+      .filter(d => (d.length === 11 && isValidCpf(d)) || (d.length === 14 && isValidCnpj(d)));
+    const digits = documentosDigits[0] ?? cleanDigits(cpfInput);
     const phoneDigits = cleanDigits(phoneInput);
 
     if (!isStep1Valid || !isStep2Valid || !isStep4Valid) {
@@ -270,124 +474,51 @@ export default function ProcessTracker({
     setFormError('');
     setSearching(true);
     setHasSearched(false);
-
-    // O backend transmite o progresso em streaming (NDJSON).
-    // Quando a busca for por número CNJ, o scan mostra só as fontes ligadas no Passo 2 para o
-    // tribunal do processo (DataJud e/ou Infosimples); nas demais, as fontes Infosimples marcadas.
-    const isBuscaNumero = searchMode === 'numero';
-    const cnjParsed = isBuscaNumero ? parseCnj(processNumberInput) : null;
-    const targets = isBuscaNumero
-      ? [usaDatajudNumero && 'DataJud (CNJ)', idsInfosimplesEfetivos.length > 0 && cnjParsed?.tribunalLabel].filter(
-          (l): l is string => !!l
-        )
-      : ordenarPorDdd(idsInfosimplesEfetivos, extractDdd(phoneDigits));
-    const scanStartedAt = Date.now();
-    setScanItems(targets.map(label => ({ label, status: 'loading', startedAt: scanStartedAt })));
-    consultaIdRef.current = null;
-    setCancelingLabels(new Set());
+    buscaCanceladaRef.current = false;
+    setTotalDocumentos(documentosDigits.length || 1);
+    setDocumentoAtualIdx(0);
+    setCustoAcumulado(0);
 
     try {
-      // 1. Busca processual (direta por CNJ ou multi-tribunal por CPF)
-      const res = await authFetch('/api/processos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documento: digits,
-          nomeParte: searchMode === 'nome' ? partyNameInput.trim() : '',
-          fullName: fullName.trim() || (isBuscaNumero ? 'Consulta por Número' : ''),
-          phone: phoneDigits,
-          state: stateInput,
-          processNumber: isBuscaNumero ? processNumberInput : '',
-          // Fontes do Passo 2: ids Infosimples (lista explícita) e endpoints DataJud (null = todos).
-          tribunaisSelecionados: idsInfosimplesEfetivos,
-          datajudSelecionados: isBuscaNumero
-            ? usaDatajudNumero
-              ? [aliasDatajudCnj]
-              : []
-            : datajudSel.length === IDS_TODOS_DATAJUD.length
-            ? null
-            : datajudSel,
-          avisarMovimentacao: avisarNovidades,
-          canalAviso: !avisarNovidades ? 'nenhum' : canalEmail && canalWhatsapp ? 'ambos' : canalEmail ? 'email' : canalWhatsapp ? 'whatsapp' : 'nenhum',
-          resumoLinguagemSimples: resumoSimples
-        })
-      });
+      const todosProcessos: any[] = [];
+      const todosTribunais = new Set<string>();
+      let custoTotalAcumulado = 0;
+      const fila = documentosDigits.length > 0 ? documentosDigits : [digits];
 
-      if (!res.ok) {
-        let errMsg = 'Falha ao consultar processos.';
-        try {
-          const errData = await res.json();
-          errMsg = errData.error || errMsg;
-        } catch {
-          errMsg = `Erro na resposta do servidor (${res.status}).`;
-        }
-        throw new Error(errMsg);
+      for (let i = 0; i < fila.length; i++) {
+        if (buscaCanceladaRef.current) break;
+        setDocumentoAtualIdx(i);
+        const resultado = await executarBuscaDocumento(fila[i]);
+        if (!resultado) break; // cancelado no meio desta rodada
+
+        resultado.processes.forEach(p => todosProcessos.push(p));
+        resultado.tribunaisConsultados.forEach(t => todosTribunais.add(t));
+        custoTotalAcumulado += resultado.custo;
+        setCustoAcumulado(custoTotalAcumulado);
       }
 
-      if (!res.body) {
-        throw new Error('Resposta do servidor sem corpo de dados.');
+      // Cancelada pelo usuário: volta ao formulário sem mostrar resultado parcial — "cancelar" é
+      // desistir da busca, não ver o que já tinha sido achado até aquele ponto.
+      if (buscaCanceladaRef.current) {
+        setSearching(false);
+        return;
       }
 
-      // Lê o NDJSON incrementalmente: uma linha "progress" por tribunal + uma linha "done" final.
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let data: any = null;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        let newlineIdx: number;
-        while ((newlineIdx = buffer.indexOf('\n')) >= 0) {
-          const line = buffer.slice(0, newlineIdx).trim();
-          buffer = buffer.slice(newlineIdx + 1);
-          if (!line) continue;
-
-          const evt = JSON.parse(line);
-          if (evt.type === 'started') {
-            consultaIdRef.current = evt.consultaId;
-          } else if (evt.type === 'progress') {
-            setScanItems(prev =>
-              prev.map(item => {
-                if (item.label !== evt.label) return item;
-                const elapsedMs = item.startedAt ? Date.now() - item.startedAt : undefined;
-                // Tribunal cancelado pelo usuário não entra na média histórica (não é um tempo real de resposta).
-                if (elapsedMs && !evt.cancelado && !evt.erro) recordSample(item.label, elapsedMs);
-                return {
-                  ...item,
-                  status: evt.cancelado ? 'cancelled' : evt.found ? 'found' : evt.erro ? 'error' : 'not-found',
-                  erro: evt.erro,
-                  elapsedMs
-                };
-              })
-            );
-          } else if (evt.type === 'done') {
-            data = evt;
-          }
-        }
-      }
-
-      if (!data) {
-        throw new Error('Falha ao processar resposta do servidor.');
-      }
-
-      setTribunaisConsultados(data.tribunaisConsultados || []);
-      setCustoEstimado(typeof data.custoEstimado === 'number' ? data.custoEstimado : 0);
+      setTribunaisConsultados(Array.from(todosTribunais));
+      setCustoEstimado(custoTotalAcumulado);
       await new Promise(r => setTimeout(r, 400));
 
       let currentCases: CaseData | null = null;
       let totalFound = 0;
 
-      if (data.notFound || !data.processes || data.processes.length === 0) {
+      if (todosProcessos.length === 0) {
         setNotFound(true);
         setCaseData(null);
       } else {
         setNotFound(false);
-        currentCases = buildCaseDataFromProcesses(data.processes);
+        currentCases = buildCaseDataFromProcesses(todosProcessos);
         setCaseData(currentCases);
-        totalFound = data.processes.length;
+        totalFound = todosProcessos.length;
       }
 
       setHasSearched(true);
@@ -404,7 +535,7 @@ export default function ProcessTracker({
             state: stateInput,
             processNumber: processNumberInput,
             processesCount: totalFound,
-            tribunal: data.tribunaisConsultados?.join(', ') || stateInput,
+            tribunal: Array.from(todosTribunais).join(', ') || stateInput,
             processesSummary: currentCases
               ? currentCases.processes.slice(0, 3).map(p => `${p.tipo} (${p.numero}) - ${p.valorCausa}`).join('; ')
               : 'Nenhum processo localizado automaticamente'
@@ -430,6 +561,32 @@ export default function ProcessTracker({
     }
   };
 
+  // Cancela a consulta inteira (todos os tribunais do documento atual + os próximos documentos da
+  // fila) — diferente de handleCancelarTribunal, que para só uma sub-fonte de um tribunal específico.
+  const handleCancelarBuscaInteira = () => {
+    buscaCanceladaRef.current = true;
+    const consultaId = consultaIdRef.current;
+    if (!consultaId) return;
+    // Aborta cada tribunal/sub-fonte ainda em andamento da rodada atual (o backend libera os recursos
+    // e o loop de leitura do NDJSON também já vai parar sozinho ao ver buscaCanceladaRef).
+    scanItems.forEach(item => {
+      if (item.infosimples?.status === 'loading') {
+        void authFetch('/api/processos/cancelar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ consultaId, label: item.label })
+        }).catch(() => {});
+      }
+      if (item.datajud?.status === 'loading') {
+        void authFetch('/api/processos/cancelar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ consultaId, label: `DataJud · ${item.label}` })
+        }).catch(() => {});
+      }
+    });
+  };
+
   // Cancela a consulta de um tribunal específico em andamento (card individual na tela de
   // varredura), sem afetar os demais — usa o consultaId recebido no evento 'started' do streaming.
   const handleCancelarTribunal = async (label: string) => {
@@ -437,11 +594,16 @@ export default function ProcessTracker({
     if (!consultaId) return;
     setCancelingLabels(prev => new Set(prev).add(label));
     try {
-      await authFetch('/api/processos/cancelar', {
+      const res = await authFetch('/api/processos/cancelar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ consultaId, label })
       });
+      const resultado = await res.json().catch(() => null);
+      // cancelado:false = o servidor não achou a consulta em andamento (já terminou ou é outra instância).
+      if (resultado && resultado.cancelado === false) {
+        console.warn(`[ProcessTracker] o servidor não encontrou "${label}" para cancelar (já concluído ou outra instância).`);
+      }
     } catch (err) {
       console.error('[ProcessTracker cancelar tribunal error]', err);
     } finally {
@@ -582,7 +744,7 @@ export default function ProcessTracker({
             FASE 1: FORMULÁRIO EM STEPPER ANIMADO (4 PASSOS)
             ═════════════════════════════════════════════════════════════════ */}
         {!hasSearched && (
-          <div style={{ width: '100%', maxWidth: 720, animation: 'bf-fadein 0.5s ease both' }}>
+          <div style={{ width: '100%', maxWidth: searching ? 900 : 720, animation: 'bf-fadein 0.5s ease both' }}>
             {formError && (
               <div
                 style={{
@@ -623,30 +785,71 @@ export default function ProcessTracker({
                   quando a resposta real chega — tribunais com sistemas mais lentos (eproc/legado) podem demorar mais.`}
                 </p>
 
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 14,
+                    flexWrap: 'wrap',
+                    marginBottom: 20
+                  }}
+                >
+                  {totalDocumentos > 1 && (
+                    <span style={{ fontSize: 12.5, color: MUTED }}>
+                      Documento {documentoAtualIdx + 1} de {totalDocumentos} · custo acumulado{' '}
+                      <strong style={{ color: TEXT }}>{formatarReais(custoAcumulado)}</strong>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleCancelarBuscaInteira}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'transparent',
+                      border: `1px solid ${DANGER}`,
+                      color: DANGER,
+                      borderRadius: 4,
+                      padding: '6px 14px',
+                      fontSize: 12,
+                      letterSpacing: 0.3,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <XCircle size={14} strokeWidth={2} />
+                    CANCELAR BUSCA
+                  </button>
+                </div>
+
                 {searchMode === 'numero' ? (
                   (() => {
-                    const doneCount = scanItems.filter(i => i.status === 'found' || i.status === 'not-found' || i.status === 'cancelled' || i.status === 'error').length;
-                    const totalCount = scanItems.length || 1;
-                    const algumEncontrado = scanItems.some(i => i.status === 'found');
-                    const todasConcluidas = doneCount === totalCount;
-                    const dataJudItem = scanItems.find(i => i.label === 'DataJud (CNJ)');
-                    const tribunalItem = scanItems.find(i => i.label !== 'DataJud (CNJ)');
-                    const dataJudPendente = dataJudItem && (dataJudItem.status === 'pending' || dataJudItem.status === 'loading');
-                    const tribunalPendente = tribunalItem && (tribunalItem.status === 'pending' || tribunalItem.status === 'loading');
+                    const subfontesConcluida = (f?: ScanFonteProgresso) =>
+                      !f || f.status === 'found' || f.status === 'not-found' || f.status === 'cancelled' || f.status === 'error';
+                    const subfontePendente = (f?: ScanFonteProgresso) => f && (f.status === 'pending' || f.status === 'loading');
+                    const item = scanItems[0];
+                    const todasConcluidas = !item || (subfontesConcluida(item.infosimples) && subfontesConcluida(item.datajud));
+                    const algumEncontrado = item?.infosimples?.status === 'found' || item?.datajud?.status === 'found';
+                    const dataJudPendente = subfontePendente(item?.datajud);
+                    const tribunalPendente = subfontePendente(item?.infosimples);
+                    const totalCount = (item?.infosimples ? 1 : 0) + (item?.datajud ? 1 : 0) || 1;
 
                     // % estimado pela média dos dois itens em andamento (mesma mecânica de tempo médio
-                    // histórico usada no grid multi-tribunal, via lib/tribunalTiming.ts) — garante que a
-                    // barra avance de forma visível mesmo com as duas fontes ainda em "loading".
+                    // histórico usada no grid multi-tribunal, via lib/tribunalTiming.ts) — curva
+                    // assintótica (1 - e^-x): avança rápido no início e desacelera perto de 99%, mas
+                    // nunca trava num teto fixo enquanto se espera a resposta real.
                     const pct = todasConcluidas
                       ? 100
                       : Math.min(
-                          96,
+                          99,
                           Math.round(
-                            (scanItems.reduce((sum, item) => {
-                              if (item.status !== 'loading' || !item.startedAt) return sum + (item.status === 'pending' ? 0 : 100);
-                              const liveElapsedMs = Date.now() - item.startedAt;
-                              const avgMs = getAvgMs(item.label);
-                              return sum + Math.min(96, (liveElapsedMs / avgMs) * 100);
+                            ([item?.infosimples, item?.datajud].reduce((sum, f) => {
+                              if (!f) return sum;
+                              if (f.status !== 'loading' || !f.startedAt) return sum + (f.status === 'pending' ? 0 : 100);
+                              const liveElapsedMs = Date.now() - f.startedAt;
+                              const avgMs = getAvgMs(item!.label);
+                              return sum + Math.min(99, (1 - Math.exp(-liveElapsedMs / avgMs)) * 100);
                             }, 0) /
                               totalCount)
                           )
@@ -657,12 +860,18 @@ export default function ProcessTracker({
                         ? 'Processo localizado — consolidando os dados...'
                         : 'Nenhuma das duas fontes localizou o processo...'
                       : dataJudPendente && tribunalPendente
-                      ? `Consultando a base pública do CNJ (DataJud) e o ${tribunalItem?.label || 'tribunal'} em paralelo...`
+                      ? `Consultando a base pública do CNJ (DataJud) e o ${item?.label || 'tribunal'} em paralelo...`
                       : dataJudPendente
                       ? 'Consultando a base pública do CNJ (DataJud)...'
                       : tribunalPendente
-                      ? `Aguardando resposta do ${tribunalItem?.label}...`
+                      ? `Aguardando resposta do ${item?.label}...`
                       : 'Consolidando os dados encontrados...';
+
+                    // Passou da média histórica de alguma das duas fontes: a % deixa de ser uma
+                    // estimativa confiável (pode faltar 1s ou 1min) — troca para barra indeterminada.
+                    const algumAtrasado = [item?.infosimples, item?.datajud].some(
+                      f => f?.status === 'loading' && f.startedAt && Date.now() - f.startedAt > getAvgMs(item?.label ?? '')
+                    );
 
                     return (
                       <div style={{ maxWidth: 420, margin: '0 auto' }}>
@@ -671,21 +880,37 @@ export default function ProcessTracker({
                             height: 6,
                             borderRadius: 3,
                             background: 'rgba(255,255,255,0.08)',
-                            overflow: 'hidden'
+                            overflow: 'hidden',
+                            position: 'relative'
                           }}
                         >
-                          <div
-                            style={{
-                              height: '100%',
-                              width: `${pct}%`,
-                              background: todasConcluidas ? (algumEncontrado ? MOSS_GREEN : RUBY_RED) : BLUE,
-                              borderRadius: 3,
-                              transition: 'width 0.4s ease'
-                            }}
-                          />
+                          {!todasConcluidas && algumAtrasado ? (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                bottom: 0,
+                                left: '-40%',
+                                width: '40%',
+                                background: WARN,
+                                borderRadius: 3,
+                                animation: 'bf-indeterminate 1.1s ease-in-out infinite'
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                height: '100%',
+                                width: `${pct}%`,
+                                background: todasConcluidas ? (algumEncontrado ? MOSS_GREEN : RUBY_RED) : BLUE,
+                                borderRadius: 3,
+                                transition: 'width 0.4s ease'
+                              }}
+                            />
+                          )}
                         </div>
                         <div style={{ marginTop: 10, fontSize: 12.5, color: MUTED, lineHeight: 1.4 }}>
-                          {statusLabel} {!todasConcluidas && `(${pct}%)`}
+                          {statusLabel} {!todasConcluidas && !algumAtrasado && `(${pct}%)`}
                         </div>
                       </div>
                     );
@@ -693,7 +918,9 @@ export default function ProcessTracker({
                 ) : (
                   <>
                 {(() => {
-                  const doneCount = scanItems.filter(i => i.status === 'found' || i.status === 'not-found' || i.status === 'cancelled' || i.status === 'error').length;
+                  const doneCount = scanItems.filter(
+                    i => !i.infosimples || i.infosimples.status === 'found' || i.infosimples.status === 'not-found' || i.infosimples.status === 'cancelled' || i.infosimples.status === 'error'
+                  ).length;
                   const totalCount = scanItems.length || 1;
                   const pct = Math.round((doneCount / totalCount) * 100);
                   return (
@@ -727,48 +954,39 @@ export default function ProcessTracker({
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                      gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
                       gap: 10,
                       textAlign: 'left',
-                      maxWidth: 560,
+                      maxWidth: 1080,
                       margin: '0 auto'
                     }}
+                    className="bf-scan-grid"
                   >
                     {scanItems.map(item => {
-                      // % estimado com base no tempo médio histórico daquele tribunal (localStorage,
-                      // ver lib/tribunalTiming.ts) — não é progresso real (a chamada é atômica),
-                      // é uma estimativa que se refina a cada consulta feita no navegador.
-                      const liveElapsedMs =
-                        item.status === 'loading' && item.startedAt ? Date.now() - item.startedAt : item.elapsedMs ?? 0;
-                      const avgMs = getAvgMs(item.label);
-                      const isOverdue = item.status === 'loading' && liveElapsedMs > avgMs;
-                      const estimatedPct =
-                        item.status === 'found' || item.status === 'not-found' || item.status === 'error'
-                          ? 100
-                          : item.status === 'loading'
-                          ? Math.min(96, Math.round((liveElapsedMs / avgMs) * 100))
-                          : 0;
-                      const elapsedLabel = liveElapsedMs > 0 ? `${(liveElapsedMs / 1000).toFixed(1)}s` : null;
-
-                      // Subtítulo explicando em que ponto a consulta está: qual etapa da chamada
-                      // à Infosimples e, se passou do tempo médio histórico, um aviso de que o
-                      // tribunal está demorando mais que o normal (em vez da barra parecer travada).
-                      const stageLabel =
-                        item.status === 'loading'
-                          ? isOverdue
-                            ? `Demorando mais que o normal (média ${(avgMs / 1000).toFixed(1)}s) — sistema pode estar lento`
-                            : liveElapsedMs < 400
-                            ? 'Enviando requisição à Infosimples...'
-                            : 'Aguardando resposta do tribunal...'
-                          : null;
-
+                      // Status composto do card: achou em qualquer fonte > ainda rodando > falhou >
+                      // sem processos > cancelado > aguardando. Resume as duas sub-fontes num resumo
+                      // só, já que o card agora é por tribunal, não por fonte.
+                      const subfontes = [item.infosimples, item.datajud].filter(
+                        (f): f is ScanFonteProgresso => !!f
+                      );
+                      const statusGeral: ScanStatus = subfontes.some(f => f.status === 'found')
+                        ? 'found'
+                        : subfontes.some(f => f.status === 'loading')
+                        ? 'loading'
+                        : subfontes.some(f => f.status === 'pending')
+                        ? 'pending'
+                        : subfontes.some(f => f.status === 'error')
+                        ? 'error'
+                        : subfontes.every(f => f.status === 'cancelled')
+                        ? 'cancelled'
+                        : 'not-found';
                       return (
                         <div
                           key={item.label}
                           style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: 6,
+                            gap: 8,
                             padding: '10px 12px',
                             background: 'rgba(10,10,10,0.6)',
                             border: `1px solid ${BORDER}`,
@@ -790,23 +1008,14 @@ export default function ProcessTracker({
                                 justifyContent: 'center'
                               }}
                             >
-                              {item.status === 'pending' && (
-                                <span
-                                  style={{
-                                    width: 6,
-                                    height: 6,
-                                    borderRadius: '50%',
-                                    background: INPUT_BORDER
-                                  }}
-                                />
+                              {statusGeral === 'pending' && (
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: INPUT_BORDER }} />
                               )}
-                              {item.status === 'found' && (
-                                <Check size={16} strokeWidth={2.5} style={{ color: MOSS_GREEN }} />
-                              )}
-                              {(item.status === 'not-found' || item.status === 'cancelled') && (
+                              {statusGeral === 'found' && <Check size={16} strokeWidth={2.5} style={{ color: MOSS_GREEN }} />}
+                              {(statusGeral === 'not-found' || statusGeral === 'cancelled') && (
                                 <X size={16} strokeWidth={2.5} style={{ color: RUBY_RED }} />
                               )}
-                              {item.status === 'error' && <AlertTriangle size={16} strokeWidth={2.2} style={{ color: WARN }} />}
+                              {statusGeral === 'error' && <AlertTriangle size={16} strokeWidth={2.2} style={{ color: WARN }} />}
                             </span>
                             <span
                               style={{
@@ -819,100 +1028,27 @@ export default function ProcessTracker({
                             >
                               {item.label}
                             </span>
-                            <span
-                              style={{
-                                marginLeft: item.status === 'loading' ? undefined : 'auto',
-                                fontSize: 11,
-                                fontWeight: 600,
-                                flexShrink: 0,
-                                textAlign: 'right',
-                                color:
-                                  item.status === 'found'
-                                    ? MOSS_GREEN
-                                    : item.status === 'error'
-                                    ? WARN
-                                    : item.status === 'not-found' || item.status === 'cancelled'
-                                    ? RUBY_RED
-                                    : MUTED
-                              }}
-                            >
-                              {item.status === 'pending' && 'Aguardando'}
-                              {item.status === 'loading' && `${estimatedPct}% · ${elapsedLabel}`}
-                              {item.status === 'found' && `Encontrado · ${elapsedLabel}`}
-                              {item.status === 'not-found' && `Sem processos · ${elapsedLabel}`}
-                              {item.status === 'error' && `Falhou · ${elapsedLabel}`}
-                              {item.status === 'cancelled' && 'Cancelado'}
-                            </span>
-                            {item.status === 'loading' && (
-                              <button
-                                type="button"
-                                onClick={() => handleCancelarTribunal(item.label)}
-                                disabled={cancelingLabels.has(item.label)}
-                                title={`Cancelar consulta a ${item.label}`}
-                                aria-label={`Cancelar consulta a ${item.label}`}
-                                style={{
-                                  marginLeft: 'auto',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  background: 'transparent',
-                                  border: 'none',
-                                  padding: 2,
-                                  cursor: cancelingLabels.has(item.label) ? 'default' : 'pointer',
-                                  opacity: cancelingLabels.has(item.label) ? 0.4 : 0.7,
-                                  color: MUTED,
-                                  flexShrink: 0
-                                }}
-                              >
-                                <XCircle size={14} strokeWidth={2} />
-                              </button>
-                            )}
                           </div>
 
-                          <div
-                            style={{
-                              height: 4,
-                              borderRadius: 2,
-                              background: 'rgba(255,255,255,0.08)',
-                              overflow: 'hidden',
-                              position: 'relative'
-                            }}
-                          >
-                            {item.status === 'pending' && <div style={{ height: '100%', width: 0 }} />}
-                            {item.status === 'loading' && (
-                              <div
-                                style={{
-                                  height: '100%',
-                                  width: `${estimatedPct}%`,
-                                  background: BLUE,
-                                  borderRadius: 2,
-                                  transition: 'width 0.15s linear',
-                                  animation: isOverdue ? 'bf-blink 1s ease-in-out infinite' : undefined
-                                }}
-                              />
-                            )}
-                            {(item.status === 'found' || item.status === 'not-found' || item.status === 'cancelled' || item.status === 'error') && (
-                              <div
-                                style={{
-                                  height: '100%',
-                                  width: '100%',
-                                  borderRadius: 2,
-                                  background: item.status === 'found' ? MOSS_GREEN : item.status === 'error' ? WARN : RUBY_RED
-                                }}
-                              />
-                            )}
-                          </div>
-
-                          {item.status === 'error' && item.erro && (
-                            <div title={item.erro} style={{ fontSize: 10.5, color: WARN, lineHeight: 1.3, overflowWrap: 'anywhere' }}>
-                              {item.erro}
-                            </div>
+                          {item.infosimples && (
+                            <SubFonteBar
+                              label="Infosimples"
+                              cor="#b8a8d4"
+                              progresso={item.infosimples}
+                              tribunal={item.label}
+                              onCancelar={() => handleCancelarTribunal(item.label)}
+                              cancelando={cancelingLabels.has(item.label)}
+                            />
                           )}
-
-                          {stageLabel && (
-                            <div style={{ fontSize: 10.5, color: isOverdue ? '#d4a65f' : MUTED, lineHeight: 1.3 }}>
-                              {stageLabel}
-                            </div>
+                          {item.datajud && (
+                            <SubFonteBar
+                              label="DataJud (CNJ)"
+                              cor="#8fb8d4"
+                              progresso={item.datajud}
+                              tribunal={item.label}
+                              onCancelar={() => handleCancelarTribunal(`DataJud · ${item.label}`)}
+                              cancelando={cancelingLabels.has(`DataJud · ${item.label}`)}
+                            />
                           )}
                         </div>
                       );
@@ -1062,25 +1198,111 @@ export default function ProcessTracker({
                         </span>
                       </Tooltip>
                     </label>
-                    <input
-                      type="text"
-                      value={cpfInput}
-                      onChange={e => setCpfInput(formatDocumento(e.target.value))}
-                      placeholder={
-                        (searchMode === 'numero' || searchMode === 'nome') && !isConsultante
-                          ? 'CPF ou CNPJ (opcional)'
-                          : '000.000.000-00 ou 00.000.000/0000-00'
-                      }
-                      maxLength={18}
-                      inputMode="numeric"
-                      style={inputStyle}
-                      disabled={isConsultante}
-                    />
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <input
+                        type="text"
+                        value={cpfInput}
+                        onChange={e => setCpfInput(formatDocumento(e.target.value))}
+                        placeholder={
+                          (searchMode === 'numero' || searchMode === 'nome') && !isConsultante
+                            ? 'CPF ou CNPJ (opcional)'
+                            : '000.000.000-00 ou 00.000.000/0000-00'
+                        }
+                        maxLength={18}
+                        inputMode="numeric"
+                        style={{ ...inputStyle, flex: 1 }}
+                        disabled={isConsultante}
+                      />
+                      {!isConsultante && searchMode !== 'numero' && (
+                        <Tooltip label="Adicionar outro documento (ex.: CNPJ de uma empresa do mesmo titular) — roda como uma busca própria, depois desta" withArrow>
+                          <button
+                            type="button"
+                            onClick={() => setExtraDocsInput(prev => [...prev, ''])}
+                            aria-label="Adicionar outro documento"
+                            style={{
+                              flexShrink: 0,
+                              width: 40,
+                              height: 40,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: 'transparent',
+                              border: `1px solid ${INPUT_BORDER}`,
+                              borderRadius: 4,
+                              color: TEXT,
+                              fontSize: 18,
+                              lineHeight: 1,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            +
+                          </button>
+                        </Tooltip>
+                      )}
+                    </div>
                     {!isDocValid && cpfInputDigits.length >= 11 && (
                       <span style={{ fontSize: 11, color: DANGER, marginTop: 4, display: 'block' }}>
                         {cpfInputDigits.length === 11 || cpfInputDigits.length === 14
                           ? `Dígito verificador do ${docLabel} inválido. Verifique os números.`
                           : 'O CPF tem 11 dígitos e o CNPJ tem 14.'}
+                      </span>
+                    )}
+
+                    {extraDocsInput.map((doc, i) => {
+                      const digits = cleanDigits(doc);
+                      const valido = (digits.length === 11 && isValidCpf(digits)) || (digits.length === 14 && isValidCnpj(digits));
+                      return (
+                        <div key={i} style={{ marginTop: 8 }}>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                            <input
+                              type="text"
+                              value={doc}
+                              onChange={e =>
+                                setExtraDocsInput(prev => prev.map((d, idx) => (idx === i ? formatDocumento(e.target.value) : d)))
+                              }
+                              placeholder={`Documento adicional ${i + 2} (CPF ou CNPJ)`}
+                              maxLength={18}
+                              inputMode="numeric"
+                              style={{ ...inputStyle, flex: 1 }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setExtraDocsInput(prev => prev.filter((_, idx) => idx !== i))}
+                              aria-label={`Remover documento adicional ${i + 2}`}
+                              title="Remover este documento"
+                              style={{
+                                flexShrink: 0,
+                                width: 40,
+                                height: 40,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: 'transparent',
+                                border: `1px solid ${INPUT_BORDER}`,
+                                borderRadius: 4,
+                                color: MUTED,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <XCircle size={16} strokeWidth={2} />
+                            </button>
+                          </div>
+                          {!valido && digits.length >= 11 && (
+                            <span style={{ fontSize: 11, color: DANGER, marginTop: 4, display: 'block' }}>
+                              {digits.length === 11 || digits.length === 14
+                                ? 'Dígito verificador inválido. Verifique os números.'
+                                : 'O CPF tem 11 dígitos e o CNPJ tem 14.'}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {!isConsultante && (searchMode === 'cpf' || (searchMode !== 'numero' && cpfInput)) && (
+                      <span style={{ fontSize: 11, color: MUTED, marginTop: 6, display: 'block', lineHeight: 1.5 }}>
+                        {extraDocsInput.length > 0
+                          ? `A busca vai rodar em sequência: o documento principal e mais ${extraDocsInput.length} documento(s) adicional(is), cada um varrendo os mesmos tribunais — o custo soma por documento.`
+                          : 'A busca é feita por documento. Se o titular tem processos tanto no CPF quanto em CNPJ(s) de empresas dele, use o botão "+" para adicionar cada documento — todos rodam na mesma consulta.'}
                       </span>
                     )}
                   </div>
@@ -1693,7 +1915,13 @@ export default function ProcessTracker({
 
 /** Aviso das fontes que FALHARAM na consulta — diferente de "sem processos": o processo pode existir lá. */
 function FontesComErroAviso({ itens }: { itens: ScanItem[] }) {
-  const comErro = itens.filter(i => i.status === 'error');
+  const comErro = itens.flatMap(i =>
+    [
+      i.infosimples?.status === 'error' ? { chave: `${i.label} (Infosimples)`, erro: i.infosimples.erro } : null,
+      i.datajud?.status === 'error' ? { chave: `${i.label} (DataJud)`, erro: i.datajud.erro } : null
+    ].filter((x): x is { chave: string; erro: string | undefined } => x !== null)
+  );
+  const totalConsultas = itens.reduce((sum, i) => sum + (i.infosimples ? 1 : 0) + (i.datajud ? 1 : 0), 0);
   if (comErro.length === 0) return null;
   return (
     <div
@@ -1715,15 +1943,192 @@ function FontesComErroAviso({ itens }: { itens: ScanItem[] }) {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, marginBottom: 6 }}>
         <AlertTriangle size={15} style={{ color: WARN }} />
-        {comErro.length} de {itens.length} fonte(s) falharam — o processo pode existir nelas
+        {comErro.length} de {totalConsultas} fonte(s) falharam — o processo pode existir nelas
       </div>
       <ul style={{ margin: 0, paddingLeft: 18, color: MUTED }}>
         {comErro.map(i => (
-          <li key={i.label}>
-            <strong style={{ color: TEXT }}>{i.label}:</strong> {i.erro}
+          <li key={i.chave}>
+            <strong style={{ color: TEXT }}>{i.chave}:</strong> {i.erro}
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** Barra de progresso de uma única sub-fonte (Infosimples ou DataJud) dentro do card do tribunal. */
+function SubFonteBar({
+  label,
+  cor,
+  progresso,
+  tribunal,
+  onCancelar,
+  cancelando
+}: {
+  label: string;
+  cor: string;
+  progresso: ScanFonteProgresso;
+  tribunal: string;
+  onCancelar: () => void;
+  cancelando: boolean;
+}) {
+  const liveElapsedMs =
+    progresso.status === 'loading' && progresso.startedAt ? Date.now() - progresso.startedAt : progresso.elapsedMs ?? 0;
+  const avgMs = getAvgMs(`${tribunal} (${label})`);
+  const isOverdue = progresso.status === 'loading' && liveElapsedMs > avgMs;
+  const estimatedPct =
+    progresso.status === 'found' || progresso.status === 'not-found' || progresso.status === 'error'
+      ? 100
+      : progresso.status === 'loading'
+      ? // Curva assintótica (1 - e^-x): cresce rápido no início e desacelera perto de 99%, mas nunca
+        // trava num teto fixo — mesmo bem além da média histórica a barra segue avançando visivelmente,
+        // em vez de parecer travada enquanto se espera uma resposta real que pode demorar muito mais.
+        Math.min(99, Math.round((1 - Math.exp(-liveElapsedMs / avgMs)) * 100))
+      : 0;
+  const elapsedLabel = liveElapsedMs > 0 ? `${(liveElapsedMs / 1000).toFixed(1)}s` : null;
+
+  const statusTexto =
+    progresso.status === 'pending'
+      ? label === 'DataJud (CNJ)'
+        ? 'De prontidão'
+        : 'Aguardando'
+      : progresso.status === 'loading'
+      ? isOverdue
+        ? elapsedLabel ?? 'Em andamento...'
+        : `${estimatedPct}% · ${elapsedLabel}`
+      : progresso.status === 'found'
+      ? elapsedLabel
+        ? `Encontrado · ${elapsedLabel}`
+        : 'Encontrado'
+      : progresso.status === 'not-found'
+      ? elapsedLabel
+        ? `Sem processos · ${elapsedLabel}`
+        : 'Sem processos'
+      : progresso.status === 'error'
+      ? elapsedLabel
+        ? `Falhou · ${elapsedLabel}`
+        : 'Falhou'
+      : 'Cancelado';
+
+  const stageLabel =
+    progresso.status === 'pending' && label === 'DataJud (CNJ)'
+      ? 'Consulta a API pública do CNJ assim que a Infosimples achar o número do processo neste tribunal'
+      : progresso.status === 'loading'
+      ? isOverdue
+        ? `Demorando mais que o normal (média ${(avgMs / 1000).toFixed(1)}s) — sistema pode estar lento`
+        : liveElapsedMs < 400
+        ? `Enviando requisição à ${label}...`
+        : label === 'DataJud (CNJ)'
+        ? 'Aguardando resposta da API do CNJ...'
+        : 'Aguardando resposta do tribunal...'
+      : null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', rowGap: 2, gap: 6, minWidth: 0 }}>
+        <span style={{ width: 5, height: 5, borderRadius: '50%', background: cor, flex: 'none' }} />
+        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2, color: cor, textTransform: 'uppercase', flexShrink: 0 }}>
+          {label}
+        </span>
+        <span
+          style={{
+            marginLeft: 'auto',
+            fontSize: 11,
+            fontWeight: 600,
+            flexShrink: 0,
+            maxWidth: '100%',
+            overflowWrap: 'anywhere',
+            color:
+              progresso.status === 'found'
+                ? MOSS_GREEN
+                : progresso.status === 'error'
+                ? WARN
+                : progresso.status === 'not-found' || progresso.status === 'cancelled'
+                ? RUBY_RED
+                : MUTED
+          }}
+        >
+          {statusTexto}
+        </span>
+        {progresso.status === 'loading' && (
+          <button
+            type="button"
+            onClick={onCancelar}
+            disabled={cancelando}
+            title={`Cancelar consulta a ${label} (${tribunal})`}
+            aria-label={`Cancelar consulta a ${label} (${tribunal})`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'transparent',
+              border: 'none',
+              padding: 2,
+              cursor: cancelando ? 'default' : 'pointer',
+              opacity: cancelando ? 0.4 : 0.7,
+              color: MUTED,
+              flexShrink: 0
+            }}
+          >
+            <XCircle size={13} strokeWidth={2} />
+          </button>
+        )}
+      </div>
+
+      <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', position: 'relative' }}>
+        {progresso.status === 'pending' && <div style={{ height: '100%', width: 0 }} />}
+        {progresso.status === 'loading' &&
+          (isOverdue ? (
+            // Já passou da média: uma % "estimada" não significa mais nada útil (pode faltar 1s
+            // ou 1min) — troca para barra indeterminada, que deixa claro que ainda está rodando
+            // sem fingir uma previsão de quanto falta.
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: '-40%',
+                width: '40%',
+                background: WARN,
+                borderRadius: 2,
+                animation: 'bf-indeterminate 1.1s ease-in-out infinite'
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                height: '100%',
+                width: `${estimatedPct}%`,
+                background: BLUE,
+                borderRadius: 2,
+                transition: 'width 0.15s linear'
+              }}
+            />
+          ))}
+        {(progresso.status === 'found' ||
+          progresso.status === 'not-found' ||
+          progresso.status === 'cancelled' ||
+          progresso.status === 'error') && (
+          <div
+            style={{
+              height: '100%',
+              width: '100%',
+              borderRadius: 2,
+              background: progresso.status === 'found' ? MOSS_GREEN : progresso.status === 'error' ? WARN : RUBY_RED
+            }}
+          />
+        )}
+      </div>
+
+      {progresso.status === 'error' && progresso.erro && (
+        <div title={progresso.erro} style={{ fontSize: 10, color: WARN, lineHeight: 1.3, overflowWrap: 'anywhere', paddingLeft: 11 }}>
+          {progresso.erro}
+        </div>
+      )}
+
+      {stageLabel && (
+        <div style={{ fontSize: 10, color: isOverdue ? '#d4a65f' : MUTED, lineHeight: 1.3, paddingLeft: 11 }}>{stageLabel}</div>
+      )}
     </div>
   );
 }

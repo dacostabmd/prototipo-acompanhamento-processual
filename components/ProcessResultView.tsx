@@ -4,7 +4,7 @@ import { authFetch } from '@/lib/authFetch';
 import React, { useRef, useState, useEffect } from 'react';
 import { formatChatMessageHtml, formatDateLabel } from '@/lib/format';
 import { TAG_META, type CaseData } from '@/lib/mockProcesses';
-import { Check, FileText, ShieldCheck } from 'lucide-react';
+import { Check, FileText, Maximize2, ShieldCheck, X } from 'lucide-react';
 import AiSummaryLoadingBar from './AiSummaryLoadingBar';
 
 const BLUE = '#5f5f5f';
@@ -51,17 +51,40 @@ export default function ProcessResultView({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatExpandido, setChatExpandido] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatModalBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // block: 'nearest' restringe o scroll ao container do chat (overflowY próprio), em vez de
     // rolar a página inteira até esse ponto — scrollIntoView por padrão (block: 'end') sobe
-    // qualquer ancestral com overflow, incluindo a janela.
+    // qualquer ancestral com overflow, incluindo a janela. O mesmo chat aparece no cartão e no modal
+    // ampliado, cada um com seu marcador de fim.
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [chatMessages, chatLoading]);
+    chatModalBottomRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [chatMessages, chatLoading, chatExpandido]);
+
+  useEffect(() => {
+    if (!chatExpandido) return;
+    const fecharComEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setChatExpandido(false);
+    };
+    window.addEventListener('keydown', fecharComEsc);
+    return () => window.removeEventListener('keydown', fecharComEsc);
+  }, [chatExpandido]);
 
   const principal = caseData.processes[0];
   const ultimasMovimentacoes = caseData.timeline.slice(0, 15);
+
+  const totalPorOrigem = caseData.processes.reduce(
+    (acc, p) => {
+      if (p.origem === 'ambos') acc.ambos++;
+      else if (p.origem === 'datajud') acc.datajud++;
+      else acc.infosimples++;
+      return acc;
+    },
+    { infosimples: 0, datajud: 0, ambos: 0 }
+  );
 
   const sendChatMessage = async () => {
     if (!chatInput.trim() || chatLoading) return;
@@ -105,6 +128,82 @@ export default function ProcessResultView({
       setChatLoading(false);
     }
   };
+
+  /** Mensagens + campo de envio; o mesmo estado alimenta o cartão e o modal ampliado. */
+  const renderChatCorpo = (bottomRef: React.RefObject<HTMLDivElement | null>, grande: boolean) => (
+    <>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {chatMessages.length === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SuggestedQuestion text="O que acontece agora?" onClick={setChatInput} />
+            <SuggestedQuestion text="O que significa cada movimentação?" onClick={setChatInput} />
+          </div>
+        )}
+        {chatMessages.map((msg, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div
+              style={{
+                maxWidth: '86%',
+                padding: '10px 14px',
+                fontSize: grande ? 13.5 : 12.5,
+                lineHeight: 1.6,
+                borderRadius: 4,
+                background: msg.role === 'user' ? BLUE : 'rgba(255,255,255,0.06)',
+                color: TEXT,
+                border: msg.role === 'user' ? 'none' : `1px solid ${BORDER}`
+              }}
+            >
+              {msg.role === 'user' ? (
+                <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+              ) : (
+                <div dangerouslySetInnerHTML={{ __html: formatChatMessageHtml(msg.content, false) }} />
+              )}
+            </div>
+          </div>
+        ))}
+        {chatLoading && (
+          <div style={{ fontSize: 12, color: MUTED, animation: 'bf-blink 1.4s ease-in-out infinite' }}>Analisando contexto...</div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+      <div style={{ display: 'flex', gap: 8, padding: 12, borderTop: `1px solid ${BORDER}` }}>
+        <input
+          type="text"
+          value={chatInput}
+          onChange={e => setChatInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && void sendChatMessage()}
+          placeholder="Escreva sua dúvida"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            padding: '9px 12px',
+            fontSize: grande ? 13.5 : 12.5,
+            border: `1px solid ${BORDER}`,
+            borderRadius: 4,
+            background: 'rgba(255,255,255,0.06)',
+            color: TEXT,
+            outline: 'none'
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => void sendChatMessage()}
+          style={{
+            background: BLUE,
+            color: '#fff',
+            border: 'none',
+            borderRadius: 4,
+            padding: '9px 14px',
+            fontSize: 13,
+            cursor: 'pointer',
+            flexShrink: 0
+          }}
+        >
+          →
+        </button>
+      </div>
+    </>
+  );
 
   return (
     <div
@@ -172,6 +271,31 @@ export default function ProcessResultView({
             NOVA BUSCA
           </button>
         </div>
+      </div>
+
+      {/* ── Resumo por fonte: de onde vieram os processos encontrados ── */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: 10,
+          marginBottom: 20,
+          padding: '12px 16px',
+          background: GLASS,
+          border: `1px solid ${BORDER}`,
+          borderRadius: 8,
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)'
+        }}
+      >
+        <span style={{ fontSize: 10, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700 }}>FONTES CONSULTADAS</span>
+        <span style={{ fontSize: 12.5, color: MUTED }}>
+          {caseData.totalProcessos} processo(s) localizado(s)
+          {totalPorOrigem.infosimples > 0 && ` · ${totalPorOrigem.infosimples} via Infosimples`}
+          {totalPorOrigem.datajud > 0 && ` · ${totalPorOrigem.datajud} via DataJud`}
+          {totalPorOrigem.ambos > 0 && ` · ${totalPorOrigem.ambos} confirmado(s) em ambas as fontes`}
+        </span>
       </div>
 
       <div
@@ -247,6 +371,18 @@ export default function ProcessResultView({
             <DataCard label="Valor da causa" value={principal?.valorCausa || 'Não informado'} />
             <DataCard label="Parte contrária" value={principal?.parteContraria || 'Não informada'} />
             <DataCard label="Tribunal / Vara" value={principal?.tribunal || tribunaisConsultados.join(', ') || '—'} />
+            {principal && (
+              <DataCard
+                label="Encontrado em"
+                value={
+                  principal.origem === 'ambos'
+                    ? 'Infosimples + DataJud'
+                    : principal.origem === 'datajud'
+                    ? 'DataJud (CNJ)'
+                    : 'Infosimples'
+                }
+              />
+            )}
             {principal?.orgaoJulgadorDataJud && <DataCard label="Órgão julgador (CNJ)" value={principal.orgaoJulgadorDataJud} />}
             {principal?.grauDataJud && <DataCard label="Grau" value={principal.grauDataJud} />}
             {principal?.assuntosDataJud && principal.assuntosDataJud.length > 0 && (
@@ -348,79 +484,32 @@ export default function ProcessResultView({
               height: 420
             }}
           >
-            <div style={{ padding: '14px 18px', borderBottom: `1px solid ${BORDER}`, fontSize: 12, letterSpacing: 1, color: BLUE_LIGHT, fontWeight: 700 }}>
-              TIRE DÚVIDAS COM A IA
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {chatMessages.length === 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <SuggestedQuestion text="O que acontece agora?" onClick={setChatInput} />
-                  <SuggestedQuestion text="O que significa cada movimentação?" onClick={setChatInput} />
-                </div>
-              )}
-              {chatMessages.map((msg, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                  <div
-                    style={{
-                      maxWidth: '86%',
-                      padding: '10px 14px',
-                      fontSize: 12.5,
-                      lineHeight: 1.6,
-                      borderRadius: 4,
-                      background: msg.role === 'user' ? BLUE : 'rgba(255,255,255,0.06)',
-                      color: TEXT,
-                      border: msg.role === 'user' ? 'none' : `1px solid ${BORDER}`
-                    }}
-                  >
-                    {msg.role === 'user' ? (
-                      <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
-                    ) : (
-                      <div dangerouslySetInnerHTML={{ __html: formatChatMessageHtml(msg.content, false) }} />
-                    )}
-                  </div>
-                </div>
-              ))}
-              {chatLoading && (
-                <div style={{ fontSize: 12, color: MUTED, animation: 'bf-blink 1.4s ease-in-out infinite' }}>Analisando contexto...</div>
-              )}
-              <div ref={chatBottomRef} />
-            </div>
-            <div style={{ display: 'flex', gap: 8, padding: 12, borderTop: `1px solid ${BORDER}` }}>
-              <input
-                type="text"
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && void sendChatMessage()}
-                placeholder="Escreva sua dúvida"
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  padding: '9px 12px',
-                  fontSize: 12.5,
-                  border: `1px solid ${BORDER}`,
-                  borderRadius: 4,
-                  background: 'rgba(255,255,255,0.06)',
-                  color: TEXT,
-                  outline: 'none'
-                }}
-              />
+            <div
+              style={{
+                padding: '14px 18px',
+                borderBottom: `1px solid ${BORDER}`,
+                fontSize: 12,
+                letterSpacing: 1,
+                color: BLUE_LIGHT,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8
+              }}
+            >
+              <span>TIRE DÚVIDAS COM A IA</span>
               <button
                 type="button"
-                onClick={() => void sendChatMessage()}
-                style={{
-                  background: BLUE,
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 4,
-                  padding: '9px 14px',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  flexShrink: 0
-                }}
+                onClick={() => setChatExpandido(true)}
+                title="Ampliar chat"
+                aria-label="Ampliar chat"
+                style={{ background: 'none', border: 'none', padding: 4, margin: -4, color: BLUE_LIGHT, cursor: 'pointer', display: 'inline-flex', flexShrink: 0 }}
               >
-                →
+                <Maximize2 size={15} />
               </button>
             </div>
+            {renderChatCorpo(chatBottomRef, false)}
           </div>
 
           <button
@@ -448,6 +537,66 @@ export default function ProcessResultView({
           </button>
         </div>
       </div>
+
+      {chatExpandido && (
+        <div
+          onClick={() => setChatExpandido(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            zIndex: 60,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 12
+          }}
+        >
+          <div
+            role="dialog"
+            aria-label="Tire dúvidas com a IA"
+            onClick={e => e.stopPropagation()}
+            style={{
+              // 60vw x 65vh; em telas estreitas o piso de 560px (limitado à tela) evita um modal minúsculo.
+              width: 'max(60vw, min(100vw - 24px, 560px))',
+              height: '65vh',
+              background: '#232323',
+              border: `1px solid ${BORDER}`,
+              borderRadius: 8,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+          >
+            <div
+              style={{
+                padding: '14px 18px',
+                borderBottom: `1px solid ${BORDER}`,
+                fontSize: 12,
+                letterSpacing: 1,
+                color: BLUE_LIGHT,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8
+              }}
+            >
+              <span>TIRE DÚVIDAS COM A IA</span>
+              <button
+                type="button"
+                onClick={() => setChatExpandido(false)}
+                title="Fechar"
+                aria-label="Fechar chat ampliado"
+                style={{ background: 'none', border: 'none', padding: 4, margin: -4, color: BLUE_LIGHT, cursor: 'pointer', display: 'inline-flex', flexShrink: 0 }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {renderChatCorpo(chatModalBottomRef, true)}
+          </div>
+        </div>
+      )}
 
       {docsOpen && (
         <div

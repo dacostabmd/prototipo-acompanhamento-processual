@@ -34,7 +34,13 @@ export interface DataJudResultado {
   dataAjuizamento?: string;
 }
 
-const TIMEOUT_MS = 5000;
+// A API pública do DataJud pode demorar muito em tribunais com acervo grande: testes reais contra
+// o endpoint do TJSP (dezenas de milhões de processos) levaram 30-56s mesmo buscando por número
+// específico (match_phrase), em mais de uma tentativa — 5s era curto demais e abortava quase toda
+// consulta a esse tribunal antes de uma resposta real chegar. Como essa consulta roda em paralelo
+// sem bloquear a Infosimples nem o resto da tela, um timeout bem folgado aqui não atrasa o
+// resultado principal da busca — só o card do tribunal continua "confirmando" por mais tempo.
+const TIMEOUT_MS = 60000;
 
 /**
  * dataAjuizamento do processo vem em dois formatos observados na API: ISO ("2018-10-29T00:00:00Z")
@@ -55,7 +61,8 @@ export function parseDataAjuizamento(raw: string): string | undefined {
 export async function consultarDataJud(
   tribunalLabel: string,
   numeroProcessoDigits: string,
-  aliasesPermitidos: Set<string> | null = null
+  aliasesPermitidos: Set<string> | null = null,
+  signalExterno?: AbortSignal
 ): Promise<DataJudResultado | null> {
   const apiKey = process.env.DATAJUD_API_KEY;
   if (!apiKey) return null;
@@ -71,9 +78,14 @@ export async function consultarDataJud(
   if (!alias || numeroProcessoDigits.length !== 20) return null;
   // Endpoint desmarcado no Passo 2: não consulta (aliasesPermitidos null = todos habilitados).
   if (aliasesPermitidos && !aliasesPermitidos.has(alias)) return null;
+  if (signalExterno?.aborted) return null;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  // Cancelamento manual pelo usuário (botão "cancelar" do card): aborta a chamada em andamento
+  // mesmo antes do timeout — sem isso, o signal externo nunca chegava à chamada real ao DataJud.
+  const onAbortExterno = () => controller.abort();
+  signalExterno?.addEventListener('abort', onAbortExterno);
 
   try {
     const res = await fetch(`https://api-publica.datajud.cnj.jus.br/api_publica_${alias}/_search`, {
@@ -125,10 +137,13 @@ export async function consultarDataJud(
       dataAjuizamento: source.dataAjuizamento ? parseDataAjuizamento(source.dataAjuizamento) : undefined
     };
   } catch (e) {
-    console.error(`[datajud] falha ao consultar ${tribunalLabel} (${alias})`, e);
+    if ((e as { name?: string })?.name !== 'AbortError' || !signalExterno?.aborted) {
+      console.error(`[datajud] falha ao consultar ${tribunalLabel} (${alias})`, e);
+    }
     return null;
   } finally {
     clearTimeout(timeout);
+    signalExterno?.removeEventListener('abort', onAbortExterno);
   }
 }
 
@@ -136,15 +151,21 @@ export async function consultarDataJud(
  * Busca direta e completa de um processo exclusivamente pelo número CNJ via API pública do DataJud.
  * Identifica o tribunal correto a partir do CNJ (ex: 8.26 -> TJSP) e retorna o LegalProcess pronto.
  */
-export async function buscarProcessoDiretoDataJud(numeroProcessoDigits: string): Promise<LegalProcess | null> {
+export async function buscarProcessoDiretoDataJud(
+  numeroProcessoDigits: string,
+  signalExterno?: AbortSignal
+): Promise<LegalProcess | null> {
   const info = parseCnj(numeroProcessoDigits);
   if (!info || !info.valido || !info.datajudAlias) return null;
 
   const apiKey = process.env.DATAJUD_API_KEY;
   if (!apiKey) return null;
+  if (signalExterno?.aborted) return null;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const onAbortExterno = () => controller.abort();
+  signalExterno?.addEventListener('abort', onAbortExterno);
 
   try {
     const res = await fetch(`https://api-publica.datajud.cnj.jus.br/api_publica_${info.datajudAlias}/_search`, {
@@ -228,9 +249,12 @@ export async function buscarProcessoDiretoDataJud(numeroProcessoDigits: string):
       enriquecidoDataJud: true
     };
   } catch (e) {
-    console.error(`[datajud] erro ao buscar processo direto ${info.numeroLimpo} no ${info.tribunalLabel}`, e);
+    if ((e as { name?: string })?.name !== 'AbortError' || !signalExterno?.aborted) {
+      console.error(`[datajud] erro ao buscar processo direto ${info.numeroLimpo} no ${info.tribunalLabel}`, e);
+    }
     return null;
   } finally {
     clearTimeout(timeout);
+    signalExterno?.removeEventListener('abort', onAbortExterno);
   }
 }

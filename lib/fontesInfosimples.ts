@@ -25,12 +25,20 @@ export interface FonteInfosimples {
   nome: string;
   grupo: GrupoFonte;
   params: Partial<Record<TipoBusca, string>>;
+  /** Parâmetros fixos exigidos pelo serviço em certos tipos de busca (ex.: `origem` no portal do TJRJ). */
+  fixos?: Partial<Record<TipoBusca, Record<string, string>>>;
   /** Adicional fixo (R$) cobrado por consulta neste serviço, somado ao preço base. */
   adicional: number;
   /** Habilitada por padrão no Passo 2 (as fontes principais). */
   principal: boolean;
   /** Alias do endpoint do DataJud do mesmo tribunal, quando existe um só. */
   datajud?: string;
+  /**
+   * Preenchido quando o serviço NÃO está contratado no token da conta (a Infosimples responde 603
+   * "Consulta não habilitada"). Ele sai do catálogo ativo — não aparece no Passo 2 nem é consultado —
+   * até a habilitação; depois disso, basta apagar este campo.
+   */
+  naoHabilitada?: string;
 }
 
 type Params = FonteInfosimples['params'];
@@ -40,7 +48,7 @@ const completo = (numero: string, nome: string): Params => ({ cpf: 'cpf', cnpj: 
 
 const TRT_REGIOES = [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24];
 
-export const FONTES_INFOSIMPLES: FonteInfosimples[] = [
+const CATALOGO_INFOSIMPLES: FonteInfosimples[] = [
   // ── Justiça Estadual ──
   { id: 'TJSP', service: 'tribunal/tjsp/primeiro-grau', nome: 'TJSP — 1º grau (e-SAJ)', grupo: 'Justiça Estadual', params: completo('processo', 'parte'), adicional: 0, principal: true, datajud: 'tjsp' },
   { id: 'TJSP (2º grau)', service: 'tribunal/tjsp/segundo-grau', nome: 'TJSP — 2º grau (e-SAJ)', grupo: 'Justiça Estadual', params: completo('numero_processo', 'nome_parte'), adicional: 0, principal: true, datajud: 'tjsp' },
@@ -48,7 +56,7 @@ export const FONTES_INFOSIMPLES: FonteInfosimples[] = [
   { id: 'TJSP (eproc)', service: 'tribunal/tjsp/eproc-lista', nome: 'TJSP — eproc (lista)', grupo: 'Justiça Estadual', params: { cpf: 'cpf', cnpj: 'cnpj', nome: 'nome_parte' }, adicional: 0.04, principal: true, datajud: 'tjsp' },
   { id: 'TJSP (eproc unificada)', service: 'tribunal/tjsp/eproc-unificada', nome: 'TJSP — eproc, consulta unificada por número', grupo: 'Justiça Estadual', params: { numero: 'numero_processo' }, adicional: 0.04, principal: false, datajud: 'tjsp' },
   { id: 'TJRJ', service: 'tribunal/tjrj/processo-eproc', nome: 'TJRJ — eproc', grupo: 'Justiça Estadual', params: completo('numero_processo', 'nome'), adicional: 0.04, principal: true, datajud: 'tjrj' },
-  { id: 'TJRJ (portal)', service: 'tribunal/tjrj/processo', nome: 'TJRJ — portal de consulta processual', grupo: 'Justiça Estadual', params: { cpf: 'cpf', cnpj: 'cnpj', numero: 'numero_processo' }, adicional: 0.04, principal: true, datajud: 'tjrj' },
+  { id: 'TJRJ (portal)', service: 'tribunal/tjrj/processo', nome: 'TJRJ — portal de consulta processual', grupo: 'Justiça Estadual', params: { cpf: 'cpf', cnpj: 'cnpj', numero: 'numero_processo' }, fixos: { cpf: { origem: '2' }, cnpj: { origem: '2' } }, adicional: 0.04, principal: true, datajud: 'tjrj' },
   { id: 'TJMG', service: 'tribunal/tjmg/processo', nome: 'TJMG — PJe', grupo: 'Justiça Estadual', params: completo('numero_processo', 'nome_parte'), adicional: 0, principal: true, datajud: 'tjmg' },
   { id: 'TJPR', service: 'tribunal/tjpr/processo', nome: 'TJPR — Projudi', grupo: 'Justiça Estadual', params: completo('numero_processo', 'nome_parte'), adicional: 0.04, principal: true, datajud: 'tjpr' },
   { id: 'TJSC', service: 'tribunal/tjsc/processo', nome: 'TJSC — eproc', grupo: 'Justiça Estadual', params: completo('numero_processo', 'nome'), adicional: 0.04, principal: true, datajud: 'tjsc' },
@@ -76,8 +84,11 @@ export const FONTES_INFOSIMPLES: FonteInfosimples[] = [
   })),
 
   // ── Justiça Eleitoral: um serviço unificado cobre o TSE, os TREs e os cartórios eleitorais ──
-  { id: 'TSE/TREs (PJe)', service: 'tribunal/tse/pje', nome: 'TSE, TREs e cartórios eleitorais — PJe unificado', grupo: 'Justiça Eleitoral', params: completo('numero_processo', 'nome_parte'), adicional: 0.06, principal: false }
+  { id: 'TSE/TREs (PJe)', service: 'tribunal/tse/pje', nome: 'TSE, TREs e cartórios eleitorais — PJe unificado', grupo: 'Justiça Eleitoral', params: completo('numero_processo', 'nome_parte'), adicional: 0.06, principal: false, naoHabilitada: 'Não contratado no token da conta (código 603, verificado em 06/10/2026).' }
 ];
+
+/** Catálogo ativo: só os serviços que o token da conta consegue consultar. */
+export const FONTES_INFOSIMPLES: FonteInfosimples[] = CATALOGO_INFOSIMPLES.filter(f => !f.naoHabilitada);
 
 export const FONTE_INFOSIMPLES_POR_ID = new Map(FONTES_INFOSIMPLES.map(f => [f.id, f]));
 

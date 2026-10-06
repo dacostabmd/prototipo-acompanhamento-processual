@@ -7,7 +7,7 @@ import Providers from '@/components/Providers';
 
 const inter = Inter({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
+  weight: ['300', '400', '500', '600', '700', '800'],
   variable: '--font-inter',
   display: 'swap'
 });
@@ -54,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ColorSchemeScript defaultColorScheme="light" />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </head>
-      <body style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+      <body className={inter.className} style={{ fontFamily: 'var(--font-inter), Inter, sans-serif' }}>
         <Providers>{children}</Providers>
       </body>
     </html>

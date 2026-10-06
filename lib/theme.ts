@@ -28,8 +28,8 @@ export const navy: MantineColorsTuple = [
 ];
 
 export const theme = createTheme({
-  fontFamily: 'var(--font-inter), sans-serif',
-  headings: { fontFamily: 'var(--font-inter), sans-serif' },
+  fontFamily: 'var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  headings: { fontFamily: 'var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
   colors: { brand, navy },
   primaryColor: 'brand',
   primaryShade: 7,

@@ -139,6 +139,23 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
     });
   }
 
+  // "julgamentos" (só no TJSP 2º grau): lista de strings "DD/MM/AAAA <texto do julgamento>", não
+  // objetos como os demais formatos — único campo com conteúdo quando o grau não tem movimentações.
+  if (movs.length === 0 && Array.isArray(p.julgamentos) && p.julgamentos.length > 0) {
+    p.julgamentos.forEach((texto: unknown) => {
+      if (typeof texto !== 'string' || !texto.trim()) return;
+      const match = /^(\d{2}\/\d{2}\/\d{4})\s+(.*)$/.exec(texto.trim());
+      const dataBr = match?.[1];
+      const corpo = match?.[2] ?? texto.trim();
+      movs.push({
+        data: convertBrDateToIso(dataBr),
+        titulo: corpo.length > 70 ? `${corpo.slice(0, 70)}...` : corpo,
+        descricao: corpo,
+        tag: classifyTag(corpo)
+      });
+    });
+  }
+
   if (movs.length === 0) {
     const classeInfo = p.classe || p.classe_acao || p.assunto;
     const varaInfo = orgao;
@@ -275,6 +292,8 @@ interface Alvo {
   label: string;
   campo: string;
   valor: string;
+  /** Parâmetros fixos que o serviço exige junto com o campo de busca. */
+  fixos?: Record<string, string>;
 }
 
 /**
@@ -288,7 +307,7 @@ function resolverAlvos(tipo: TipoBusca, valor: string, selecionadas: unknown): A
     : new Set(IDS_PRINCIPAIS_INFOSIMPLES);
   return fontesInfosimplesPara(tipo)
     .filter((f: FonteInfosimples) => ids.has(f.id))
-    .map(f => ({ service: f.service, label: f.id, campo: f.params[tipo]!, valor }));
+    .map(f => ({ service: f.service, label: f.id, campo: f.params[tipo]!, valor, fixos: f.fixos?.[tipo] }));
 }
 
 export async function POST(request: Request) {
@@ -349,6 +368,9 @@ export async function POST(request: Request) {
       const cnjInfo = parseCnj(cleanProcessNumber);
       const targetLabel = cnjInfo?.tribunalLabel || 'Tribunal';
       const consultaId = randomUUID();
+      // Registro de cancelamento: o botão "cancelar" de cada sub-fonte do card aborta só ela. As chaves
+      // seguem o que o cliente envia: o rótulo do tribunal (Infosimples) e "DataJud · <tribunal>".
+      const abortControllers = criarRegistroConsulta(consultaId);
       const encoder = new TextEncoder();
 
       console.log(
@@ -385,9 +407,20 @@ export async function POST(request: Request) {
           const token = process.env.INFOSIMPLES_API_TOKEN || process.env.INFOSIMPLES_TOKEN;
           const formattedNumber = cnjInfo?.numeroFormatado || cleanProcessNumber;
 
+          if (usarDataJud) emit({ type: 'progress', label: 'DataJud (CNJ)', fonte: 'datajud', status: 'loading' });
+          if (tribunaisDoCnj.length > 0) emit({ type: 'progress', label: targetLabel, fonte: 'infosimples', status: 'loading' });
+
+          const dataJudAbort = new AbortController();
+          if (usarDataJud) abortControllers.set(`DataJud · ${targetLabel}`, dataJudAbort);
           const dataJudPromise: Promise<LegalProcess | null> = usarDataJud
-            ? buscarProcessoDiretoDataJud(cleanProcessNumber).then(processo => {
-                emit({ type: 'progress', label: 'DataJud (CNJ)', found: !!processo });
+            ? buscarProcessoDiretoDataJud(cleanProcessNumber, dataJudAbort.signal).then(processo => {
+                abortControllers.delete(`DataJud · ${targetLabel}`);
+                if (dataJudAbort.signal.aborted) {
+                  emit({ type: 'progress', label: 'DataJud (CNJ)', fonte: 'datajud', found: false, cancelado: true });
+                  return null;
+                }
+                if (processo) processo.origem = 'datajud';
+                emit({ type: 'progress', label: 'DataJud (CNJ)', fonte: 'datajud', found: !!processo });
                 return processo;
               })
             : Promise.resolve(null);
@@ -395,53 +428,68 @@ export async function POST(request: Request) {
           const infosimplesPromise = (async () => {
             if (tribunaisDoCnj.length === 0) return null;
             if (!token) {
-              emit({ type: 'progress', label: targetLabel, found: false, erro: 'Token da Infosimples não configurado no servidor.' });
+              emit({ type: 'progress', label: targetLabel, fonte: 'infosimples', found: false, erro: 'Token da Infosimples não configurado no servidor.' });
               return null;
             }
 
-            // Serviços que FALHARAM (≠ responderam "nada encontrado"): se todos falharem, a tela mostra o erro.
-            const errosDosServicos: string[] = [];
-
-            for (const target of tribunaisDoCnj) {
-              const controller = new AbortController();
-              const result = await fetchInfosimples(
-                target.service,
-                token,
-                { [target.campoNumero]: formattedNumber },
-                controller.signal
-              );
-              custoEstimado += custoServico(target.service);
-              const desfecho = desfechoInfosimples(result);
-              if (desfecho.erro) errosDosServicos.push(`${target.label}: ${desfecho.erro}`);
-
-              if (result) {
-                console.log(
-                  `[api/processos] (busca por número) ${target.service}: code ${result.code} - "${result.code_message}" (data_count: ${result.data_count})`
+            // Todos os serviços Infosimples candidatos ao tribunal do CNJ (ex.: TJSP tem 4 sistemas —
+            // 1º grau, 2º grau, eproc, eproc unificada) disparam ao mesmo tempo, não um de cada vez:
+            // o primeiro que achar o processo é o usado, os demais seguem em paralelo até resolver.
+            // Um só controller para o grupo: cancelar o card interrompe todos os serviços do tribunal.
+            const infosimplesAbort = new AbortController();
+            abortControllers.set(targetLabel, infosimplesAbort);
+            const resultadosPorServico = await Promise.all(
+              tribunaisDoCnj.map(async target => {
+                const result = await fetchInfosimples(
+                  target.service,
+                  token,
+                  { [target.campoNumero]: formattedNumber },
+                  infosimplesAbort.signal
                 );
-              } else {
-                console.log(`[api/processos] (busca por número) ${target.service}: sem resposta da Infosimples.`);
-              }
+                custoEstimado += custoServico(target.service);
+                const desfecho = desfechoInfosimples(result);
 
-              // Resposta de busca por número pode vir como objeto de detalhe único (campo "processo",
-              // singular, ou o próprio result.data[0] já sem wrapper) ou como lista (mesmo formato do
-              // fluxo por CPF), dependendo do serviço — tenta todos os formatos observados.
-              const rawList: any[] = result?.code === 200 ? extrairProcessosInfosimples(result.data?.[0]) : [];
+                if (result) {
+                  console.log(
+                    `[api/processos] (busca por número) ${target.service}: code ${result.code} - "${result.code_message}" (data_count: ${result.data_count})`
+                  );
+                } else {
+                  console.log(`[api/processos] (busca por número) ${target.service}: sem resposta da Infosimples.`);
+                }
 
-              const achou = rawList.find((p: any) => {
-                const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').replace(/\D/g, '');
-                return num === cleanProcessNumber;
-              });
+                // Resposta de busca por número pode vir como objeto de detalhe único (campo "processo",
+                // singular, ou o próprio result.data[0] já sem wrapper) ou como lista (mesmo formato do
+                // fluxo por CPF), dependendo do serviço — tenta todos os formatos observados.
+                const rawList: any[] = result?.code === 200 ? extrairProcessosInfosimples(result.data?.[0]) : [];
 
-              if (achou) {
-                const processo = montarLegalProcessDaInfosimples(achou, target.label, fullName);
-                emit({ type: 'progress', label: targetLabel, found: true });
-                return processo;
-              }
+                const achou = rawList.find((p: any) => {
+                  const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').replace(/\D/g, '');
+                  return num === cleanProcessNumber;
+                });
+
+                return { target, achou, erro: desfecho.erro };
+              })
+            );
+
+            abortControllers.delete(targetLabel);
+            if (infosimplesAbort.signal.aborted) {
+              emit({ type: 'progress', label: targetLabel, fonte: 'infosimples', found: false, cancelado: true });
+              return null;
             }
 
+            const comAchado = resultadosPorServico.find(r => r.achou);
+            if (comAchado) {
+              const processo = montarLegalProcessDaInfosimples(comAchado.achou, comAchado.target.label, fullName);
+              processo.origem = 'infosimples';
+              emit({ type: 'progress', label: targetLabel, fonte: 'infosimples', found: true });
+              return processo;
+            }
+
+            const errosDosServicos = resultadosPorServico.filter(r => r.erro).map(r => `${r.target.label}: ${r.erro}`);
             emit({
               type: 'progress',
               label: targetLabel,
+              fonte: 'infosimples',
               found: false,
               ...(errosDosServicos.length === tribunaisDoCnj.length ? { erro: errosDosServicos.join(' | ') } : {})
             });
@@ -472,6 +520,7 @@ export async function POST(request: Request) {
               processoFinal.valorCausa = processoDataJud.valorCausa;
             }
             processoFinal.enriquecidoDataJud = true;
+            processoFinal.origem = 'ambos';
           } else {
             processoFinal = processoInfosimples || processoDataJud;
           }
@@ -522,6 +571,7 @@ export async function POST(request: Request) {
             });
           }
 
+          limparRegistroConsulta(consultaId);
           controller.close();
         }
       });
@@ -583,16 +633,78 @@ export async function POST(request: Request) {
         const emit = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
         emit({ type: 'started', consultaId });
 
+        // Enriquecimento DataJud de um processo: dispara assim que a Infosimples o encontra, em
+        // paralelo com os demais tribunais ainda em varredura (não espera a Infosimples terminar).
+        // Emite um card de progresso próprio ("DataJud · <tribunal>") para a tela acompanhar a fonte.
+        const enriquecerComDataJud = async (p: LegalProcess, target: { label: string }) => {
+          const dataJudLabel = `DataJud · ${target.label}`;
+          emit({ type: 'progress', label: dataJudLabel, fonte: 'datajud', status: 'loading' });
+          const tribunalLabel = p.tribunal.split(' · ')[0];
+          const numeroDigits = p.numero.replace(/\D/g, '');
+          // Chave própria no registro de cancelamento (distinta da Infosimples do mesmo tribunal),
+          // para o botão "cancelar" do card poder abortar cada sub-fonte separadamente.
+          const abortController = new AbortController();
+          abortControllers.set(dataJudLabel, abortController);
+          const enriquecido = await consultarDataJud(tribunalLabel, numeroDigits, datajudPermitidos, abortController.signal);
+          const cancelado = abortController.signal.aborted;
+          abortControllers.delete(dataJudLabel);
+
+          if (cancelado) {
+            emit({ type: 'progress', label: dataJudLabel, fonte: 'datajud', found: false, cancelado: true });
+            return;
+          }
+
+          if (!enriquecido) {
+            emit({ type: 'progress', label: dataJudLabel, fonte: 'datajud', found: false });
+            return;
+          }
+
+          let mudou = false;
+
+          const descricoesExistentes = new Set(p.movimentos.map(m => m.descricao));
+          const movimentosNovos = enriquecido.movimentos.filter(m => !descricoesExistentes.has(m.descricao));
+          if (movimentosNovos.length > 0) {
+            p.movimentos = [...movimentosNovos, ...p.movimentos].sort((a, b) => (a.data < b.data ? 1 : -1));
+            mudou = true;
+          }
+
+          if (enriquecido.assuntos.length > 0) {
+            p.assuntosDataJud = enriquecido.assuntos;
+            mudou = true;
+          }
+          if (enriquecido.orgaoJulgador) {
+            p.orgaoJulgadorDataJud = enriquecido.orgaoJulgador;
+            mudou = true;
+          }
+          if (enriquecido.grau) {
+            p.grauDataJud = enriquecido.grau;
+            mudou = true;
+          }
+          if ((!p.distribuicao || p.distribuicao === 'Não informada') && enriquecido.dataAjuizamento) {
+            p.distribuicao = enriquecido.dataAjuizamento;
+            mudou = true;
+          }
+
+          if (mudou) {
+            p.enriquecidoDataJud = true;
+            p.origem = 'ambos';
+          }
+          emit({ type: 'progress', label: dataJudLabel, fonte: 'datajud', found: mudou });
+        };
+
+        const enriquecimentoPromises: Promise<void>[] = [];
+
         const perTribunalPromises = targets.map(async target => {
           tribunaisConsultados.push(target.label);
           const abortController = new AbortController();
           abortControllers.set(target.label, abortController);
-          const result = await fetchInfosimples(target.service, token, { [target.campo]: target.valor }, abortController.signal);
+          emit({ type: 'progress', label: target.label, fonte: 'infosimples', status: 'loading' });
+          const result = await fetchInfosimples(target.service, token, { ...target.fixos, [target.campo]: target.valor }, abortController.signal);
           const cancelado = abortController.signal.aborted;
           abortControllers.delete(target.label);
 
           if (cancelado) {
-            emit({ type: 'progress', label: target.label, found: false, cancelado: true });
+            emit({ type: 'progress', label: target.label, fonte: 'infosimples', found: false, cancelado: true });
             return;
           }
 
@@ -613,7 +725,11 @@ export async function POST(request: Request) {
               seenProcessos.add(num);
               foundInThisTribunal = true;
 
-              allProcesses.push(montarLegalProcessDaInfosimples(p, target.label, fullName));
+              const processo = montarLegalProcessDaInfosimples(p, target.label, fullName);
+              processo.origem = 'infosimples';
+              allProcesses.push(processo);
+              // Dispara o DataJud já aqui, em paralelo com os outros tribunais ainda rodando.
+              enriquecimentoPromises.push(enriquecerComDataJud(processo, target));
             });
           }
 
@@ -621,54 +737,18 @@ export async function POST(request: Request) {
           emit({
             type: 'progress',
             label: target.label,
+            fonte: 'infosimples',
             found: foundInThisTribunal,
             ...(desfecho.erro && !foundInThisTribunal ? { erro: desfecho.erro, codigo: desfecho.codigo } : {})
           });
         });
 
         await Promise.allSettled(perTribunalPromises);
+        await Promise.allSettled(enriquecimentoPromises);
 
         const filteredProcesses = cleanProcessNumber
           ? allProcesses.filter(p => p.numero.replace(/\D/g, '').includes(cleanProcessNumber))
           : allProcesses;
-
-        // Enriquecimento via DataJud (CNJ)
-        await Promise.allSettled(
-          filteredProcesses.map(async p => {
-            const tribunalLabel = p.tribunal.split(' · ')[0];
-            const numeroDigits = p.numero.replace(/\D/g, '');
-            const enriquecido = await consultarDataJud(tribunalLabel, numeroDigits, datajudPermitidos);
-            if (!enriquecido) return;
-
-            let mudou = false;
-
-            const descricoesExistentes = new Set(p.movimentos.map(m => m.descricao));
-            const movimentosNovos = enriquecido.movimentos.filter(m => !descricoesExistentes.has(m.descricao));
-            if (movimentosNovos.length > 0) {
-              p.movimentos = [...movimentosNovos, ...p.movimentos].sort((a, b) => (a.data < b.data ? 1 : -1));
-              mudou = true;
-            }
-
-            if (enriquecido.assuntos.length > 0) {
-              p.assuntosDataJud = enriquecido.assuntos;
-              mudou = true;
-            }
-            if (enriquecido.orgaoJulgador) {
-              p.orgaoJulgadorDataJud = enriquecido.orgaoJulgador;
-              mudou = true;
-            }
-            if (enriquecido.grau) {
-              p.grauDataJud = enriquecido.grau;
-              mudou = true;
-            }
-            if ((!p.distribuicao || p.distribuicao === 'Não informada') && enriquecido.dataAjuizamento) {
-              p.distribuicao = enriquecido.dataAjuizamento;
-              mudou = true;
-            }
-
-            if (mudou) p.enriquecidoDataJud = true;
-          })
-        );
 
         const userId = await getUserId(request);
         await trackEvento(request, userId, {

@@ -66,7 +66,7 @@ export async function POST(request: Request) {
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: promptUser }
         ],
-        max_tokens: 800,
+        max_tokens: 1600,
         temperature: 0.6
       });
 
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
       const response = await anthropic.messages.create({
         model: model || 'claude-haiku-4-5',
-        max_tokens: 800,
+        max_tokens: 1600,
         system: SYSTEM_PROMPT,
         messages: [
           {
