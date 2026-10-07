@@ -1,0 +1,4 @@
+node_modules/
+sessao-whatsapp/
+.env
+*.log

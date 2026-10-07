@@ -86,3 +86,20 @@ export function calcularDiasSemMovimentacao(ultimaMovimentacaoEm: string | null 
   const diffMs = Date.now() - ultima;
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 }
+
+// WhatsApp interno (Fase 4, serviço Baileys separado em whatsapp-service/) — espelha
+// supabase/migrations/20261007130000_ap_whatsapp_interno.sql.
+export type WhatsappDirecao = 'enviada' | 'recebida';
+export type WhatsappStatus = 'pendente' | 'enviado' | 'falhou' | 'recebido';
+
+export interface WhatsappMensagem {
+  id: string;
+  remetenteId: string | null;
+  destinatarioId: string | null;
+  numeroWhatsapp: string | null;
+  itemId: string | null;
+  texto: string;
+  direcao: WhatsappDirecao;
+  status: WhatsappStatus;
+  createdAt: string;
+}

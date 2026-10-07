@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Tabs, Modal, TextInput, Select, NumberInput, Textarea, Badge } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { Plus, Gavel, Scale, Landmark, Users as UsersIcon, Shield, HeartHandshake, Briefcase, Wallet, LifeBuoy, AlertTriangle } from 'lucide-react';
+import { Plus, Gavel, Scale, Landmark, Users as UsersIcon, Shield, HeartHandshake, Briefcase, Wallet, LifeBuoy, AlertTriangle, MessageCircle, Send } from 'lucide-react';
 import { motion } from 'motion/react';
 import { authFetch } from '@/lib/authFetch';
 import { useSharedProfile } from '@/components/ProfileProvider';
@@ -13,7 +13,8 @@ import {
   type CrmEtapa,
   type CrmItem,
   type CrmPipeline,
-  type PipelineId
+  type PipelineId,
+  type WhatsappMensagem
 } from '@/lib/crm';
 
 const TEXT = '#ffffff';
@@ -157,6 +158,191 @@ function NovoItemModal({
   );
 }
 
+function ConversasWhatsapp({ itemId }: { itemId: string }) {
+  const [mensagens, setMensagens] = useState<WhatsappMensagem[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [texto, setTexto] = useState('');
+  const [numero, setNumero] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  function carregar() {
+    setCarregando(true);
+    authFetch(`/api/whatsapp/mensagens?itemId=${itemId}`)
+      .then(res => res.json())
+      .then(data => setMensagens(data.mensagens ?? []))
+      .catch(() => setMensagens([]))
+      .finally(() => setCarregando(false));
+  }
+
+  useEffect(() => {
+    carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemId]);
+
+  async function enviar() {
+    if (!texto.trim() || !numero.trim()) return;
+    setEnviando(true);
+    try {
+      const res = await authFetch('/api/whatsapp/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero: numero.trim(), texto: texto.trim(), itemId })
+      });
+      const data = await res.json();
+      if (data.mensagem) setMensagens(prev => [...prev, data.mensagem as WhatsappMensagem]);
+      if (!res.ok || !data.enviado) {
+        notifications.show({ color: 'red', title: 'Falha ao enviar', message: data.erro ?? 'Serviço de WhatsApp indisponível.' });
+      } else {
+        setTexto('');
+        notifications.show({ color: 'green', title: 'Mensagem enviada', message: numero });
+      }
+    } catch {
+      notifications.show({ color: 'red', title: 'Erro', message: 'Não foi possível enviar a mensagem.' });
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <TextInput
+        label="Número de WhatsApp (destinatário)"
+        placeholder="5511999998888"
+        value={numero}
+        onChange={e => setNumero(e.currentTarget.value)}
+      />
+
+      <div
+        style={{
+          border: `1px solid ${BORDER}`,
+          borderRadius: 8,
+          padding: 10,
+          maxHeight: 260,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          background: 'rgba(255,255,255,0.02)'
+        }}
+      >
+        {carregando && <div style={{ color: MUTED, fontSize: 12.5 }}>Carregando conversas…</div>}
+        {!carregando && mensagens.length === 0 && <div style={{ color: MUTED, fontSize: 12.5 }}>Nenhuma mensagem ainda.</div>}
+        {mensagens.map(m => (
+          <div
+            key={m.id}
+            style={{
+              alignSelf: m.direcao === 'enviada' ? 'flex-end' : 'flex-start',
+              maxWidth: '80%',
+              background: m.direcao === 'enviada' ? 'rgba(196,168,111,0.15)' : 'rgba(255,255,255,0.05)',
+              border: `1px solid ${m.direcao === 'enviada' ? 'rgba(196,168,111,0.35)' : BORDER}`,
+              borderRadius: 8,
+              padding: '6px 10px'
+            }}
+          >
+            <div style={{ color: TEXT, fontSize: 13 }}>{m.texto}</div>
+            <div style={{ color: MUTED, fontSize: 10.5, marginTop: 2, display: 'flex', gap: 6 }}>
+              <span>{new Date(m.createdAt).toLocaleString('pt-BR')}</span>
+              {m.status === 'falhou' && <span style={{ color: '#f87171' }}>falhou</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Textarea
+          placeholder="Escreva uma mensagem…"
+          autosize
+          minRows={1}
+          maxRows={4}
+          style={{ flex: 1 }}
+          value={texto}
+          onChange={e => setTexto(e.currentTarget.value)}
+        />
+        <button
+          onClick={enviar}
+          disabled={enviando || !texto.trim() || !numero.trim()}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '0 14px',
+            borderRadius: 8,
+            border: `1px solid ${BLUE}`,
+            background: 'rgba(196,168,111,0.12)',
+            color: BLUE,
+            cursor: enviando ? 'default' : 'pointer',
+            fontWeight: 600,
+            fontSize: 13
+          }}
+        >
+          <Send size={14} /> Enviar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ModalDetalheItem({
+  item,
+  etapas,
+  onFechar,
+  onMoverEtapa
+}: {
+  item: CrmItem | null;
+  etapas: CrmEtapa[];
+  onFechar: () => void;
+  onMoverEtapa: (item: CrmItem, novaEtapaId: string) => void;
+}) {
+  if (!item) return null;
+
+  return (
+    <Modal opened={Boolean(item)} onClose={onFechar} title={item.titulo} size="lg" centered>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <div style={{ color: MUTED, fontSize: 11.5, textTransform: 'uppercase' }}>Cliente</div>
+            <div style={{ color: TEXT, fontSize: 14 }}>{item.clienteNome || '—'}</div>
+          </div>
+          <div>
+            <div style={{ color: MUTED, fontSize: 11.5, textTransform: 'uppercase' }}>CPF/CNPJ</div>
+            <div style={{ color: TEXT, fontSize: 14 }}>{item.clienteDocumento || '—'}</div>
+          </div>
+          <div>
+            <div style={{ color: MUTED, fontSize: 11.5, textTransform: 'uppercase' }}>UF</div>
+            <div style={{ color: TEXT, fontSize: 14 }}>{item.uf || '—'}</div>
+          </div>
+          <div>
+            <div style={{ color: MUTED, fontSize: 11.5, textTransform: 'uppercase' }}>Valor da causa</div>
+            <div style={{ color: TEXT, fontSize: 14 }}>{item.valorCausa != null ? fmtReais(item.valorCausa) : '—'}</div>
+          </div>
+          {item.situacaoFinanceira && (
+            <div>
+              <div style={{ color: MUTED, fontSize: 11.5, textTransform: 'uppercase' }}>Situação financeira</div>
+              <Badge size="sm" variant="outline" color={item.situacaoFinanceira === 'inadimplente' ? 'red' : 'teal'}>
+                {item.situacaoFinanceira === 'inadimplente' ? 'Inadimplente' : 'Adimplente'}
+              </Badge>
+            </div>
+          )}
+        </div>
+
+        <Select
+          label="Etapa"
+          data={etapas.map(e => ({ value: e.id, label: e.nome }))}
+          value={item.etapaId}
+          onChange={v => v && onMoverEtapa(item, v)}
+        />
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: TEXT, fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
+            <MessageCircle size={15} /> Conversas (WhatsApp interno)
+          </div>
+          <ConversasWhatsapp itemId={item.id} />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function CardItem({ item, etapa, onClick }: { item: CrmItem; etapa: CrmEtapa | undefined; onClick: () => void }) {
   const emAtencao = (item.diasSemMovimentacao ?? 0) >= LIMIAR_DIAS_ATENCAO;
   return (
@@ -208,6 +394,7 @@ export default function CrmPage() {
   const [itens, setItens] = useState<CrmItem[]>([]);
   const [carregandoItens, setCarregandoItens] = useState(false);
   const [modalNovoAberto, setModalNovoAberto] = useState(false);
+  const [itemDetalhe, setItemDetalhe] = useState<CrmItem | null>(null);
 
   useEffect(() => {
     authFetch('/api/crm/pipelines')
@@ -329,15 +516,7 @@ export default function CrmPage() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {itensDaEtapa.map(item => (
-                    <CardItem
-                      key={item.id}
-                      item={item}
-                      etapa={etapa}
-                      onClick={() => {
-                        const proxima = etapasDoPipeline[(etapasDoPipeline.findIndex(e => e.id === etapa.id) + 1) % etapasDoPipeline.length];
-                        if (proxima) moverEtapa(item, proxima.id);
-                      }}
-                    />
+                    <CardItem key={item.id} item={item} etapa={etapa} onClick={() => setItemDetalhe(item)} />
                   ))}
                 </div>
               </div>
@@ -352,6 +531,16 @@ export default function CrmPage() {
         pipeline={pipeline}
         etapas={etapasDoPipeline}
         onCriado={item => setItens(prev => [item, ...prev])}
+      />
+
+      <ModalDetalheItem
+        item={itemDetalhe}
+        etapas={etapasDoPipeline}
+        onFechar={() => setItemDetalhe(null)}
+        onMoverEtapa={(item, novaEtapaId) => {
+          moverEtapa(item, novaEtapaId);
+          setItemDetalhe(prev => (prev && prev.id === item.id ? { ...prev, etapaId: novaEtapaId } : prev));
+        }}
       />
     </div>
   );
