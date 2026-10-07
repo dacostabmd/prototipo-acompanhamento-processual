@@ -1,17 +1,17 @@
 'use client';
 
 import React from 'react';
-import { Checkbox, Select, TextInput } from '@mantine/core';
-import { ChevronRight, Info, Scale, Search, X } from 'lucide-react';
+import { Select, SegmentedControl, Switch, TextInput } from '@mantine/core';
+import { Check, ChevronRight, Info, Plus, Scale, Search, X } from 'lucide-react';
 import type { CnjInfo } from '@/lib/cnj';
 import { FONTES_DATAJUD, GRUPOS_FONTES, type GrupoFonte } from '@/lib/fontesDatajud';
-import { FONTES_INFOSIMPLES, fontesInfosimplesPara, type TipoBusca } from '@/lib/fontesInfosimples';
+import { FONTES_INFOSIMPLES, fontesInfosimplesPara, type FonteInfosimples, type TipoBusca } from '@/lib/fontesInfosimples';
 import { custoServico, custoTotal, formatarReais } from '@/lib/infosimplesPricing';
 import { UFS, UFS_RAPIDAS, nomeDaUf, ufsDoAlias } from '@/lib/regioes';
 
 /* ── Tokens (mesma paleta dark/glass do ProcessTracker) ───────────────── */
-const BLUE = '#5f5f5f';
-const BLUE_LIGHT = '#bdbdbb';
+const BLUE = '#c4a86f';
+const BLUE_LIGHT = '#f5e3a8';
 const BORDER = 'rgba(255,255,255,0.12)';
 const INPUT_BORDER = 'rgba(255,255,255,0.18)';
 const TEXT = '#f5f6fa';
@@ -29,6 +29,34 @@ export function fontesInfosimplesDoTribunal(aliasDatajud: string) {
 export function custoFontesSelecionadas(tipo: TipoBusca, selecionadas: string[]): number {
   const ids = new Set(selecionadas);
   return custoTotal(fontesInfosimplesPara(tipo).filter(f => ids.has(f.id)).map(f => f.service));
+}
+
+/** Agrupamento por região (não por ramo de Justiça) usado no Passo 2 da busca por CPF/CNPJ/nome. */
+const REGIAO_POR_ALIAS: Record<string, string> = {
+  tjsp: 'São Paulo',
+  tjrj: 'Rio de Janeiro',
+  tjmg: 'MG, PR e SC',
+  tjpr: 'MG, PR e SC',
+  tjsc: 'MG, PR e SC'
+};
+
+/** Rótulo de região de uma fonte Infosimples: estado mapeado acima, TRFs viram "Federal", o resto agrupa por grupo de Justiça. */
+function regiaoDaFonte(f: FonteInfosimples): string {
+  if (f.datajud && REGIAO_POR_ALIAS[f.datajud]) return REGIAO_POR_ALIAS[f.datajud];
+  if (f.datajud?.startsWith('trf')) return 'Federal';
+  return f.grupo;
+}
+
+/** Ordem de exibição das regiões na tela "Personalizar" (as 4 do mockup primeiro, demais depois). */
+const ORDEM_REGIOES = ['São Paulo', 'Rio de Janeiro', 'MG, PR e SC', 'Federal'];
+
+function compararRegiao(a: string, b: string): number {
+  const ia = ORDEM_REGIOES.indexOf(a);
+  const ib = ORDEM_REGIOES.indexOf(b);
+  if (ia === -1 && ib === -1) return a.localeCompare(b);
+  if (ia === -1) return 1;
+  if (ib === -1) return -1;
+  return ia - ib;
 }
 
 interface FontesSelectorProps {
@@ -136,8 +164,21 @@ function passaFiltro(f: Filtro, info: { ufs: string[]; texto: string }, grupo: G
   return !q || info.texto.includes(q);
 }
 
+type ModoFontes = 'recomendado' | 'todas' | 'personalizar';
+
 function FontesPorDocumento({ tipoBusca, infosimplesSel, onInfosimplesChange, datajudSel, onDatajudChange }: FontesSelectorProps) {
   const [filtro, setFiltro] = React.useState<Filtro>(FILTRO_VAZIO);
+  // Modo inicial reflete a seleção já recebida: só assume "recomendado" às cegas se bater com o preset das principais.
+  const [modo, setModo] = React.useState<ModoFontes>(() => {
+    const compat = fontesInfosimplesPara(tipoBusca);
+    const sel = new Set(infosimplesSel);
+    const principais = compat.filter(f => f.principal).map(f => f.id);
+    const bateComPrincipais = principais.length === sel.size && principais.every(id => sel.has(id));
+    if (bateComPrincipais) return 'recomendado';
+    const bateComTodas = compat.length === sel.size && compat.every(f => sel.has(f.id));
+    if (bateComTodas) return 'todas';
+    return 'personalizar';
+  });
   const filtrando = !!(filtro.busca.trim() || filtro.uf || filtro.grupo);
 
   const compativeis = fontesInfosimplesPara(tipoBusca);
@@ -167,6 +208,12 @@ function FontesPorDocumento({ tipoBusca, infosimplesSel, onInfosimplesChange, da
     onInfosimplesChange([...infosimplesSel.filter(id => !ids.has(id)), ...marcados]);
   };
 
+  const trocarModo = (novo: ModoFontes) => {
+    setModo(novo);
+    if (novo === 'recomendado') definirCompativeis(compativeis.filter(f => f.principal).map(f => f.id));
+    else if (novo === 'todas') definirCompativeis(compativeis.map(f => f.id));
+  };
+
   const custo = custoFontesSelecionadas(tipoBusca, infosimplesSel);
   const qtdInfo = compativeis.filter(f => selInfo.has(f.id)).length;
   const custoVisiveis = custoTotal(infoVisiveis.map(f => f.service));
@@ -175,6 +222,9 @@ function FontesPorDocumento({ tipoBusca, infosimplesSel, onInfosimplesChange, da
   const selecionadas = compativeis.filter(f => selInfo.has(f.id));
   const ufsEstaduais = [...new Set(selecionadas.filter(f => f.grupo === 'Justiça Estadual').flatMap(f => ufsDoAlias(f.datajud ?? '')))];
   const idsDjVisiveis = djVisiveis.map(f => f.id);
+
+  // Agrupamento por região (São Paulo / Rio de Janeiro / MG, PR e SC / Federal / outros), em vez de por ramo de Justiça.
+  const regioesInfo = [...new Set(infoVisiveis.map(regiaoDaFonte))].sort(compararRegiao);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -188,65 +238,75 @@ function FontesPorDocumento({ tipoBusca, infosimplesSel, onInfosimplesChange, da
         </div>
       </div>
 
-      <BarraFiltros filtro={filtro} onChange={setFiltro} />
-
       {/* Infosimples */}
       <section style={cardStyle(false)}>
-        <CabecalhoSecao
-          titulo="Infosimples"
-          selo="consulta paga"
-          resumo={`${qtdInfo} de ${compativeis.length} fontes marcadas · ${formatarReais(custo)}`}
-        >
-          <Preset onClick={() => definirCompativeis(compativeis.filter(f => f.principal).map(f => f.id))}>Principais</Preset>
-          <Preset onClick={() => definirCompativeis(compativeis.map(f => f.id))}>Todas</Preset>
-          <Preset onClick={() => definirCompativeis([])}>Nenhuma</Preset>
-          {filtrando && (
-            <>
-              <Preset destaque onClick={() => marcarInfo(idsInfoVisiveis, true)}>
-                Marcar filtradas ({infoVisiveis.length}) · {formatarReais(custoVisiveis)}
-              </Preset>
-              <Preset destaque onClick={() => marcarInfo(idsInfoVisiveis, false)}>
-                Desmarcar filtradas
-              </Preset>
-            </>
-          )}
-        </CabecalhoSecao>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+            <span style={{ fontSize: 14, color: TEXT, fontWeight: 700 }}>Onde procurar?</span>
+            <span style={{ fontSize: 11, color: BLUE_LIGHT, letterSpacing: 0.5, textTransform: 'uppercase' }}>consulta paga</span>
+          </div>
+          <div style={{ fontSize: 12, color: MUTED, margin: '2px 0 10px' }}>
+            {qtdInfo} de {compativeis.length} fontes marcadas · {formatarReais(custo)}
+          </div>
+          <SegmentedControl
+            fullWidth
+            value={modo}
+            onChange={v => trocarModo(v as ModoFontes)}
+            data={[
+              { label: 'Recomendado', value: 'recomendado' },
+              { label: 'Todas', value: 'todas' },
+              { label: 'Personalizar', value: 'personalizar' }
+            ]}
+          />
+        </div>
 
-        {GRUPOS_FONTES.map(grupo => {
-          const itens = infoVisiveis.filter(f => f.grupo === grupo);
-          if (itens.length === 0) return null;
-          const ids = itens.map(f => f.id);
-          return (
-            <GrupoLista
-              key={grupo}
-              titulo={grupo}
-              total={itens.length}
-              marcados={itens.filter(f => selInfo.has(f.id)).length}
-              custo={custoTotal(itens.filter(f => selInfo.has(f.id)).map(f => f.service))}
-              abertoPorPadrao={filtrando || itens.some(f => f.principal)}
-              onMarcar={() => marcarInfo(ids, true)}
-              onLimpar={() => marcarInfo(ids, false)}
-            >
-              {itens.map(f => (
-                <ItemFonte
-                  key={f.id}
-                  rotulo={f.id}
-                  dica={f.nome}
-                  preco={formatarReais(custoServico(f.service))}
-                  checked={selInfo.has(f.id)}
-                  onChange={v => marcarInfo([f.id], v)}
-                />
-              ))}
-            </GrupoLista>
-          );
-        })}
-        {infoVisiveis.length === 0 && (
-          <p style={{ margin: 0, fontSize: 12, color: MUTED }}>Nenhuma fonte Infosimples corresponde aos filtros.</p>
-        )}
-        {ocultas > 0 && (
-          <p style={{ margin: '10px 0 0', fontSize: 11.5, color: MUTED }}>
-            {ocultas} fonte{ocultas > 1 ? 's' : ''} não aceita{ocultas > 1 ? 'm' : ''} busca por {rotuloTipo} e não aparece{ocultas > 1 ? 'm' : ''} aqui.
-          </p>
+        {modo === 'personalizar' && (
+          <>
+            <BarraFiltros filtro={filtro} onChange={setFiltro} />
+            <div style={{ height: 12 }} />
+            {regioesInfo.map(regiao => {
+              const itens = infoVisiveis.filter(f => regiaoDaFonte(f) === regiao);
+              const ids = itens.map(f => f.id);
+              return (
+                <GrupoRegiao
+                  key={regiao}
+                  titulo={regiao}
+                  total={itens.length}
+                  marcados={itens.filter(f => selInfo.has(f.id)).length}
+                  onMarcarTodas={() => marcarInfo(ids, true)}
+                >
+                  {itens.map(f => (
+                    <ChipFonte
+                      key={f.id}
+                      rotulo={f.id}
+                      dica={f.nome}
+                      preco={formatarReais(custoServico(f.service))}
+                      checked={selInfo.has(f.id)}
+                      onChange={v => marcarInfo([f.id], v)}
+                    />
+                  ))}
+                </GrupoRegiao>
+              );
+            })}
+            {filtrando && (
+              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                <Preset destaque onClick={() => marcarInfo(idsInfoVisiveis, true)}>
+                  Marcar filtradas ({infoVisiveis.length}) · {formatarReais(custoVisiveis)}
+                </Preset>
+                <Preset destaque onClick={() => marcarInfo(idsInfoVisiveis, false)}>
+                  Desmarcar filtradas
+                </Preset>
+              </div>
+            )}
+            {infoVisiveis.length === 0 && (
+              <p style={{ margin: 0, fontSize: 12, color: MUTED }}>Nenhuma fonte Infosimples corresponde aos filtros.</p>
+            )}
+            {ocultas > 0 && (
+              <p style={{ margin: '10px 0 0', fontSize: 11.5, color: MUTED }}>
+                {ocultas} fonte{ocultas > 1 ? 's' : ''} não aceita{ocultas > 1 ? 'm' : ''} busca por {rotuloTipo} e não aparece{ocultas > 1 ? 'm' : ''} aqui.
+              </p>
+            )}
+          </>
         )}
       </section>
 
@@ -483,6 +543,79 @@ function GrupoLista({
   );
 }
 
+/** Cabeçalho "Título X/Y · marcar todas" + os chips do grupo, no layout de região (mockup "Onde procurar?"). */
+function GrupoRegiao({
+  titulo,
+  total,
+  marcados,
+  onMarcarTodas,
+  children
+}: {
+  titulo: string;
+  total: number;
+  marcados: number;
+  onMarcarTodas: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 12.5, color: TEXT, fontWeight: 700 }}>{titulo}</span>
+        <span style={{ fontSize: 11.5, color: MUTED }}>
+          {marcados}/{total}
+        </span>
+        <span style={{ flex: 1 }} />
+        <button type="button" onClick={onMarcarTodas} style={linkBtn}>
+          marcar todas
+        </button>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{children}</div>
+    </div>
+  );
+}
+
+/** Pill clicável: dourado preenchido quando marcado, contorno neutro quando não — layout do mockup "Onde procurar?". */
+function ChipFonte({
+  rotulo,
+  dica,
+  preco,
+  checked,
+  onChange
+}: {
+  rotulo: string;
+  dica: string;
+  preco: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={dica}
+      aria-pressed={checked}
+      onClick={() => onChange(!checked)}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '7px 13px',
+        borderRadius: 18,
+        border: `1px solid ${checked ? BLUE : INPUT_BORDER}`,
+        background: checked ? BLUE : 'transparent',
+        color: checked ? '#1a1608' : TEXT,
+        fontSize: 12,
+        fontWeight: checked ? 700 : 500,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap'
+      }}
+    >
+      {checked ? <Check size={12} strokeWidth={3} /> : <Plus size={12} strokeWidth={2.5} />}
+      <span>{rotulo}</span>
+      <span style={{ opacity: checked ? 0.75 : 0.6 }}>{preco}</span>
+    </button>
+  );
+}
+
 const linkBtn: React.CSSProperties = { background: 'transparent', border: 'none', color: BLUE_LIGHT, fontSize: 11.5, cursor: 'pointer', padding: 0 };
 
 function ItemFonte({
@@ -501,7 +634,7 @@ function ItemFonte({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <Checkbox
+    <Switch
       title={dica}
       label={
         <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, width: '100%' }}>
@@ -510,9 +643,10 @@ function ItemFonte({
         </span>
       }
       size="xs"
+      color={BLUE}
       checked={checked}
       onChange={e => onChange(e.currentTarget.checked)}
-      styles={{ label: { color: TEXT, fontSize: 12, flex: 1 }, body: { alignItems: 'center' } }}
+      styles={{ label: { color: TEXT, fontSize: 12, flex: 1, cursor: 'pointer' }, body: { alignItems: 'center' }, track: { cursor: 'pointer' } }}
     />
   );
 }
@@ -534,9 +668,10 @@ function FonteLinha({
 }) {
   return (
     <div style={{ ...cardStyle(checked), opacity: disabled ? 0.55 : 1 }}>
-      <Checkbox
+      <Switch
         disabled={disabled}
         checked={checked}
+        color={BLUE}
         onChange={e => onChange(e.currentTarget.checked)}
         label={
           <span style={{ display: 'flex', justifyContent: 'space-between', gap: 10, width: '100%', flexWrap: 'wrap' }}>
@@ -544,9 +679,9 @@ function FonteLinha({
             <span style={{ fontSize: 12.5, color: MUTED }}>{preco}</span>
           </span>
         }
-        styles={{ label: { flex: 1 }, body: { alignItems: 'center' } }}
+        styles={{ label: { flex: 1, cursor: disabled ? 'not-allowed' : 'pointer' }, body: { alignItems: 'center' }, track: { cursor: disabled ? 'not-allowed' : 'pointer' } }}
       />
-      <p style={{ margin: '6px 0 0 28px', fontSize: 12, color: MUTED }}>{descricao}</p>
+      <p style={{ margin: '6px 0 0 44px', fontSize: 12, color: MUTED }}>{descricao}</p>
     </div>
   );
 }

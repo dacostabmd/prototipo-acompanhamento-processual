@@ -138,6 +138,10 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="bf-side-foot">
+          <div className="bf-side-logo">
+            <img src="/techtie-logo-horizontal-gold.svg" alt="Techtie" />
+          </div>
+
           <Tooltip label="Sair" position="right" offset={14} withArrow disabled={expanded || mobileOpened}>
             <UnstyledButton onClick={logout} className="bf-nav-item">
               <span className="bf-nav-icon">
@@ -152,7 +156,15 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
       <AppShell.Main className="bf-main">
         {/* Montado uma única vez no shell (fora do PageTransition): persiste entre navegações
             em vez de reinicializar o contexto WebGL a cada troca de rota. */}
-        <GhostFibers lineColor="#262626" glowColor="#3d3d3d" backdropColor="#0e0e0e" speed={0.15} brightness={1.4} blueBoost={1} />
+        <GhostFibers
+          lineColor="#2e2612"
+          glowColor="#4a3a16"
+          backdropColor="#0e0e0e"
+          speed={0.15}
+          brightness={1}
+          glowIntensity={0.9}
+          blueBoost={0}
+        />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <PageTransition>{children}</PageTransition>
         </div>

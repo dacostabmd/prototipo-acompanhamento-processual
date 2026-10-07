@@ -179,7 +179,15 @@ export default function AuthGateway() {
     <main className="bf-auth">
       {/* COLUNA ESQUERDA — efeito de fundo, logo e copy */}
       <section className="bf-auth-left">
-        <GhostFibers contained lineColor="#262626" glowColor="#555554" backdropColor="#0e0e0e" blueBoost={1.1} />
+        <GhostFibers
+          contained
+          lineColor="#2e2612"
+          glowColor="#4a3a16"
+          backdropColor="#0e0e0e"
+          blueBoost={0}
+          brightness={1}
+          glowIntensity={0.9}
+        />
         <div
           style={{
             position: 'relative',

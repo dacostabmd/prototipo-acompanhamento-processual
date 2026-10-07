@@ -3,8 +3,9 @@
 import { authFetch } from '@/lib/authFetch';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { SegmentedControl, Switch, Tooltip } from '@mantine/core';
-import { Lock, Check, X, Info, XCircle, Scale, AlertTriangle } from 'lucide-react';
+import { SegmentedControl, Switch, Tooltip, Paper } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { Lock, Info, XCircle, Scale, AlertTriangle, FlaskConical, CheckCircle2, Bell, X } from 'lucide-react';
 import Stepper, { Step } from './Stepper';
 import ProcessResultView from './ProcessResultView';
 import FontesSelector, {
@@ -29,16 +30,16 @@ import {
   parseCnj
 } from '@/lib/format';
 import { useDevPagante } from '@/lib/devPagante';
-import { extractDdd, prioritizeByDdd } from '@/lib/ddd';
+import { extractDdd, prioritizeByTribunalOrDdd, tribunalByDdd, tribunalByUf, ESTADOS_BRASIL } from '@/lib/ddd';
 import { useSharedProfile } from '@/components/ProfileProvider';
 import { getAvgMs, recordSample } from '@/lib/tribunalTiming';
 import { custoTotal, formatarReais } from '@/lib/infosimplesPricing';
 import { fontesInfosimplesPara, IDS_PRINCIPAIS_INFOSIMPLES, type TipoBusca } from '@/lib/fontesInfosimples';
 
 /* ── Design tokens (tema dark/glass) ─────────────────────────────────── */
-const BLUE = '#5f5f5f';
-const BLUE_DARK = '#3d3d3d';
-const BLUE_LIGHT = '#bdbdbb';
+const BLUE = '#c4a86f';
+const BLUE_DARK = '#ab8e5c';
+const BLUE_LIGHT = '#f5e3a8';
 const PAPER = 'rgba(255,255,255,0.05)';
 const CREAM = 'rgba(255,255,255,0.06)';
 const CREAM_TEXT = '#fefefa';
@@ -74,13 +75,21 @@ type ScanItem = {
   datajud?: ScanFonteProgresso;
 };
 
+export interface ToasterEvent {
+  id: string;
+  title: string;
+  message: string;
+  status: ScanStatus | 'info';
+  timestamp: string;
+}
+
 const MOSS_GREEN = '#3d6b4f';
 const WARN = '#d4a65f';
 const RUBY_RED = '#9b2c3f';
 
-/** Ordena os ids das fontes colocando primeiro o tribunal do DDD informado (mesma regra do backend). */
-function ordenarPorDdd(ids: string[], ddd: number): string[] {
-  return prioritizeByDdd(ids.map(label => ({ label })), ddd).map(i => i.label);
+/** Ordena os ids das fontes colocando primeiro o tribunal manual selecionado ou o do DDD informado. */
+function ordenarFontes(ids: string[], forcedTj?: string | null, ddd?: number): string[] {
+  return prioritizeByTribunalOrDdd(ids.map(label => ({ label })), forcedTj, ddd).map(i => i.label);
 }
 
 export default function ProcessTracker({
@@ -100,7 +109,11 @@ export default function ProcessTracker({
   const [extraDocsInput, setExtraDocsInput] = useState<string[]>([]);
   const [processNumberInput, setProcessNumberInput] = useState('');
   const [partyNameInput, setPartyNameInput] = useState('');
-  const [stateInput] = useState('AUTO');
+  const [estadoManual, setEstadoManual] = useState('');
+  // Checkbox opcional do Passo 1: quando marcado, a API só retorna processos em que o nome/documento
+  // pesquisado está no polo ativo (Autor), descartando os em que o pesquisado é Réu/parte contrária.
+  // Processos sem informação de polo confiável na fonte permanecem visíveis (não são descartados).
+  const [somenteAutor, setSomenteAutor] = useState(false);
 
   // Consultante: documento fixo do próprio perfil, pré-preenchido e travado.
   useEffect(() => {
@@ -123,6 +136,10 @@ export default function ProcessTracker({
 
   // Passo 4 · Revisar e consultar
   const [phoneInput, setPhoneInput] = useState('');
+  // Toggle do Passo 4: com DDD identificado, tenta só o tribunal do estado dele primeiro e só
+  // dispara os demais tribunais selecionados se essa primeira leva não achar nada — economiza
+  // chamadas pagas da Infosimples. Ligado por padrão.
+  const [economizarPorDdd, setEconomizarPorDdd] = useState(true);
   const [formError, setFormError] = useState('');
 
   // Search & Result states
@@ -133,6 +150,9 @@ export default function ProcessTracker({
   const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [tribunaisConsultados, setTribunaisConsultados] = useState<string[]>([]);
   const [custoEstimado, setCustoEstimado] = useState<number>(0);
+  // Processos que a fonte encontrou mas o checkbox "somente autor" descartou (pesquisado é Réu) —
+  // reportado à parte para não sumir em silêncio quando o usuário espera achar algo.
+  const [descartadosPorPolo, setDescartadosPorPolo] = useState<{ numero: string; tribunal: string; autor?: string }[]>([]);
   const [scanItems, setScanItems] = useState<ScanItem[]>([]);
   const [scanClockTick, setScanClockTick] = useState(0);
   // Id da consulta em andamento (recebido no evento 'started' do streaming), usado para cancelar
@@ -148,7 +168,12 @@ export default function ProcessTracker({
   const [documentoAtualIdx, setDocumentoAtualIdx] = useState(0);
   const [totalDocumentos, setTotalDocumentos] = useState(1);
   const [custoAcumulado, setCustoAcumulado] = useState(0);
-  const [cancelingLabels, setCancelingLabels] = useState<Set<string>>(new Set());
+  // Diálogo "continuar nos demais tribunais?" — aparece quando a economia por DDD achou algo já na
+  // 1ª onda, mas ainda restam tribunais selecionados que não chegaram a ser consultados.
+  const [perguntaContinuarOnda, setPerguntaContinuarOnda] = useState<{ tribunaisRestantes: string[] } | null>(null);
+  const resolverContinuarOndaRef = useRef<((continuar: boolean) => void) | null>(null);
+  // Tela de transição explícita entre o fim da varredura e a exibição do resultado (processando dados).
+  const [processandoResultado, setProcessandoResultado] = useState(false);
 
   // Atualiza o cronômetro/% estimado de cada card de tribunal enquanto a varredura está em curso.
   useEffect(() => {
@@ -168,14 +193,33 @@ export default function ProcessTracker({
 
   // Floating Chat Modal state (com 40% a mais de largura e altura)
   const [infoModalOpen, setInfoModalOpen] = useState(false);
+  // Painel flutuante "Em desenvolvimento": simula cada etapa do layout sem chamar a API.
+  const [devSimOpen, setDevSimOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [chatEnded, setChatEnded] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
+  const [toasters, setToasters] = useState<ToasterEvent[]>([]);
 
   const found = hasSearched && !notFound && !!caseData;
+
+  const adicionarToaster = (
+    title: string,
+    message: string,
+    status: ScanStatus | 'info'
+  ) => {
+    const agora = new Date();
+    const timestamp = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const novo: ToasterEvent = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      title,
+      message,
+      status,
+      timestamp
+    };
+    setToasters(prev => [novo, ...prev]);
+  };
 
   const detectedTribunal = useMemo(() => {
     return searchMode === 'numero' ? parseCnj(processNumberInput) : null;
@@ -235,7 +279,8 @@ export default function ProcessTracker({
       ? isPagante && partyNameInput.trim().length >= 3 && (cpfInputDigits.length === 0 || isDocValid)
       : fullName.trim().length >= 3 && isDocValid;
   const isStep2Valid = tipoBusca === 'numero' ? usaDatajudNumero || idsInfosimplesEfetivos.length > 0 : idsInfosimplesEfetivos.length > 0;
-  const isStep3Valid = true;
+  // Com o aviso de novidades ligado, exige pelo menos um canal de envio (E-mail ou WhatsApp) marcado.
+  const isStep3Valid = !avisarNovidades || canalEmail || canalWhatsapp;
   // Celular opcional (da parte pesquisada): vazio é válido; se preenchido, exige DDD + número.
   const isStep4Valid = cleanDigits(phoneInput).length === 0 || cleanDigits(phoneInput).length >= 10;
 
@@ -268,7 +313,7 @@ export default function ProcessTracker({
     ];
 
     confetti({
-      particleCount: 90,
+      particleCount: 277,
       spread: 75,
       origin: { y: 0.6 },
       colors
@@ -276,57 +321,114 @@ export default function ProcessTracker({
 
     window.setTimeout(() => {
       confetti({
-        particleCount: 60,
+        particleCount: 184,
         angle: 60,
         spread: 55,
         origin: { x: 0 },
         colors
       });
       confetti({
-        particleCount: 60,
+        particleCount: 184,
         angle: 120,
         spread: 55,
         origin: { x: 1 },
         colors
       });
-    }, 280);
+    }, 137);
+  };
+
+  // Card adicionado ao painel de Notificações (paper) assim que um tribunal termina de consultar
+  // (todas as suas sub-fontes saíram de pending/loading), com título de acordo com o resultado.
+  const notificarTribunalConcluido = (item: ScanItem) => {
+    const status = statusGeralDoItem(item);
+    const title =
+      status === 'found'
+        ? 'Processo localizado'
+        : status === 'error'
+        ? 'Falha na consulta'
+        : 'Consulta concluída';
+
+    const message =
+      status === 'found'
+        ? `${item.label}: processo encontrado.`
+        : status === 'error'
+        ? `${item.label}: não foi possível concluir a consulta.`
+        : status === 'cancelled'
+        ? `${item.label}: consulta cancelada.`
+        : `${item.label}: nenhum processo encontrado.`;
+
+    adicionarToaster(title, message, status);
   };
 
   // Busca completa para UM documento (CPF ou CNPJ) — usada tanto pelo documento principal quanto
   // por cada documento adicional (botão "+"), em sequência. Devolve os processos achados e o custo
   // real desta rodada; null se cancelada pelo usuário no meio do caminho.
+  // `tribunaisForcados`: usado na 2ª chamada (depois que o usuário confirma "continuar buscando" no
+  // diálogo pós-1ª-onda) — restringe os alvos a essa lista exata e desliga a divisão em ondas, já que
+  // essa já É a continuação da 2ª onda.
   const executarBuscaDocumento = async (
-    digits: string
-  ): Promise<{ processes: any[]; custo: number; tribunaisConsultados: string[] } | null> => {
+    digits: string,
+    tribunaisForcados?: string[]
+  ): Promise<{
+    processes: any[];
+    custo: number;
+    tribunaisConsultados: string[];
+    tribunaisRestantes: string[];
+    descartadosPorPolo: { numero: string; tribunal: string; autor?: string }[];
+  } | null> => {
     const phoneDigits = cleanDigits(phoneInput);
     const isBuscaNumero = searchMode === 'numero';
     const cnjParsed = isBuscaNumero ? parseCnj(processNumberInput) : null;
     const scanStartedAt = Date.now();
     const usaInfosimples = isBuscaNumero ? idsInfosimplesEfetivos.length > 0 : true;
+    const tjManual = estadoManual ? tribunalByUf(estadoManual) : null;
     const targets = isBuscaNumero
       ? cnjParsed?.tribunalLabel
         ? [cnjParsed.tribunalLabel]
         : []
-      : ordenarPorDdd(idsInfosimplesEfetivos, extractDdd(phoneDigits));
+      : tribunaisForcados ?? ordenarFontes(idsInfosimplesEfetivos, tjManual, extractDdd(phoneDigits));
     // No fluxo multi-tribunal, o DataJud só consegue confirmar um processo já achado pela Infosimples
     // (a API do CNJ não busca por CPF/CNPJ/nome) — mas a sub-fonte já nasce "pending" dentro do card,
     // deixando claro desde o início que as duas fontes vão trabalhar em paralelo assim que houver um
     // número de processo para consultar. No fluxo por número, as duas já têm o número e começam juntas.
     const usaDataJudAgora = isBuscaNumero ? usaDatajudNumero : datajudSel.length > 0;
     targetTribunalRef.current = isBuscaNumero ? cnjParsed?.tribunalLabel || '' : '';
-    setScanItems(
-      targets.map(label => ({
+
+    // Mesma regra de divisão em 2 ondas do backend (app/api/processos/route.ts): com a economia por
+    // DDD/Estado ligada e um tribunal prioritário entre os alvos selecionados, só ele entra "loading" de cara — os
+    // demais nascem "pending" (aguardando) e só viram "loading" quando o evento de progresso real
+    // chegar (1ª onda sem achado nada).
+    const tribunalPrioritario = !isBuscaNumero && !tribunaisForcados ? (tjManual || tribunalByDdd(extractDdd(phoneDigits))) : null;
+    const estaNaPrimeiraOnda = (label: string) =>
+      !tribunalPrioritario || label === tribunalPrioritario || label.startsWith(`${tribunalPrioritario} (`);
+    const dividirPorDdd = !isBuscaNumero && !tribunaisForcados && economizarPorDdd && targets.some(estaNaPrimeiraOnda);
+    const tribunaisRestantesSeAchou = dividirPorDdd ? targets.filter(label => !estaNaPrimeiraOnda(label)) : [];
+
+    // Prioridade visual: tribunal(is) do Estado/DDD informado sempre no topo da lista
+    const targetsOrdenados = tribunalPrioritario
+      ? [...targets].sort((a, b) => Number(!estaNaPrimeiraOnda(a)) - Number(!estaNaPrimeiraOnda(b)))
+      : targets;
+
+    const novosItens = targetsOrdenados.map((label): ScanItem => {
+      const naPrimeiraOnda = !dividirPorDdd || estaNaPrimeiraOnda(label);
+      return {
         label,
-        infosimples: usaInfosimples ? { status: 'loading', startedAt: scanStartedAt } : undefined,
+        infosimples: usaInfosimples
+          ? naPrimeiraOnda
+            ? { status: 'loading', startedAt: scanStartedAt }
+            : { status: 'pending' }
+          : undefined,
         datajud: usaDataJudAgora
           ? isBuscaNumero
             ? { status: 'loading', startedAt: scanStartedAt }
             : { status: 'pending' }
           : undefined
-      }))
-    );
+      };
+    });
+    // Na 2ª chamada (continuar buscando nos tribunais restantes), mantém os cards da 1ª onda já
+    // concluídos na tela, só acrescentando os novos — em vez de apagar tudo e recomeçar do zero.
+    setScanItems(prev => (tribunaisForcados ? [...prev, ...novosItens] : novosItens));
     consultaIdRef.current = null;
-    setCancelingLabels(new Set());
 
     const res = await authFetch('/api/processos', {
       method: 'POST',
@@ -336,10 +438,12 @@ export default function ProcessTracker({
         nomeParte: searchMode === 'nome' ? partyNameInput.trim() : '',
         fullName: fullName.trim() || (isBuscaNumero ? 'Consulta por Número' : ''),
         phone: phoneDigits,
-        state: stateInput,
+        state: estadoManual || (tribunalPrioritario ? tribunalPrioritario.replace(/^TJ/, '') : 'AUTO'),
         processNumber: isBuscaNumero ? processNumberInput : '',
         // Fontes do Passo 2: ids Infosimples (lista explícita) e endpoints DataJud (null = todos).
-        tribunaisSelecionados: idsInfosimplesEfetivos,
+        // Na 2ª chamada (tribunaisForcados), restringe aos tribunais restantes e desliga a divisão em
+        // ondas no backend — essa chamada já É a continuação da 2ª onda, não deve dividir de novo.
+        tribunaisSelecionados: tribunaisForcados ?? idsInfosimplesEfetivos,
         datajudSelecionados: isBuscaNumero
           ? usaDatajudNumero
             ? [aliasDatajudCnj]
@@ -347,6 +451,8 @@ export default function ProcessTracker({
           : datajudSel.length === IDS_TODOS_DATAJUD.length
           ? null
           : datajudSel,
+        somenteAutor,
+        economizarPorDdd: tribunaisForcados ? false : economizarPorDdd,
         avisarMovimentacao: avisarNovidades,
         canalAviso: !avisarNovidades ? 'nenhum' : canalEmail && canalWhatsapp ? 'ambos' : canalEmail ? 'email' : canalWhatsapp ? 'whatsapp' : 'nenhum',
         resumoLinguagemSimples: resumoSimples
@@ -374,6 +480,7 @@ export default function ProcessTracker({
     let buffer = '';
     let data: any = null;
 
+    try {
     while (true) {
       if (buscaCanceladaRef.current) {
         void reader.cancel().catch(() => {});
@@ -423,7 +530,7 @@ export default function ProcessTracker({
               return [...prev, novoItem];
             }
 
-            const proximo = prev.map((item): ScanItem => {
+            let proximo = prev.map((item): ScanItem => {
               if (item.label !== tribunalLabel) return item;
               return { ...item, [chave]: novoProgresso(item[chave]) };
             });
@@ -431,12 +538,25 @@ export default function ProcessTracker({
             // Infosimples terminou sem achar nada neste tribunal: o DataJud deste card, se ainda
             // "pending" (esperando um número de processo que nunca vai existir), fecha como "sem achado".
             if (chave === 'infosimples' && evt.status !== 'loading' && !evt.found) {
-              return proximo.map((item): ScanItem =>
+              proximo = proximo.map((item): ScanItem =>
                 item.label === tribunalLabel && item.datajud?.status === 'pending'
                   ? { ...item, datajud: { status: 'not-found' } }
                   : item
               );
             }
+
+            // Notifica (toast Mantine) assim que o tribunal como um todo termina — ou seja, quando
+            // nenhuma das suas sub-fontes ainda está pending/loading — e não tinha terminado antes.
+            const itemAnterior = prev.find(item => item.label === tribunalLabel);
+            const itemAtual = proximo.find(item => item.label === tribunalLabel);
+            if (itemAnterior && itemAtual) {
+              const aindaEmCurso = (item: ScanItem) =>
+                [item.infosimples, item.datajud].some(f => f && (f.status === 'pending' || f.status === 'loading'));
+              if (aindaEmCurso(itemAnterior) && !aindaEmCurso(itemAtual)) {
+                notificarTribunalConcluido(itemAtual);
+              }
+            }
+
             return proximo;
           });
         } else if (evt.type === 'done') {
@@ -444,16 +564,27 @@ export default function ProcessTracker({
         }
       }
     }
+    } catch (streamErr) {
+      if (buscaCanceladaRef.current) return null;
+      console.error('[ProcessTracker stream error]', streamErr);
+      const err = new Error('A conexão com o servidor foi interrompida durante a busca. Tente novamente em instantes.');
+      (err as any).streamInterrompida = true;
+      throw err;
+    }
 
     if (buscaCanceladaRef.current) return null;
     if (!data) {
       throw new Error('Falha ao processar resposta do servidor.');
     }
 
+    const processesEncontrados: any[] = data.notFound || !data.processes ? [] : data.processes;
     return {
-      processes: data.notFound || !data.processes ? [] : data.processes,
+      processes: processesEncontrados,
       custo: typeof data.custoEstimado === 'number' ? data.custoEstimado : 0,
-      tribunaisConsultados: data.tribunaisConsultados || []
+      tribunaisConsultados: data.tribunaisConsultados || [],
+      // Só relevante quando a 1ª onda JÁ achou algo (senão o backend já continua sozinho para a 2ª onda).
+      tribunaisRestantes: processesEncontrados.length > 0 ? tribunaisRestantesSeAchou : [],
+      descartadosPorPolo: data.descartadosPorPolo || []
     };
   };
 
@@ -474,14 +605,24 @@ export default function ProcessTracker({
     setFormError('');
     setSearching(true);
     setHasSearched(false);
+    setDescartadosPorPolo([]);
     buscaCanceladaRef.current = false;
     setTotalDocumentos(documentosDigits.length || 1);
     setDocumentoAtualIdx(0);
     setCustoAcumulado(0);
 
+    adicionarToaster(
+      'Varredura iniciada',
+      searchMode === 'numero'
+        ? `Consultando número CNJ ${processNumberInput}...`
+        : `Varrendo bases judiciais para o documento ${formatDocumento(digits)} em paralelo...`,
+      'info'
+    );
+
     try {
       const todosProcessos: any[] = [];
       const todosTribunais = new Set<string>();
+      const todosDescartadosPorPolo: { numero: string; tribunal: string; autor?: string }[] = [];
       let custoTotalAcumulado = 0;
       const fila = documentosDigits.length > 0 ? documentosDigits : [digits];
 
@@ -493,8 +634,29 @@ export default function ProcessTracker({
 
         resultado.processes.forEach(p => todosProcessos.push(p));
         resultado.tribunaisConsultados.forEach(t => todosTribunais.add(t));
+        resultado.descartadosPorPolo.forEach(d => todosDescartadosPorPolo.push(d));
         custoTotalAcumulado += resultado.custo;
         setCustoAcumulado(custoTotalAcumulado);
+
+        // Economia por DDD já achou algo na 1ª onda, mas sobraram tribunais selecionados que não
+        // chegaram a ser consultados — pergunta se o usuário quer continuar buscando neles também.
+        if (resultado.tribunaisRestantes.length > 0 && !buscaCanceladaRef.current) {
+          const continuar = await new Promise<boolean>(resolve => {
+            resolverContinuarOndaRef.current = resolve;
+            setPerguntaContinuarOnda({ tribunaisRestantes: resultado.tribunaisRestantes });
+          });
+          setPerguntaContinuarOnda(null);
+          if (continuar && !buscaCanceladaRef.current) {
+            const resultadoExtra = await executarBuscaDocumento(fila[i], resultado.tribunaisRestantes);
+            if (resultadoExtra) {
+              resultadoExtra.processes.forEach(p => todosProcessos.push(p));
+              resultadoExtra.tribunaisConsultados.forEach(t => todosTribunais.add(t));
+              resultadoExtra.descartadosPorPolo.forEach(d => todosDescartadosPorPolo.push(d));
+              custoTotalAcumulado += resultadoExtra.custo;
+              setCustoAcumulado(custoTotalAcumulado);
+            }
+          }
+        }
       }
 
       // Cancelada pelo usuário: volta ao formulário sem mostrar resultado parcial — "cancelar" é
@@ -506,7 +668,9 @@ export default function ProcessTracker({
 
       setTribunaisConsultados(Array.from(todosTribunais));
       setCustoEstimado(custoTotalAcumulado);
-      await new Promise(r => setTimeout(r, 400));
+      setDescartadosPorPolo(todosDescartadosPorPolo);
+      setProcessandoResultado(true);
+      await new Promise(r => setTimeout(r, 900));
 
       let currentCases: CaseData | null = null;
       let totalFound = 0;
@@ -514,11 +678,13 @@ export default function ProcessTracker({
       if (todosProcessos.length === 0) {
         setNotFound(true);
         setCaseData(null);
+        adicionarToaster('Consulta finalizada', 'Nenhum processo foi localizado nas bases consultadas.', 'not-found');
       } else {
         setNotFound(false);
         currentCases = buildCaseDataFromProcesses(todosProcessos);
         setCaseData(currentCases);
         totalFound = todosProcessos.length;
+        adicionarToaster('Processos localizados', `${totalFound} processo(s) localizado(s) com sucesso.`, 'found');
       }
 
       setHasSearched(true);
@@ -532,10 +698,10 @@ export default function ProcessTracker({
             fullName,
             cpf: formatDocumento(digits),
             phone: formatPhone(phoneDigits),
-            state: stateInput,
+            state: estadoManual,
             processNumber: processNumberInput,
             processesCount: totalFound,
-            tribunal: Array.from(todosTribunais).join(', ') || stateInput,
+            tribunal: Array.from(todosTribunais).join(', ') || estadoManual,
             processesSummary: currentCases
               ? currentCases.processes.slice(0, 3).map(p => `${p.tipo} (${p.numero}) - ${p.valorCausa}`).join('; ')
               : 'Nenhum processo localizado automaticamente'
@@ -554,17 +720,40 @@ export default function ProcessTracker({
       }
     } catch (err: any) {
       console.error('[ProcessTracker search error]', err);
-      setFormError(err.message || 'Não foi possível consultar os processos no momento. Tente novamente.');
+      const mensagem = err.message || 'Não foi possível consultar os processos no momento. Tente novamente.';
+      setFormError(mensagem);
       setHasSearched(false);
+      notifications.show({
+        title: err.streamInterrompida ? 'Conexão interrompida' : 'Não foi possível concluir a busca',
+        message: mensagem,
+        color: 'yellow',
+        icon: <AlertTriangle size={16} />,
+        autoClose: 7000,
+        styles: {
+          root: { background: '#232323', border: `1px solid ${BLUE}` },
+          title: { color: BLUE_LIGHT },
+          description: { color: TEXT },
+          icon: { background: BLUE, color: '#1a1a1a' },
+          closeButton: { color: MUTED }
+        }
+      });
     } finally {
       setSearching(false);
+      setProcessandoResultado(false);
     }
   };
 
-  // Cancela a consulta inteira (todos os tribunais do documento atual + os próximos documentos da
-  // fila) — diferente de handleCancelarTribunal, que para só uma sub-fonte de um tribunal específico.
+  // Cancela a consulta inteira (todos os tribunais do documento atual + os próximos documentos da fila).
   const handleCancelarBuscaInteira = () => {
     buscaCanceladaRef.current = true;
+    // Se o diálogo "continuar nos demais tribunais?" estiver aberto aguardando resposta, destrava-o
+    // (senão o await ficaria pendurado para sempre, já que o usuário cancelou a busca por outro caminho).
+    if (resolverContinuarOndaRef.current) {
+      resolverContinuarOndaRef.current(false);
+      resolverContinuarOndaRef.current = null;
+      setPerguntaContinuarOnda(null);
+    }
+    adicionarToaster('Consulta cancelada', 'A varredura foi cancelada pelo usuário.', 'cancelled');
     const consultaId = consultaIdRef.current;
     if (!consultaId) return;
     // Aborta cada tribunal/sub-fonte ainda em andamento da rodada atual (o backend libera os recursos
@@ -587,31 +776,79 @@ export default function ProcessTracker({
     });
   };
 
-  // Cancela a consulta de um tribunal específico em andamento (card individual na tela de
-  // varredura), sem afetar os demais — usa o consultaId recebido no evento 'started' do streaming.
-  const handleCancelarTribunal = async (label: string) => {
-    const consultaId = consultaIdRef.current;
-    if (!consultaId) return;
-    setCancelingLabels(prev => new Set(prev).add(label));
-    try {
-      const res = await authFetch('/api/processos/cancelar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consultaId, label })
-      });
-      const resultado = await res.json().catch(() => null);
-      // cancelado:false = o servidor não achou a consulta em andamento (já terminou ou é outra instância).
-      if (resultado && resultado.cancelado === false) {
-        console.warn(`[ProcessTracker] o servidor não encontrou "${label}" para cancelar (já concluído ou outra instância).`);
+  // Simulador de etapas (ferramenta de desenvolvimento): pula direto para qualquer tela do fluxo de
+  // busca com dados fictícios, sem chamar a API — usado para revisar/demonstrar o layout de cada fase.
+  const simularScanItemsDemo = (): ScanItem[] => [
+    { label: 'TJSP', infosimples: { status: 'found', elapsedMs: 3100 }, datajud: { status: 'found', elapsedMs: 3100 } },
+    { label: 'TJSP 2º', infosimples: { status: 'loading', startedAt: Date.now() - 7500 } },
+    { label: 'TJSP eproc', infosimples: { status: 'loading', startedAt: Date.now() - 7500 } },
+    { label: 'TJRJ', infosimples: { status: 'found', elapsedMs: 2400 }, datajud: { status: 'found', elapsedMs: 2400 } },
+    { label: 'TJRJ portal', infosimples: { status: 'loading', startedAt: Date.now() - 7500 } },
+    { label: 'TJMG', infosimples: { status: 'not-found', elapsedMs: 7200 } },
+    { label: 'TJPR', infosimples: { status: 'not-found', elapsedMs: 6300 } },
+    { label: 'TRF3', infosimples: { status: 'error', erro: 'Tempo de resposta excedido', elapsedMs: 9400 } },
+    { label: 'TJSC', infosimples: { status: 'cancelled' } },
+    { label: 'TJBA', infosimples: { status: 'pending' } },
+    { label: 'TJPE', infosimples: { status: 'pending' } },
+    { label: 'TJRS', infosimples: { status: 'pending' } },
+    { label: 'TJCE', infosimples: { status: 'pending' } },
+    { label: 'TJDFT', infosimples: { status: 'pending' } }
+  ];
+
+  const simularEtapa = (etapa: 'passo1' | 'passo2' | 'passo3' | 'passo4' | 'varrendo' | 'organizando' | 'nao-encontrado' | 'resultado') => {
+    setSearching(false);
+    setHasSearched(false);
+    setNotFound(false);
+    setProcessandoResultado(false);
+    setCaseData(null);
+    setFormError('');
+
+    switch (etapa) {
+      case 'passo1':
+      case 'passo2':
+      case 'passo3':
+      case 'passo4': {
+        const indice = { passo1: 1, passo2: 2, passo3: 3, passo4: 4 }[etapa];
+        setCurrentStepIndex(indice);
+        break;
       }
-    } catch (err) {
-      console.error('[ProcessTracker cancelar tribunal error]', err);
-    } finally {
-      setCancelingLabels(prev => {
-        const next = new Set(prev);
-        next.delete(label);
-        return next;
-      });
+      case 'varrendo':
+        setScanItems(simularScanItemsDemo());
+        setSearching(true);
+        setToasters([
+          { id: '1', title: 'Processo localizado', message: 'TJSP: processo encontrado.', status: 'found', timestamp: '14:52:05' },
+          { id: '2', title: 'Processo localizado', message: 'TJRJ: processo encontrado.', status: 'found', timestamp: '14:52:08' },
+          { id: '3', title: 'Consulta concluída', message: 'TJMG: nenhum processo encontrado.', status: 'not-found', timestamp: '14:52:12' },
+          { id: '4', title: 'Falha na consulta', message: 'TRF3: Tempo de resposta excedido.', status: 'error', timestamp: '14:52:15' },
+          { id: '5', title: 'Varredura iniciada', message: 'Iniciando varredura em 14 tribunais em paralelo...', status: 'info', timestamp: '14:52:00' }
+        ]);
+        break;
+      case 'organizando':
+        setScanItems(simularScanItemsDemo());
+        setSearching(true);
+        setProcessandoResultado(true);
+        break;
+      case 'nao-encontrado':
+        setTribunaisConsultados(['TJSP', 'TJRJ', 'TJMG']);
+        setCustoEstimado(1.5);
+        setHasSearched(true);
+        setNotFound(true);
+        break;
+      case 'resultado': {
+        const demoData = buildCaseData();
+        setCaseData(demoData);
+        setHasSearched(true);
+        setTribunaisConsultados(['TJSP', 'TJRJ']);
+        setCustoEstimado(2.3);
+        setToasters([
+          { id: 'r1', title: 'Processos localizados', message: '2 processo(s) localizado(s) com sucesso.', status: 'found', timestamp: '14:52:20' },
+          { id: 'r2', title: 'Processo localizado', message: 'TJSP: processo encontrado.', status: 'found', timestamp: '14:52:05' },
+          { id: 'r3', title: 'Processo localizado', message: 'TJRJ: processo encontrado.', status: 'found', timestamp: '14:52:08' },
+          { id: 'r4', title: 'Varredura iniciada', message: 'Iniciando varredura em 14 tribunais em paralelo...', status: 'info', timestamp: '14:52:00' }
+        ]);
+        void fetchAiSummary(demoData);
+        break;
+      }
     }
   };
 
@@ -726,23 +963,34 @@ export default function ProcessTracker({
         fontFamily: 'var(--font-inter), sans-serif'
       }}
     >
-      {/* Container principal */}
+      {/* Container principal com layout em 2 colunas */}
       <div
         style={{
           position: 'relative',
           zIndex: 10,
-          padding: 'clamp(20px, 4vw, 48px) clamp(16px, 3vw, 36px)',
+          padding: 'clamp(20px, 4vw, 40px) clamp(16px, 3vw, 32px)',
           minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
           width: '100%',
+          maxWidth: 1400,
+          margin: '0 auto',
           boxSizing: 'border-box'
         }}
       >
-        {/* ═════════════════════════════════════════════════════════════════
-            FASE 1: FORMULÁRIO EM STEPPER ANIMADO (4 PASSOS)
-            ═════════════════════════════════════════════════════════════════ */}
+        <div
+          className="bf-consulta-split"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) 380px',
+            gap: 24,
+            alignItems: 'start',
+            width: '100%'
+          }}
+        >
+          {/* COLUNA 1: FLUXO DE CONSULTA (FORMULÁRIO / VARREDURA / RESULTADOS) */}
+          <div style={{ minWidth: 0, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {/* ═════════════════════════════════════════════════════════════════
+                FASE 1: FORMULÁRIO EM STEPPER ANIMADO (4 PASSOS)
+                ═════════════════════════════════════════════════════════════════ */}
         {!hasSearched && (
           <div style={{ width: '100%', maxWidth: searching ? 900 : 720, animation: 'bf-fadein 0.5s ease both' }}>
             {formError && (
@@ -761,7 +1009,38 @@ export default function ProcessTracker({
               </div>
             )}
 
-            {searching ? (
+            {searching && processandoResultado ? (
+              <div
+                style={{
+                  background: 'rgba(20,20,20,0.88)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  padding: '56px 32px',
+                  borderRadius: 10,
+                  textAlign: 'center',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+                  border: `1px solid ${BORDER}`
+                }}
+              >
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    margin: '0 auto 18px',
+                    borderRadius: '50%',
+                    border: `3px solid ${BORDER}`,
+                    borderTopColor: BLUE,
+                    animation: 'bf-spin 0.8s linear infinite'
+                  }}
+                />
+                <h3 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
+                  Organizando as informações encontradas...
+                </h3>
+                <p style={{ margin: 0, fontSize: 13.5, color: MUTED }}>
+                  Consolidando os processos localizados e preparando o resumo do resultado.
+                </p>
+              </div>
+            ) : searching ? (
               <div
                 style={{
                   background: 'rgba(20,20,20,0.88)',
@@ -779,10 +1058,8 @@ export default function ProcessTracker({
                 </h3>
                 <p style={{ margin: '0 0 20px', fontSize: 13.5, color: MUTED }}>
                   {searchMode === 'numero'
-                    ? 'Cruzamos a API pública do CNJ (DataJud) com a base do tribunal de origem do processo ao mesmo tempo, para trazer o resultado mais completo possível.'
-                    : `Consultamos os ${scanItems.length || 14} tribunais abaixo ao mesmo tempo. O % de cada barra é uma
-                  estimativa com base no tempo médio histórico daquele tribunal neste navegador; a barra completa
-                  quando a resposta real chega — tribunais com sistemas mais lentos (eproc/legado) podem demorar mais.`}
+                    ? 'Cruzamos o DataJud (CNJ) e o tribunal de origem em paralelo para trazer o resultado completo.'
+                    : `Consultamos os ${scanItems.length || 14} tribunais em paralelo. O progresso é estimado pelo histórico e se completa conforme cada tribunal responde.`}
                 </p>
 
                 <div
@@ -884,33 +1161,24 @@ export default function ProcessTracker({
                             position: 'relative'
                           }}
                         >
-                          {!todasConcluidas && algumAtrasado ? (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                top: 0,
-                                bottom: 0,
-                                left: '-40%',
-                                width: '40%',
-                                background: WARN,
-                                borderRadius: 3,
-                                animation: 'bf-indeterminate 1.1s ease-in-out infinite'
-                              }}
-                            />
-                          ) : (
-                            <div
-                              style={{
-                                height: '100%',
-                                width: `${pct}%`,
-                                background: todasConcluidas ? (algumEncontrado ? MOSS_GREEN : RUBY_RED) : BLUE,
-                                borderRadius: 3,
-                                transition: 'width 0.4s ease'
-                              }}
-                            />
-                          )}
+                          <div
+                            style={{
+                              height: '100%',
+                              width: `${pct}%`,
+                              background: todasConcluidas
+                                ? algumEncontrado
+                                  ? MOSS_GREEN
+                                  : RUBY_RED
+                                : algumAtrasado
+                                ? WARN
+                                : BLUE,
+                              borderRadius: 3,
+                              transition: 'width 0.4s ease, background-color 0.4s ease'
+                            }}
+                          />
                         </div>
                         <div style={{ marginTop: 10, fontSize: 12.5, color: MUTED, lineHeight: 1.4 }}>
-                          {statusLabel} {!todasConcluidas && !algumAtrasado && `(${pct}%)`}
+                          {statusLabel} {!todasConcluidas && `(${pct}%)`}
                         </div>
                       </div>
                     );
@@ -944,7 +1212,7 @@ export default function ProcessTracker({
                         />
                       </div>
                       <div style={{ marginTop: 6, fontSize: 11.5, color: MUTED, textAlign: 'right' }}>
-                        {doneCount}/{scanItems.length} tribunais consultados
+                        {doneCount}/{scanItems.length} tribunais consultados · {pct}%
                       </div>
                     </div>
                   );
@@ -953,106 +1221,17 @@ export default function ProcessTracker({
                 {scanItems.length > 0 && (
                   <div
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-                      gap: 10,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
                       textAlign: 'left',
-                      maxWidth: 1080,
+                      maxWidth: 560,
                       margin: '0 auto'
                     }}
-                    className="bf-scan-grid"
                   >
-                    {scanItems.map(item => {
-                      // Status composto do card: achou em qualquer fonte > ainda rodando > falhou >
-                      // sem processos > cancelado > aguardando. Resume as duas sub-fontes num resumo
-                      // só, já que o card agora é por tribunal, não por fonte.
-                      const subfontes = [item.infosimples, item.datajud].filter(
-                        (f): f is ScanFonteProgresso => !!f
-                      );
-                      const statusGeral: ScanStatus = subfontes.some(f => f.status === 'found')
-                        ? 'found'
-                        : subfontes.some(f => f.status === 'loading')
-                        ? 'loading'
-                        : subfontes.some(f => f.status === 'pending')
-                        ? 'pending'
-                        : subfontes.some(f => f.status === 'error')
-                        ? 'error'
-                        : subfontes.every(f => f.status === 'cancelled')
-                        ? 'cancelled'
-                        : 'not-found';
-                      return (
-                        <div
-                          key={item.label}
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 8,
-                            padding: '10px 12px',
-                            background: 'rgba(10,10,10,0.6)',
-                            border: `1px solid ${BORDER}`,
-                            borderRadius: 4,
-                            fontSize: 12.5,
-                            minWidth: 0,
-                            animation: 'bf-fadein 0.35s ease both'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span
-                              aria-hidden="true"
-                              style={{
-                                display: 'inline-flex',
-                                width: 16,
-                                height: 16,
-                                flex: 'none',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}
-                            >
-                              {statusGeral === 'pending' && (
-                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: INPUT_BORDER }} />
-                              )}
-                              {statusGeral === 'found' && <Check size={16} strokeWidth={2.5} style={{ color: MOSS_GREEN }} />}
-                              {(statusGeral === 'not-found' || statusGeral === 'cancelled') && (
-                                <X size={16} strokeWidth={2.5} style={{ color: RUBY_RED }} />
-                              )}
-                              {statusGeral === 'error' && <AlertTriangle size={16} strokeWidth={2.2} style={{ color: WARN }} />}
-                            </span>
-                            <span
-                              style={{
-                                fontWeight: 600,
-                                color: TEXT,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {item.label}
-                            </span>
-                          </div>
-
-                          {item.infosimples && (
-                            <SubFonteBar
-                              label="Infosimples"
-                              cor="#b8a8d4"
-                              progresso={item.infosimples}
-                              tribunal={item.label}
-                              onCancelar={() => handleCancelarTribunal(item.label)}
-                              cancelando={cancelingLabels.has(item.label)}
-                            />
-                          )}
-                          {item.datajud && (
-                            <SubFonteBar
-                              label="DataJud (CNJ)"
-                              cor="#8fb8d4"
-                              progresso={item.datajud}
-                              tribunal={item.label}
-                              onCancelar={() => handleCancelarTribunal(`DataJud · ${item.label}`)}
-                              cancelando={cancelingLabels.has(`DataJud · ${item.label}`)}
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
+                    {scanItems.map(item => (
+                      <ScanRow key={item.label} item={item} />
+                    ))}
                   </div>
                 )}
                   </>
@@ -1198,7 +1377,7 @@ export default function ProcessTracker({
                         </span>
                       </Tooltip>
                     </label>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <input
                         type="text"
                         value={cpfInput}
@@ -1221,18 +1400,20 @@ export default function ProcessTracker({
                             aria-label="Adicionar outro documento"
                             style={{
                               flexShrink: 0,
-                              width: 40,
-                              height: 40,
+                              width: 48,
+                              height: 48,
                               display: 'inline-flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              background: 'transparent',
+                              background: 'rgba(255,255,255,0.04)',
                               border: `1px solid ${INPUT_BORDER}`,
-                              borderRadius: 4,
+                              borderRadius: 6,
                               color: TEXT,
-                              fontSize: 18,
+                              fontSize: 22,
                               lineHeight: 1,
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              boxSizing: 'border-box',
+                              transition: 'all 0.15s ease'
                             }}
                           >
                             +
@@ -1253,7 +1434,7 @@ export default function ProcessTracker({
                       const valido = (digits.length === 11 && isValidCpf(digits)) || (digits.length === 14 && isValidCnpj(digits));
                       return (
                         <div key={i} style={{ marginTop: 8 }}>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <input
                               type="text"
                               value={doc}
@@ -1272,19 +1453,21 @@ export default function ProcessTracker({
                               title="Remover este documento"
                               style={{
                                 flexShrink: 0,
-                                width: 40,
-                                height: 40,
+                                width: 48,
+                                height: 48,
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                background: 'transparent',
+                                background: 'rgba(255,255,255,0.04)',
                                 border: `1px solid ${INPUT_BORDER}`,
-                                borderRadius: 4,
+                                borderRadius: 6,
                                 color: MUTED,
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                boxSizing: 'border-box',
+                                transition: 'all 0.15s ease'
                               }}
                             >
-                              <XCircle size={16} strokeWidth={2} />
+                              <XCircle size={18} strokeWidth={1.8} />
                             </button>
                           </div>
                           {!valido && digits.length >= 11 && (
@@ -1305,6 +1488,20 @@ export default function ProcessTracker({
                           : 'A busca é feita por documento. Se o titular tem processos tanto no CPF quanto em CNPJ(s) de empresas dele, use o botão "+" para adicionar cada documento — todos rodam na mesma consulta.'}
                       </span>
                     )}
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={somenteAutor}
+                        onChange={e => setSomenteAutor(e.target.checked)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: 13, color: MUTED, lineHeight: 1.4 }}>
+                        Exibir apenas processos em que{' '}
+                        <strong style={{ color: TEXT }}>{fullName.trim() || partyNameInput.trim() || 'o titular'}</strong>{' '}
+                        é Autor (oculta réu/parte contrária).
+                      </span>
+                    </label>
                   </div>
                 </Step>
 
@@ -1374,25 +1571,32 @@ export default function ProcessTracker({
                           </span>
                         </Tooltip>
                       </span>
-                      <Switch checked={avisarNovidades} onChange={e => setAvisarNovidades(e.currentTarget.checked)} color="blue" />
+                      <Switch checked={avisarNovidades} onChange={e => setAvisarNovidades(e.currentTarget.checked)} color={BLUE} />
                     </div>
 
                     {avisarNovidades && (
-                      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-                        <button
-                          type="button"
-                          onClick={() => setCanalEmail(v => !v)}
-                          style={channelChipStyle(canalEmail)}
-                        >
-                          E-mail
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCanalWhatsapp(v => !v)}
-                          style={channelChipStyle(canalWhatsapp)}
-                        >
-                          WhatsApp
-                        </button>
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                          <button
+                            type="button"
+                            onClick={() => setCanalEmail(v => !v)}
+                            style={channelChipStyle(canalEmail)}
+                          >
+                            E-mail
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCanalWhatsapp(v => !v)}
+                            style={channelChipStyle(canalWhatsapp)}
+                          >
+                            WhatsApp
+                          </button>
+                        </div>
+                        {!canalEmail && !canalWhatsapp && (
+                          <span style={{ display: 'block', marginTop: 8, fontSize: 11.5, color: DANGER }}>
+                            Escolha ao menos um canal (E-mail ou WhatsApp) para receber os avisos.
+                          </span>
+                        )}
                       </div>
                     )}
 
@@ -1405,7 +1609,7 @@ export default function ProcessTracker({
                           </span>
                         </Tooltip>
                       </span>
-                      <Switch checked={resumoSimples} onChange={e => setResumoSimples(e.currentTarget.checked)} color="blue" />
+                      <Switch checked={resumoSimples} onChange={e => setResumoSimples(e.currentTarget.checked)} color={BLUE} />
                     </div>
                   </div>
                 </Step>
@@ -1440,7 +1644,7 @@ export default function ProcessTracker({
                         value={
                           searchMode === 'numero' && detectedTribunal?.valido
                             ? `${detectedTribunal.tribunalLabel} · ${[usaDatajudNumero && 'DataJud', idsInfosimplesEfetivos.length > 0 && 'Infosimples'].filter(Boolean).join(' + ') || 'nenhuma fonte'}`
-                            : `${idsInfosimplesEfetivos.length} fonte(s) Infosimples · ${qtdDatajudEfetivos} endpoint(s) DataJud`
+                            : `${estadoManual ? `Início por ${estadoManual} (${tribunalByUf(estadoManual)}) · ` : ''}${idsInfosimplesEfetivos.length} fonte(s) Infosimples · ${qtdDatajudEfetivos} endpoint(s) DataJud`
                         }
                         onEdit={() => setCurrentStepIndex(2)}
                       />
@@ -1464,16 +1668,67 @@ export default function ProcessTracker({
                       onChange={e => setPhoneInput(formatPhone(e.target.value))}
                       placeholder="(21) 97402-6883"
                       maxLength={15}
-                      style={{ ...inputStyle, marginBottom: 16 }}
+                      style={{ ...inputStyle, marginBottom: 12 }}
                     />
                     {!isStep4Valid && cleanDigits(phoneInput).length > 0 ? (
-                      <span style={{ fontSize: 11, color: DANGER, marginTop: -12, marginBottom: 16, display: 'block' }}>
+                      <span style={{ fontSize: 11, color: DANGER, marginTop: -8, marginBottom: 14, display: 'block' }}>
                         Informe o DDD e os 9 dígitos do celular.
                       </span>
                     ) : (
-                      <span style={{ fontSize: 11, color: MUTED, marginTop: -12, marginBottom: 16, display: 'block' }}>
+                      <span style={{ fontSize: 11, color: MUTED, marginTop: -8, marginBottom: 14, display: 'block' }}>
                         Telefone de quem está sendo pesquisado, não o seu. Com o DDD, consultamos primeiro o tribunal do estado dele.
                       </span>
+                    )}
+
+                    {tipoBusca !== 'numero' && (
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
+                          ESTADO / TRIBUNAL INICIAL PARA COMEÇAR A BUSCA (OPCIONAL)
+                        </label>
+                        <select
+                          value={estadoManual}
+                          onChange={e => setEstadoManual(e.target.value)}
+                          style={{
+                            ...inputStyle,
+                            cursor: 'pointer',
+                            color: estadoManual ? TEXT : MUTED,
+                            marginBottom: 6
+                          }}
+                        >
+                          <option value="" style={{ background: '#1e1e1e', color: '#fff' }}>
+                            Automático (priorizar pelo DDD do celular ou ordem padrão)
+                          </option>
+                          {ESTADOS_BRASIL.map(est => (
+                            <option key={est.uf} value={est.uf} style={{ background: '#1e1e1e', color: '#fff' }}>
+                              {est.uf} — {est.nome} ({est.tj})
+                            </option>
+                          ))}
+                        </select>
+                        <span style={{ fontSize: 11, color: MUTED, display: 'block', lineHeight: 1.4 }}>
+                          {estadoManual
+                            ? `A varredura começará prioritariamente pelo ${tribunalByUf(estadoManual)} (${ESTADOS_BRASIL.find(e => e.uf === estadoManual)?.nome}) na 1ª onda de economia.`
+                            : 'Caso queira priorizar um tribunal específico sem depender do DDD, escolha o estado acima.'}
+                        </span>
+                      </div>
+                    )}
+
+                    {tipoBusca !== 'numero' && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', fontSize: 13.5, color: TEXT, gap: 6 }}>
+                          Economizar busca por DDD / Estado
+                          <Tooltip
+                            label="Com o estado ou DDD identificado, consultamos primeiro só o tribunal correspondente; os demais tribunais selecionados só entram se essa primeira leva não encontrar nada — economiza chamadas pagas da Infosimples."
+                            withArrow
+                            multiline
+                            w={260}
+                          >
+                            <span style={{ display: 'inline-flex', alignItems: 'center', color: MUTED, cursor: 'help' }}>
+                              <Info size={14} />
+                            </span>
+                          </Tooltip>
+                        </span>
+                        <Switch checked={economizarPorDdd} onChange={e => setEconomizarPorDdd(e.currentTarget.checked)} color={BLUE} />
+                      </div>
                     )}
 
                     <div
@@ -1502,6 +1757,7 @@ export default function ProcessTracker({
         {/* ═════════════════════════════════════════════════════════════════
             FASE 2: NENHUM PROCESSO ENCONTRADO
             ═════════════════════════════════════════════════════════════════ */}
+        {hasSearched && notFound && <DescartadosPorPoloAviso itens={descartadosPorPolo} />}
         {hasSearched && notFound && <FontesComErroAviso itens={scanItems} />}
         {hasSearched && notFound && (
           <section
@@ -1548,7 +1804,7 @@ export default function ProcessTracker({
               )}
             </div>
             <p style={{ margin: '0 0 22px', fontSize: 14, color: MUTED, lineHeight: 1.7 }}>
-              A consulta automática para {searchMode === 'numero' ? `o processo ${processNumberInput || 'informado'}` : searchMode === 'nome' ? `o nome ${partyNameInput || 'informado'}` : `o ${docLabel} ${cpfInput || 'informado'}`} não retornou processos públicos ativos no tribunal consultado ({tribunaisConsultados.join(', ') || stateInput}).
+              A consulta automática para {searchMode === 'numero' ? `o processo ${processNumberInput || 'informado'}` : searchMode === 'nome' ? `o nome ${partyNameInput || 'informado'}` : `o ${docLabel} ${cpfInput || 'informado'}`} não retornou processos públicos ativos no tribunal consultado ({tribunaisConsultados.join(', ') || estadoManual}).
               Isso não significa que não existam pendências, pois processos em segredo de justiça ou em outros estados exigem verificação especializada.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
@@ -1609,6 +1865,7 @@ export default function ProcessTracker({
         {/* ═════════════════════════════════════════════════════════════════
             FASE 3: DASHBOARD SPLIT 70% / 30% (TRANSITION AUTOMÁTICA EM FADE)
             ═════════════════════════════════════════════════════════════════ */}
+        {found && caseData && <DescartadosPorPoloAviso itens={descartadosPorPolo} />}
         {found && caseData && <FontesComErroAviso itens={scanItems} />}
         {found && caseData && (
           <ProcessResultView
@@ -1631,7 +1888,217 @@ export default function ProcessTracker({
             chatTone={chatTone}
           />
         )}
+          </div>
+
+          {/* COLUNA 2: PAPER COM TOASTERS SCROLLÁVEIS QUE NÃO SOMEM */}
+          <Paper
+            className="bf-toasters-paper"
+            style={{
+              position: 'sticky',
+              top: 80,
+              background: 'rgba(20,20,20,0.85)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: `1px solid ${BORDER}`,
+              borderRadius: 14,
+              padding: '18px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: 'calc(100vh - 110px)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
+              boxSizing: 'border-box'
+            }}
+          >
+            {/* Cabeçalho do Paper */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 14,
+                paddingBottom: 12,
+                borderBottom: `1px solid ${BORDER}`
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Bell size={17} style={{ color: BLUE }} />
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: TEXT, letterSpacing: -0.2 }}>
+                  Notificações
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    background: toasters.length > 0 ? 'rgba(196,168,111,0.2)' : 'rgba(255,255,255,0.08)',
+                    color: toasters.length > 0 ? BLUE_LIGHT : MUTED,
+                    border: `1px solid ${toasters.length > 0 ? 'rgba(196,168,111,0.3)' : BORDER}`,
+                    padding: '1px 7px',
+                    borderRadius: 12
+                  }}
+                >
+                  {toasters.length}
+                </span>
+              </div>
+              {toasters.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setToasters([])}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: MUTED,
+                    fontSize: 11.5,
+                    cursor: 'pointer',
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    transition: 'color 0.15s ease'
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
+                  onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+
+            {/* Lista Scrollável de Toasters */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                overflowY: 'auto',
+                paddingRight: 4,
+                flex: 1,
+                minHeight: 200
+              }}
+              className="bf-toasters-scroll"
+            >
+              {toasters.length === 0 ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    padding: '40px 16px',
+                    color: MUTED,
+                    fontSize: 12.5,
+                    gap: 10
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.04)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: MUTED
+                    }}
+                  >
+                    <Bell size={18} style={{ opacity: 0.6 }} />
+                  </div>
+                  <p style={{ margin: 0, fontWeight: 500, color: 'rgba(255,255,255,0.75)' }}>Nenhuma notificação no momento</p>
+                  <p style={{ margin: 0, fontSize: 11.5, opacity: 0.6, lineHeight: 1.4 }}>
+                    Os eventos e status dos tribunais durante a varredura serão registrados aqui em tempo real.
+                  </p>
+                </div>
+              ) : (
+                toasters.map(t => (
+                  <ToasterCard key={t.id} toaster={t} onDismiss={() => setToasters(prev => prev.filter(item => item.id !== t.id))} />
+                ))
+              )}
+            </div>
+          </Paper>
+        </div>
       </div>
+
+      {/* Diálogo pequeno: economia por DDD já achou algo na 1ª onda, mas sobraram tribunais
+          selecionados sem consultar — pergunta se continua ou para por aqui com o que já foi achado. */}
+      {perguntaContinuarOnda && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            zIndex: 70,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24
+          }}
+        >
+          <div
+            role="dialog"
+            aria-label="Continuar buscando nos demais tribunais?"
+            style={{
+              width: 'min(420px, 100%)',
+              background: '#232323',
+              border: `1px solid ${BORDER}`,
+              borderRadius: 8,
+              padding: '24px 26px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.45)'
+            }}
+          >
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, color: TEXT, fontWeight: 600 }}>
+              Processo encontrado no tribunal do DDD
+            </h3>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+              Já localizamos processos no tribunal do DDD informado. Ainda restam{' '}
+              <strong style={{ color: TEXT }}>
+                {perguntaContinuarOnda.tribunaisRestantes.length}{' '}
+                {perguntaContinuarOnda.tribunaisRestantes.length === 1 ? 'tribunal' : 'tribunais'}
+              </strong>{' '}
+              selecionado{perguntaContinuarOnda.tribunaisRestantes.length === 1 ? '' : 's'} sem consultar. Quer continuar
+              buscando neles também ou ver só o que já foi encontrado?
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  resolverContinuarOndaRef.current?.(false);
+                  resolverContinuarOndaRef.current = null;
+                }}
+                style={{
+                  background: 'transparent',
+                  border: `1px solid ${BORDER}`,
+                  color: TEXT,
+                  padding: '9px 16px',
+                  fontSize: 12.5,
+                  cursor: 'pointer',
+                  borderRadius: 6
+                }}
+              >
+                Ver só o já achado
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resolverContinuarOndaRef.current?.(true);
+                  resolverContinuarOndaRef.current = null;
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #c4a86f 0%, #ab8e5c 100%)',
+                  border: '1px solid rgba(245,227,168,0.4)',
+                  color: '#181818',
+                  fontWeight: 700,
+                  padding: '9px 16px',
+                  fontSize: 12.5,
+                  cursor: 'pointer',
+                  borderRadius: 6,
+                  boxShadow: '0 4px 14px rgba(171,142,92,0.3)'
+                }}
+              >
+                Continuar buscando
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═════════════════════════════════════════════════════════════════
           MODAL DE AJUDA / FALAR COM A IA (+40% LARGURA E ALTURA)
@@ -1909,7 +2376,108 @@ export default function ProcessTracker({
           </div>
         </div>
       </div>
+
+      <DevStageSimulator open={devSimOpen} onOpenChange={setDevSimOpen} onSimular={simularEtapa} />
     </div>
+  );
+}
+
+/** Botão flutuante "Em desenvolvimento": abre um painel para pular direto para qualquer etapa do layout. */
+function DevStageSimulator({
+  open,
+  onOpenChange,
+  onSimular
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSimular: (etapa: 'passo1' | 'passo2' | 'passo3' | 'passo4' | 'varrendo' | 'organizando' | 'nao-encontrado' | 'resultado') => void;
+}) {
+  const ETAPAS: { etapa: Parameters<typeof onSimular>[0]; label: string }[] = [
+    { etapa: 'passo1', label: 'Passo 1 · Como buscar' },
+    { etapa: 'passo2', label: 'Passo 2 · Onde procurar' },
+    { etapa: 'passo3', label: 'Passo 3 · Avisos' },
+    { etapa: 'passo4', label: 'Passo 4 · Revisar e consultar' },
+    { etapa: 'varrendo', label: 'Varrendo bases judiciais' },
+    { etapa: 'organizando', label: 'Organizando informações (transição)' },
+    { etapa: 'nao-encontrado', label: 'Nenhum processo localizado' },
+    { etapa: 'resultado', label: 'Resultado com processos' }
+  ];
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        aria-label="Simular etapas do layout (ferramenta de desenvolvimento)"
+        style={{
+          position: 'fixed',
+          left: 76,
+          bottom: 20,
+          zIndex: 400,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 44,
+          height: 44,
+          borderRadius: '50%',
+          background: 'rgba(20,20,20,0.92)',
+          border: `1px solid ${BORDER}`,
+          color: BLUE_LIGHT,
+          cursor: 'pointer',
+          boxShadow: '0 10px 24px -8px rgba(0,0,0,0.6)'
+        }}
+      >
+        <FlaskConical size={20} strokeWidth={1.8} />
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: 'fixed',
+            left: 76,
+            bottom: 72,
+            zIndex: 400,
+            width: 260,
+            background: 'rgba(20,20,20,0.95)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: `1px solid ${BORDER}`,
+            borderRadius: 10,
+            padding: 14,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.45)'
+          }}
+        >
+          <div style={{ fontSize: 11, letterSpacing: 1, color: MUTED, fontWeight: 700, marginBottom: 10 }}>
+            EM DESENVOLVIMENTO · SIMULAR ETAPA
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {ETAPAS.map(({ etapa, label }) => (
+              <button
+                key={etapa}
+                type="button"
+                onClick={() => {
+                  onSimular(etapa);
+                  onOpenChange(false);
+                }}
+                style={{
+                  textAlign: 'left',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: 6,
+                  color: TEXT,
+                  fontSize: 12,
+                  padding: '8px 10px',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s ease'
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1917,9 +2485,9 @@ export default function ProcessTracker({
 function FontesComErroAviso({ itens }: { itens: ScanItem[] }) {
   const comErro = itens.flatMap(i =>
     [
-      i.infosimples?.status === 'error' ? { chave: `${i.label} (Infosimples)`, erro: i.infosimples.erro } : null,
-      i.datajud?.status === 'error' ? { chave: `${i.label} (DataJud)`, erro: i.datajud.erro } : null
-    ].filter((x): x is { chave: string; erro: string | undefined } => x !== null)
+      i.infosimples?.status === 'error' ? { chave: `${i.label}-infosimples`, label: i.label, erro: i.infosimples.erro } : null,
+      i.datajud?.status === 'error' ? { chave: `${i.label}-datajud`, label: `${i.label} (DataJud)`, erro: i.datajud.erro } : null
+    ].filter((x): x is { chave: string; label: string; erro: string | undefined } => x !== null)
   );
   const totalConsultas = itens.reduce((sum, i) => sum + (i.infosimples ? 1 : 0) + (i.datajud ? 1 : 0), 0);
   if (comErro.length === 0) return null;
@@ -1948,7 +2516,7 @@ function FontesComErroAviso({ itens }: { itens: ScanItem[] }) {
       <ul style={{ margin: 0, paddingLeft: 18, color: MUTED }}>
         {comErro.map(i => (
           <li key={i.chave}>
-            <strong style={{ color: TEXT }}>{i.chave}:</strong> {i.erro}
+            <strong style={{ color: TEXT }}>{i.label}:</strong> {i.erro}
           </li>
         ))}
       </ul>
@@ -1956,179 +2524,186 @@ function FontesComErroAviso({ itens }: { itens: ScanItem[] }) {
   );
 }
 
-/** Barra de progresso de uma única sub-fonte (Infosimples ou DataJud) dentro do card do tribunal. */
-function SubFonteBar({
-  label,
-  cor,
-  progresso,
-  tribunal,
-  onCancelar,
-  cancelando
-}: {
-  label: string;
-  cor: string;
-  progresso: ScanFonteProgresso;
-  tribunal: string;
-  onCancelar: () => void;
-  cancelando: boolean;
-}) {
-  const liveElapsedMs =
-    progresso.status === 'loading' && progresso.startedAt ? Date.now() - progresso.startedAt : progresso.elapsedMs ?? 0;
+/** Aviso dos processos que a fonte encontrou mas o checkbox "somente autor" descartou (pesquisado é Réu). */
+function DescartadosPorPoloAviso({ itens }: { itens: { numero: string; tribunal: string; autor?: string }[] }) {
+  if (itens.length === 0) return null;
+  return (
+    <div
+      role="alert"
+      style={{
+        width: '100%',
+        maxWidth: 720,
+        boxSizing: 'border-box',
+        margin: '0 0 16px',
+        padding: '12px 16px',
+        borderRadius: 4,
+        border: `1px solid ${WARN}`,
+        background: 'rgba(212,166,95,0.1)',
+        color: TEXT,
+        fontSize: 12.5,
+        lineHeight: 1.5,
+        textAlign: 'left'
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, marginBottom: 6 }}>
+        <AlertTriangle size={15} style={{ color: WARN }} />
+        {itens.length} processo(s) encontrado(s), mas ocultado(s) pelo filtro "somente Autor"
+      </div>
+      <ul style={{ margin: 0, paddingLeft: 18, color: MUTED }}>
+        {itens.map(i => (
+          <li key={`${i.tribunal}-${i.numero}`}>
+            <strong style={{ color: TEXT }}>
+              {i.tribunal} ({i.numero}):
+            </strong>{' '}
+            pesquisado é Réu{i.autor ? ` — Autor: ${i.autor}` : ''}, não Autor.
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** % estimado de uma sub-fonte (curva assintótica 1 - e^-x: cresce rápido no início, nunca trava num teto fixo). */
+function pctDaSubfonte(progresso: ScanFonteProgresso, tribunal: string, label: string): number {
+  if (progresso.status === 'found' || progresso.status === 'not-found' || progresso.status === 'error') return 100;
+  if (progresso.status !== 'loading') return 0;
+  const liveElapsedMs = progresso.startedAt ? Date.now() - progresso.startedAt : 0;
   const avgMs = getAvgMs(`${tribunal} (${label})`);
-  const isOverdue = progresso.status === 'loading' && liveElapsedMs > avgMs;
-  const estimatedPct =
-    progresso.status === 'found' || progresso.status === 'not-found' || progresso.status === 'error'
+  return Math.min(99, Math.round((1 - Math.exp(-liveElapsedMs / avgMs)) * 100));
+}
+
+/** Deriva o status geral do tribunal (prioridade found > loading > pending > error > cancelled > not-found). */
+function statusGeralDoItem(item: ScanItem): ScanStatus {
+  const subfontes = [item.infosimples, item.datajud].filter((f): f is ScanFonteProgresso => !!f);
+  return subfontes.some(f => f.status === 'found')
+    ? 'found'
+    : subfontes.some(f => f.status === 'loading')
+    ? 'loading'
+    : subfontes.some(f => f.status === 'pending')
+    ? 'pending'
+    : subfontes.some(f => f.status === 'error')
+    ? 'error'
+    : subfontes.every(f => f.status === 'cancelled')
+    ? 'cancelled'
+    : 'not-found';
+}
+
+/** Linha única por tribunal (ponto de status + nome + barra + tempo decorrido), a partir de mockup. */
+function ScanRow({ item }: { item: ScanItem }) {
+  const subfontes = [item.infosimples, item.datajud].filter((f): f is ScanFonteProgresso => !!f);
+  const statusGeral = statusGeralDoItem(item);
+
+  const isOverdue = subfontes.some(f => {
+    if (f.status !== 'loading' || !f.startedAt) return false;
+    const label = f === item.infosimples ? 'Infosimples' : 'DataJud (CNJ)';
+    return Date.now() - f.startedAt > getAvgMs(`${item.label} (${label})`);
+  });
+
+  const emAndamento = subfontes.filter(f => f.status === 'loading');
+  const pct =
+    statusGeral === 'found' ||
+    statusGeral === 'not-found' ||
+    statusGeral === 'error' ||
+    statusGeral === 'cancelled'
       ? 100
-      : progresso.status === 'loading'
-      ? // Curva assintótica (1 - e^-x): cresce rápido no início e desacelera perto de 99%, mas nunca
-        // trava num teto fixo — mesmo bem além da média histórica a barra segue avançando visivelmente,
-        // em vez de parecer travada enquanto se espera uma resposta real que pode demorar muito mais.
-        Math.min(99, Math.round((1 - Math.exp(-liveElapsedMs / avgMs)) * 100))
+      : emAndamento.length > 0
+      ? Math.round(
+          emAndamento.reduce((sum, f) => {
+            const label = f === item.infosimples ? 'Infosimples' : 'DataJud (CNJ)';
+            return sum + pctDaSubfonte(f, item.label, label);
+          }, 0) / emAndamento.length
+        )
       : 0;
-  const elapsedLabel = liveElapsedMs > 0 ? `${(liveElapsedMs / 1000).toFixed(1)}s` : null;
 
-  const statusTexto =
-    progresso.status === 'pending'
-      ? label === 'DataJud (CNJ)'
-        ? 'De prontidão'
-        : 'Aguardando'
-      : progresso.status === 'loading'
-      ? isOverdue
-        ? elapsedLabel ?? 'Em andamento...'
-        : `${estimatedPct}% · ${elapsedLabel}`
-      : progresso.status === 'found'
-      ? elapsedLabel
-        ? `Encontrado · ${elapsedLabel}`
-        : 'Encontrado'
-      : progresso.status === 'not-found'
-      ? elapsedLabel
-        ? `Sem processos · ${elapsedLabel}`
-        : 'Sem processos'
-      : progresso.status === 'error'
-      ? elapsedLabel
-        ? `Falhou · ${elapsedLabel}`
-        : 'Falhou'
-      : 'Cancelado';
+  const corPonto =
+    statusGeral === 'found'
+      ? MOSS_GREEN
+      : statusGeral === 'error'
+      ? WARN
+      : statusGeral === 'not-found' || statusGeral === 'cancelled'
+      ? RUBY_RED
+      : INPUT_BORDER;
 
-  const stageLabel =
-    progresso.status === 'pending' && label === 'DataJud (CNJ)'
-      ? 'Consulta a API pública do CNJ assim que a Infosimples achar o número do processo neste tribunal'
-      : progresso.status === 'loading'
-      ? isOverdue
-        ? `Demorando mais que o normal (média ${(avgMs / 1000).toFixed(1)}s) — sistema pode estar lento`
-        : liveElapsedMs < 400
-        ? `Enviando requisição à ${label}...`
-        : label === 'DataJud (CNJ)'
-        ? 'Aguardando resposta da API do CNJ...'
-        : 'Aguardando resposta do tribunal...'
-      : null;
+  const corBarra =
+    statusGeral === 'found'
+      ? MOSS_GREEN
+      : statusGeral === 'error'
+      ? WARN
+      : statusGeral === 'not-found' || statusGeral === 'cancelled'
+      ? RUBY_RED
+      : isOverdue
+      ? WARN
+      : BLUE;
+
+  // Tempo decorrido desde o início da sub-fonte mais antiga ainda em andamento (ou, se já concluído,
+  // o maior elapsedMs registrado entre as sub-fontes) — exibido em segundos, ex. "3.1s".
+  const elapsedMs =
+    emAndamento.length > 0
+      ? Math.max(...emAndamento.map(f => (f.startedAt ? Date.now() - f.startedAt : 0)))
+      : Math.max(0, ...subfontes.map(f => f.elapsedMs ?? 0));
+  const elapsedLabel = `${(elapsedMs / 1000).toFixed(1)}s`;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', rowGap: 2, gap: 6, minWidth: 0 }}>
-        <span style={{ width: 5, height: 5, borderRadius: '50%', background: cor, flex: 'none' }} />
-        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2, color: cor, textTransform: 'uppercase', flexShrink: 0 }}>
-          {label}
-        </span>
-        <span
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '7px 10px',
+        background: 'rgba(10,10,10,0.6)',
+        border: `1px solid ${BORDER}`,
+        borderRadius: 4,
+        animation: 'bf-fadein 0.35s ease both'
+      }}
+    >
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: corPonto, flex: 'none' }} />
+      <span
+        style={{
+          fontSize: 12.5,
+          fontWeight: 600,
+          color: TEXT,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          width: 130,
+          flex: 'none'
+        }}
+        title={item.label}
+      >
+        {item.label}
+      </span>
+      <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+        <div
           style={{
-            marginLeft: 'auto',
-            fontSize: 11,
-            fontWeight: 600,
-            flexShrink: 0,
-            maxWidth: '100%',
-            overflowWrap: 'anywhere',
-            color:
-              progresso.status === 'found'
-                ? MOSS_GREEN
-                : progresso.status === 'error'
-                ? WARN
-                : progresso.status === 'not-found' || progresso.status === 'cancelled'
-                ? RUBY_RED
-                : MUTED
+            height: '100%',
+            width: `${pct}%`,
+            background: corBarra,
+            borderRadius: 2,
+            transition: 'width 0.15s linear, background-color 0.4s ease'
           }}
-        >
-          {statusTexto}
+        />
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          gap: 6,
+          fontSize: 11,
+          color: MUTED,
+          flex: 'none',
+          minWidth: 74,
+          textAlign: 'right'
+        }}
+      >
+        <span style={{ color: pct > 0 ? TEXT : MUTED, fontWeight: 600, minWidth: 28, textAlign: 'right' }}>
+          {pct}%
         </span>
-        {progresso.status === 'loading' && (
-          <button
-            type="button"
-            onClick={onCancelar}
-            disabled={cancelando}
-            title={`Cancelar consulta a ${label} (${tribunal})`}
-            aria-label={`Cancelar consulta a ${label} (${tribunal})`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'transparent',
-              border: 'none',
-              padding: 2,
-              cursor: cancelando ? 'default' : 'pointer',
-              opacity: cancelando ? 0.4 : 0.7,
-              color: MUTED,
-              flexShrink: 0
-            }}
-          >
-            <XCircle size={13} strokeWidth={2} />
-          </button>
-        )}
+        <span style={{ opacity: 0.35 }}>·</span>
+        <span style={{ minWidth: 32, textAlign: 'right' }}>
+          {elapsedLabel}
+        </span>
       </div>
-
-      <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', position: 'relative' }}>
-        {progresso.status === 'pending' && <div style={{ height: '100%', width: 0 }} />}
-        {progresso.status === 'loading' &&
-          (isOverdue ? (
-            // Já passou da média: uma % "estimada" não significa mais nada útil (pode faltar 1s
-            // ou 1min) — troca para barra indeterminada, que deixa claro que ainda está rodando
-            // sem fingir uma previsão de quanto falta.
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                left: '-40%',
-                width: '40%',
-                background: WARN,
-                borderRadius: 2,
-                animation: 'bf-indeterminate 1.1s ease-in-out infinite'
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                height: '100%',
-                width: `${estimatedPct}%`,
-                background: BLUE,
-                borderRadius: 2,
-                transition: 'width 0.15s linear'
-              }}
-            />
-          ))}
-        {(progresso.status === 'found' ||
-          progresso.status === 'not-found' ||
-          progresso.status === 'cancelled' ||
-          progresso.status === 'error') && (
-          <div
-            style={{
-              height: '100%',
-              width: '100%',
-              borderRadius: 2,
-              background: progresso.status === 'found' ? MOSS_GREEN : progresso.status === 'error' ? WARN : RUBY_RED
-            }}
-          />
-        )}
-      </div>
-
-      {progresso.status === 'error' && progresso.erro && (
-        <div title={progresso.erro} style={{ fontSize: 10, color: WARN, lineHeight: 1.3, overflowWrap: 'anywhere', paddingLeft: 11 }}>
-          {progresso.erro}
-        </div>
-      )}
-
-      {stageLabel && (
-        <div style={{ fontSize: 10, color: isOverdue ? '#d4a65f' : MUTED, lineHeight: 1.3, paddingLeft: 11 }}>{stageLabel}</div>
-      )}
     </div>
   );
 }
@@ -2167,9 +2742,9 @@ function channelChipStyle(active: boolean): React.CSSProperties {
   return {
     padding: '8px 16px',
     borderRadius: 20,
-    border: `1px solid ${active ? BLUE : INPUT_BORDER}`,
-    background: active ? 'rgba(36,85,184,0.25)' : 'transparent',
-    color: active ? TEXT : MUTED,
+    border: `1px solid ${active ? '#c4a86f' : INPUT_BORDER}`,
+    background: active ? 'rgba(196,168,111,0.2)' : 'transparent',
+    color: active ? '#f5e3a8' : MUTED,
     fontSize: 12.5,
     fontWeight: 600,
     cursor: 'pointer'
@@ -2190,14 +2765,96 @@ const inputStyle: React.CSSProperties = {
 };
 
 const primaryButtonStyle: React.CSSProperties = {
-  background: BLUE,
-  color: '#ffffff',
-  border: 'none',
+  background: 'linear-gradient(135deg, #c4a86f 0%, #ab8e5c 100%)',
+  color: '#181818',
+  border: '1px solid rgba(245,227,168,0.4)',
   padding: '13px 28px',
   fontFamily: 'inherit',
   fontSize: 12.5,
   letterSpacing: 1.5,
-  fontWeight: 600,
+  fontWeight: 700,
+  borderRadius: 6,
   cursor: 'pointer',
-  whiteSpace: 'nowrap'
+  whiteSpace: 'nowrap',
+  boxShadow: '0 4px 16px rgba(171,142,92,0.35)'
 };
+
+function ToasterCard({ toaster, onDismiss }: { toaster: ToasterEvent; onDismiss: () => void }) {
+  const config =
+    toaster.status === 'found'
+      ? { color: MOSS_GREEN, icon: <CheckCircle2 size={15} style={{ color: MOSS_GREEN, flexShrink: 0 }} /> }
+      : toaster.status === 'error'
+      ? { color: WARN, icon: <AlertTriangle size={15} style={{ color: WARN, flexShrink: 0 }} /> }
+      : toaster.status === 'not-found'
+      ? { color: RUBY_RED, icon: <XCircle size={15} style={{ color: RUBY_RED, flexShrink: 0 }} /> }
+      : toaster.status === 'cancelled'
+      ? { color: MUTED, icon: <XCircle size={15} style={{ color: MUTED, flexShrink: 0 }} /> }
+      : { color: BLUE, icon: <Info size={15} style={{ color: BLUE, flexShrink: 0 }} /> };
+
+  return (
+    <div
+      style={{
+        background: '#1c1c1c',
+        border: `1px solid ${config.color}`,
+        borderLeft: `3.5px solid ${config.color}`,
+        borderRadius: 8,
+        padding: '10px 12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        position: 'relative',
+        animation: 'bf-fadein 0.25s ease both',
+        boxShadow: '0 4px 14px rgba(0,0,0,0.25)'
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          {config.icon}
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: config.color,
+              letterSpacing: -0.1,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}
+          >
+            {toaster.title}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <span style={{ fontSize: 10, color: MUTED, opacity: 0.7 }}>
+            {toaster.timestamp}
+          </span>
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Remover notificação"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: MUTED,
+              padding: 0,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: 0.6,
+              transition: 'opacity 0.15s ease'
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '0.6')}
+          >
+            <X size={13} />
+          </button>
+        </div>
+      </div>
+      <p style={{ margin: 0, fontSize: 12, color: TEXT, lineHeight: 1.4, paddingLeft: 21, wordBreak: 'break-word' }}>
+        {toaster.message}
+      </p>
+    </div>
+  );
+}
+

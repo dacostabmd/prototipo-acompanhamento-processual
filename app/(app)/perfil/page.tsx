@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useRef, useState, FormEvent } from 'react';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   User,
   Mail,
@@ -19,7 +20,11 @@ import {
   Sparkles,
   ArrowRight,
   BadgeCheck,
-  FileBadge
+  FileBadge,
+  Activity,
+  SlidersHorizontal,
+  Bell,
+  Monitor
 } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { formatDocumento, isValidCpf, formatPhone, formatCpf, cleanDigits } from '@/lib/format';
@@ -36,6 +41,15 @@ interface Dados {
   documentoTipo: string;
 }
 
+type AbaPerfil = 'perfil' | 'seguranca' | 'atividade' | 'preferencias';
+
+const ABAS: { id: AbaPerfil; label: string; icon: typeof User }[] = [
+  { id: 'perfil', label: 'Perfil', icon: User },
+  { id: 'seguranca', label: 'Segurança', icon: KeyRound },
+  { id: 'atividade', label: 'Atividade', icon: Activity },
+  { id: 'preferencias', label: 'Preferências', icon: SlidersHorizontal }
+];
+
 export default function Perfil() {
   const [d, setD] = useState<Dados>({
     nome: '',
@@ -50,6 +64,15 @@ export default function Perfil() {
   });
   const [userId, setUserId] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [aba, setAba] = useState<AbaPerfil>('perfil');
+  const direcaoRef = useRef(0);
+
+  const trocarAba = (novaAba: AbaPerfil) => {
+    const indexAtual = ABAS.findIndex(item => item.id === aba);
+    const indexNovo = ABAS.findIndex(item => item.id === novaAba);
+    direcaoRef.current = indexNovo > indexAtual ? 1 : indexNovo < indexAtual ? -1 : 0;
+    setAba(novaAba);
+  };
 
   // Form states
   const [nome, setNome] = useState('');
@@ -315,7 +338,7 @@ export default function Perfil() {
     : 'U';
 
   return (
-    <div className="mx-auto max-w-4xl p-6 sm:p-10">
+    <div className="mx-auto max-w-6xl p-6 sm:p-10">
       {/* HEADER HERO */}
       <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
@@ -323,26 +346,10 @@ export default function Perfil() {
             {userInitials}
           </div>
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Meu Perfil</h1>
-              <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getRoleBadgeColor(d.role)}`}>
-                <BadgeCheck size={12} />
-                {getRoleLabel(d.role)}
-              </span>
-            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Meu Perfil</h1>
             <p className="mt-1 text-sm text-white/60">
               Gerencie suas informações cadastrais, contatos e configurações de segurança da conta.
             </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-            </span>
-            Conta Ativa
           </div>
         </div>
       </div>
@@ -365,323 +372,416 @@ export default function Perfil() {
         </div>
       )}
 
-      {/* GRID PRINCIPAL */}
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* COLUNA ESQUERDA: FORMULÁRIO DE DADOS PESSOAIS (2 colunas) */}
-        <div className="lg:col-span-2">
-          <form onSubmit={handleSalvarDados} className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl sm:p-8">
-            <div className="flex items-center justify-between border-b border-white/10 pb-5">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white">
-                  <User size={20} strokeWidth={1.8} />
-                </span>
-                <div>
-                  <h2 className="text-base font-semibold text-white">Dados Cadastrais</h2>
-                  <p className="text-xs text-white/50">Mantenha seus dados e contatos de comunicação atualizados</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-              {/* Nome Completo */}
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
-                  Nome Completo
-                </label>
-                <div className="relative mt-2">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
-                    <User size={16} />
-                  </div>
-                  <input
-                    type="text"
-                    value={nome}
-                    onChange={e => setNome(e.target.value)}
-                    placeholder="Seu nome completo"
-                    className="w-full rounded-xl border border-white/15 bg-black/40 py-2.5 pr-4 pl-10 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
-                  />
-                </div>
-              </div>
-
-              {/* E-mail */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
-                  E-mail de Acesso
-                </label>
-                <div className="relative mt-2">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
-                    <Mail size={16} />
-                  </div>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="seu.email@exemplo.com"
-                    className="w-full rounded-xl border border-white/15 bg-black/40 py-2.5 pr-4 pl-10 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
-                  />
-                </div>
-              </div>
-
-              {/* Telefone / WhatsApp */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
-                  Telefone / WhatsApp
-                </label>
-                <div className="relative mt-2">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
-                    <Phone size={16} />
-                  </div>
-                  <input
-                    type="text"
-                    value={telefone}
-                    onChange={e => setTelefone(formatPhone(cleanDigits(e.target.value)))}
-                    placeholder="(11) 98765-4321"
-                    maxLength={15}
-                    className="w-full rounded-xl border border-white/15 bg-black/40 py-2.5 pr-4 pl-10 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
-                  />
-                </div>
-              </div>
-
-              {/* CPF ou Documento Fixo */}
-              {isConsultante ? (
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
-                    {d.documentoTipo === 'cnpj' ? 'CNPJ do Titular' : 'CPF do Titular'}
-                  </label>
-                  <div className="relative mt-2">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
-                      <Lock size={16} />
-                    </div>
-                    <input
-                      type="text"
-                      disabled
-                      value={formatDocumento(d.documento) || '—'}
-                      className="w-full cursor-not-allowed rounded-xl border border-white/10 bg-white/5 py-2.5 pr-4 pl-10 text-sm text-white/60 outline-none"
-                    />
-                  </div>
-                  <p className="mt-1 text-[11px] text-white/40">Documento vinculado exclusivamente ao seu plano de consulta avulsa.</p>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
-                    CPF
-                  </label>
-                  <div className="relative mt-2">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
-                      <CreditCard size={16} />
-                    </div>
-                    <input
-                      type="text"
-                      value={cpf}
-                      onChange={e => setCpf(formatCpf(cleanDigits(e.target.value)))}
-                      placeholder="000.000.000-00"
-                      maxLength={14}
-                      className="w-full rounded-xl border border-white/15 bg-black/40 py-2.5 pr-4 pl-10 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Registro Profissional / OAB */}
-              {!isConsultante && (
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
-                    Registro OAB / Profissional
-                  </label>
-                  <div className="relative mt-2">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
-                      <FileBadge size={16} />
-                    </div>
-                    <input
-                      type="text"
-                      value={oab}
-                      onChange={e => setOab(e.target.value)}
-                      placeholder="Ex: 123456/SP"
-                      className="w-full rounded-xl border border-white/15 bg-black/40 py-2.5 pr-4 pl-10 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* BOTÃO SALVAR DADOS */}
-            <div className="mt-8 flex items-center justify-end border-t border-white/10 pt-5">
-              <button
-                type="submit"
-                disabled={salvandoDados}
-                className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 shadow-md transition-all hover:bg-neutral-100 hover:shadow-lg disabled:opacity-50"
-              >
-                {salvandoDados ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Salvando dados...
-                  </>
-                ) : (
-                  <>
-                    <Save size={16} />
-                    Salvar Alterações
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* SEGURANÇA E SENHA */}
-          <form onSubmit={handleSalvarSenha} className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl sm:p-8">
-            <div className="flex items-center justify-between border-b border-white/10 pb-5">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white">
-                  <KeyRound size={20} strokeWidth={1.8} />
-                </span>
-                <div>
-                  <h2 className="text-base font-semibold text-white">Segurança & Senha</h2>
-                  <p className="text-xs text-white/50">Atualize sua senha de autenticação na plataforma</p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setMostrarSenhas(prev => !prev)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
-              >
-                {mostrarSenhas ? <EyeOff size={14} /> : <Eye size={14} />}
-                {mostrarSenhas ? 'Ocultar' : 'Exibir'}
-              </button>
-            </div>
-
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {/* Senha Atual */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
-                  Senha Atual
-                </label>
-                <div className="relative mt-2">
-                  <input
-                    type={mostrarSenhas ? 'text' : 'password'}
-                    value={senhaAtual}
-                    onChange={e => setSenhaAtual(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full rounded-xl border border-white/15 bg-black/40 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
-                  />
-                </div>
-              </div>
-
-              {/* Nova Senha */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
-                  Nova Senha
-                </label>
-                <div className="relative mt-2">
-                  <input
-                    type={mostrarSenhas ? 'text' : 'password'}
-                    value={senhaNova}
-                    onChange={e => setSenhaNova(e.target.value)}
-                    placeholder="Mínimo 6 dígitos"
-                    className="w-full rounded-xl border border-white/15 bg-black/40 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
-                  />
-                </div>
-              </div>
-
-              {/* Confirmar Nova Senha */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
-                  Confirmar Nova Senha
-                </label>
-                <div className="relative mt-2">
-                  <input
-                    type={mostrarSenhas ? 'text' : 'password'}
-                    value={senhaConfirma}
-                    onChange={e => setSenhaConfirma(e.target.value)}
-                    placeholder="Repita a nova senha"
-                    className="w-full rounded-xl border border-white/15 bg-black/40 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-5">
-              <span className="text-xs text-white/40">
-                A senha deve conter ao menos 6 caracteres para garantir a segurança.
-              </span>
-              <button
-                type="submit"
-                disabled={salvandoSenha || !senhaNova || !senhaAtual}
-                className="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-white/25 disabled:opacity-40"
-              >
-                {salvandoSenha ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Atualizando...
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={16} />
-                    Atualizar Senha
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* COLUNA DIREITA: RESUMO E ESTATÍSTICAS DA CONTA */}
-        <div className="space-y-6">
-          {/* Card de Estatísticas */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60">Atividade da Conta</h3>
-
-            <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/30 p-4">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white">
-                  <Gavel size={18} />
-                </span>
-                <div>
-                  <p className="text-xs text-white/50">Processos Salvos</p>
-                  <p className="text-xl font-bold text-white">{d.total}</p>
-                </div>
-              </div>
-
-              <Link
-                href="/processos"
-                className="flex items-center gap-1 text-xs font-medium text-white/70 hover:text-white"
-              >
-                Ver lista
-                <ArrowRight size={13} />
-              </Link>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-white/50">Nível de Acesso</span>
-                <span className="text-xs font-semibold text-white">{getRoleLabel(d.role)}</span>
-              </div>
-              <div className="mt-3 flex items-center justify-between">
-                <span className="text-xs text-white/50">Simulação de Pagante</span>
-                <span className="text-xs font-semibold text-emerald-400">Ativa no Navegador</span>
-              </div>
-            </div>
-
-            <Link
-              href="/consulta"
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-110"
-            >
-              <Sparkles size={16} />
-              Realizar Nova Consulta
-            </Link>
+      {/* GRID PRINCIPAL: NAV LATERAL + CONTEÚDO */}
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[220px_1fr]">
+        {/* NAV LATERAL */}
+        <nav className="h-fit rounded-3xl border border-white/10 bg-white/5 p-2.5 shadow-xl backdrop-blur-xl lg:sticky lg:top-6">
+          <div className="flex gap-1.5 overflow-x-auto lg:flex-col lg:overflow-visible" role="tablist">
+            {ABAS.map(item => {
+              const Icon = item.icon;
+              const ativo = aba === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={ativo}
+                  onClick={() => trocarAba(item.id)}
+                  className={`flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all text-left outline-none border ${
+                    ativo
+                      ? 'border-[rgba(201,162,75,0.4)] bg-[rgba(201,162,75,0.14)] text-[#f5e3a8] shadow-sm'
+                      : 'border-transparent bg-transparent text-white/70 hover:border-white/10 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <Icon size={17} strokeWidth={1.8} className={ativo ? 'text-[#f5e3a8]' : 'text-white/60'} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
           </div>
+        </nav>
 
-          {/* Card de Informações de Segurança */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
-            <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/60">
-              <ShieldCheck size={15} className="text-emerald-400" />
-              Privacidade & Segurança
-            </h3>
-            <p className="mt-3 text-xs leading-relaxed text-white/50">
-              Seus dados de consulta são protegidos com criptografia de ponta a ponta. As consultas processuais respeitam a LGPD e as normas do CNJ.
-            </p>
-          </div>
+        {/* CONTEÚDO DA ABA ATIVA */}
+        <div className="min-w-0 overflow-hidden">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={aba}
+            initial={{ opacity: 0, y: direcaoRef.current * 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: direcaoRef.current * -16 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          >
+          {aba === 'perfil' && (
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+              <form onSubmit={handleSalvarDados} className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl sm:p-8 xl:col-span-2">
+                <div className="flex items-center justify-between border-b border-white/10 pb-5">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white">
+                      <User size={20} strokeWidth={1.8} />
+                    </span>
+                    <div>
+                      <h2 className="text-base font-semibold text-white">Dados Cadastrais</h2>
+                      <p className="text-xs text-white/50">Mantenha seus dados e contatos de comunicação atualizados</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  {/* Nome Completo */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
+                      Nome Completo
+                    </label>
+                    <div className="relative mt-2">
+                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
+                        <User size={16} />
+                      </div>
+                      <input
+                        type="text"
+                        value={nome}
+                        onChange={e => setNome(e.target.value)}
+                        placeholder="Seu nome completo"
+                        className="w-full rounded-xl border border-white/15 bg-black/40 py-2.5 pr-4 pl-10 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* E-mail */}
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
+                      E-mail de Acesso
+                    </label>
+                    <div className="relative mt-2">
+                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
+                        <Mail size={16} />
+                      </div>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        placeholder="seu.email@exemplo.com"
+                        className="w-full rounded-xl border border-white/15 bg-black/40 py-2.5 pr-4 pl-10 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Telefone / WhatsApp */}
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
+                      Telefone / WhatsApp
+                    </label>
+                    <div className="relative mt-2">
+                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
+                        <Phone size={16} />
+                      </div>
+                      <input
+                        type="text"
+                        value={telefone}
+                        onChange={e => setTelefone(formatPhone(cleanDigits(e.target.value)))}
+                        placeholder="(11) 98765-4321"
+                        maxLength={15}
+                        className="w-full rounded-xl border border-white/15 bg-black/40 py-2.5 pr-4 pl-10 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* CPF ou Documento Fixo */}
+                  {isConsultante ? (
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
+                        {d.documentoTipo === 'cnpj' ? 'CNPJ do Titular' : 'CPF do Titular'}
+                      </label>
+                      <div className="relative mt-2">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
+                          <Lock size={16} />
+                        </div>
+                        <input
+                          type="text"
+                          disabled
+                          value={formatDocumento(d.documento) || '—'}
+                          className="w-full cursor-not-allowed rounded-xl border border-white/10 bg-white/5 py-2.5 pr-4 pl-10 text-sm text-white/60 outline-none"
+                        />
+                      </div>
+                      <p className="mt-1 text-[11px] text-white/40">Documento vinculado exclusivamente ao seu plano de consulta avulsa.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
+                        CPF
+                      </label>
+                      <div className="relative mt-2">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
+                          <CreditCard size={16} />
+                        </div>
+                        <input
+                          type="text"
+                          value={cpf}
+                          onChange={e => setCpf(formatCpf(cleanDigits(e.target.value)))}
+                          placeholder="000.000.000-00"
+                          maxLength={14}
+                          className="w-full rounded-xl border border-white/15 bg-black/40 py-2.5 pr-4 pl-10 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Registro Profissional / OAB */}
+                  {!isConsultante && (
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
+                        Registro OAB / Profissional
+                      </label>
+                      <div className="relative mt-2">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-white/40">
+                          <FileBadge size={16} />
+                        </div>
+                        <input
+                          type="text"
+                          value={oab}
+                          onChange={e => setOab(e.target.value)}
+                          placeholder="Ex: 123456/SP"
+                          className="w-full rounded-xl border border-white/15 bg-black/40 py-2.5 pr-4 pl-10 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* BOTÃO SALVAR DADOS */}
+                <div className="mt-8 flex items-center justify-end border-t border-white/10 pt-5">
+                  <button
+                    type="submit"
+                    disabled={salvandoDados}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/15 px-5 py-2.5 text-sm font-semibold text-amber-200 shadow-md transition-all hover:bg-amber-400/25 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {salvandoDados ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Salvando dados...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={16} />
+                        Salvar Alterações
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+
+              {/* Card de Informações de Segurança (resumo) */}
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/60">
+                  <ShieldCheck size={15} className="text-emerald-400" />
+                  Privacidade & Segurança
+                </h3>
+                <p className="mt-3 text-xs leading-relaxed text-white/50">
+                  Seus dados de consulta são protegidos com criptografia de ponta a ponta. As consultas processuais respeitam a LGPD e as normas do CNJ.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {aba === 'seguranca' && (
+            <form onSubmit={handleSalvarSenha} className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl sm:p-8">
+              <div className="flex items-center justify-between border-b border-white/10 pb-5">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white">
+                    <KeyRound size={20} strokeWidth={1.8} />
+                  </span>
+                  <div>
+                    <h2 className="text-base font-semibold text-white">Segurança & Senha</h2>
+                    <p className="text-xs text-white/50">Atualize sua senha de autenticação na plataforma</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMostrarSenhas(prev => !prev)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+                >
+                  {mostrarSenhas ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {mostrarSenhas ? 'Ocultar' : 'Exibir'}
+                </button>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {/* Senha Atual */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
+                    Senha Atual
+                  </label>
+                  <div className="relative mt-2">
+                    <input
+                      type={mostrarSenhas ? 'text' : 'password'}
+                      value={senhaAtual}
+                      onChange={e => setSenhaAtual(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full rounded-xl border border-white/15 bg-black/40 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
+                    />
+                  </div>
+                </div>
+
+                {/* Nova Senha */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
+                    Nova Senha
+                  </label>
+                  <div className="relative mt-2">
+                    <input
+                      type={mostrarSenhas ? 'text' : 'password'}
+                      value={senhaNova}
+                      onChange={e => setSenhaNova(e.target.value)}
+                      placeholder="Mínimo 6 dígitos"
+                      className="w-full rounded-xl border border-white/15 bg-black/40 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
+                    />
+                  </div>
+                </div>
+
+                {/* Confirmar Nova Senha */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-white/70">
+                    Confirmar Nova Senha
+                  </label>
+                  <div className="relative mt-2">
+                    <input
+                      type={mostrarSenhas ? 'text' : 'password'}
+                      value={senhaConfirma}
+                      onChange={e => setSenhaConfirma(e.target.value)}
+                      placeholder="Repita a nova senha"
+                      className="w-full rounded-xl border border-white/15 bg-black/40 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-white/40 focus:ring-1 focus:ring-white/30"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-5">
+                <span className="text-xs text-white/40">
+                  A senha deve conter ao menos 6 caracteres para garantir a segurança.
+                </span>
+                <button
+                  type="submit"
+                  disabled={salvandoSenha || !senhaNova || !senhaAtual}
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/15 px-5 py-2.5 text-sm font-semibold text-amber-200 shadow-md transition-all hover:bg-amber-400/25 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {salvandoSenha ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Atualizando...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck size={16} />
+                      Atualizar Senha
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {aba === 'atividade' && (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-white/60">Atividade da Conta</h3>
+
+                <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/30 p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white">
+                      <Gavel size={18} />
+                    </span>
+                    <div>
+                      <p className="text-xs text-white/50">Processos Salvos</p>
+                      <p className="text-xl font-bold text-white">{d.total}</p>
+                    </div>
+                  </div>
+
+                  <Link
+                    href="/processos"
+                    className="flex items-center gap-1 text-xs font-medium !text-white/70 hover:!text-white !no-underline"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <span>Ver lista</span>
+                    <ArrowRight size={13} />
+                  </Link>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-white/50">Nível de Acesso</span>
+                    <span className="text-xs font-semibold text-white">{getRoleLabel(d.role)}</span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-xs text-white/50">Simulação de Pagante</span>
+                    <span className="text-xs font-semibold text-emerald-400">Ativa no Navegador</span>
+                  </div>
+                </div>
+
+                <Link
+                  href="/consulta"
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/90 via-amber-400 to-amber-500/90 py-3 text-sm font-semibold !text-neutral-950 !no-underline shadow-md shadow-amber-950/20 transition-all hover:brightness-110 hover:shadow-amber-500/20 active:scale-[0.99]"
+                  style={{ color: '#0e0e0e', textDecoration: 'none' }}
+                >
+                  <Sparkles size={16} className="text-neutral-950" />
+                  <span className="font-semibold text-neutral-950" style={{ color: '#0e0e0e' }}>
+                    Realizar Nova Consulta
+                  </span>
+                </Link>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/60">
+                  <ShieldCheck size={15} className="text-emerald-400" />
+                  Privacidade & Segurança
+                </h3>
+                <p className="mt-3 text-xs leading-relaxed text-white/50">
+                  Seus dados de consulta são protegidos com criptografia de ponta a ponta. As consultas processuais respeitam a LGPD e as normas do CNJ.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {aba === 'preferencias' && (
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl sm:p-8">
+              <div className="flex items-center gap-3 border-b border-white/10 pb-5">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white">
+                  <SlidersHorizontal size={20} strokeWidth={1.8} />
+                </span>
+                <div>
+                  <h2 className="text-base font-semibold text-white">Preferências</h2>
+                  <p className="text-xs text-white/50">Ajustes de experiência de uso da plataforma</p>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/30 p-4">
+                  <div className="flex items-center gap-3">
+                    <Bell size={16} className="text-white/50" />
+                    <div>
+                      <p className="text-sm text-white">Notificações por e-mail</p>
+                      <p className="text-xs text-white/40">Receba avisos sobre novas movimentações processuais</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-medium text-white/40">Em breve</span>
+                </div>
+
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/30 p-4">
+                  <div className="flex items-center gap-3">
+                    <Monitor size={16} className="text-white/50" />
+                    <div>
+                      <p className="text-sm text-white">Tema da interface</p>
+                      <p className="text-xs text-white/40">Modo escuro ativo em toda a plataforma</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-medium text-white/40">Escuro</span>
+                </div>
+              </div>
+            </div>
+          )}
+          </motion.div>
+        </AnimatePresence>
         </div>
       </div>
     </div>
   );
 }
-

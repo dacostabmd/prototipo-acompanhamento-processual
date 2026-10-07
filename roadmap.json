@@ -3,6 +3,59 @@
   "criado_em": "2026-09-30",
   "features": [
     {
+      "id": "selecao-manual-estado-busca",
+      "titulo": "Seleção manual de estado (UF) para início de varredura processual + priorização no backend",
+      "modelo": "Dropdown de estados no Passo 4 (Revisar e Consultar) do Stepper com opção 'Automático (DDD)' ou escolha explícita de qualquer UF; reordenação da 1ª onda de economia de varredura no frontend e backend por tribunal estadual manual",
+      "status": "Implementada",
+      "log": [
+        "2026-10-07: a pedido do usuário, implementada a opção de escolher manualmente um estado (UF) no Passo 4 do Stepper (components/ProcessTracker.tsx, estado estadoManual). O usuário pode manter a detecção automática pelo DDD do celular ou forçar a busca para iniciar pelo tribunal do estado de sua preferência (ex: SP/TJSP, RJ/TJRJ, MG/TJMG, etc.).",
+        "2026-10-07: lib/ddd.ts expandido com ESTADOS_BRASIL (27 UFs e respectivos TJs) e a função tribunalByUf(uf). Função prioritizeByTribunalOrDdd() atualizada para priorizar o tribunal manual selecionado ou o DDD na 1ª onda de varredura.",
+        "2026-10-07: app/api/processos/route.ts integrado com o parâmetro 'state'/'forcedTj' no payload, garantindo que o backend execute a 1ª onda de consulta econômica focada no tribunal manual antes de disparar os demais. Validado com build de produção e tsc --noEmit."
+      ]
+    },
+    {
+      "id": "crm-juridico-kanban-bitrix",
+      "titulo": "Módulo CRM Jurídico na sidebar (/crm) com Pipeline Kanban, Tabela, Métricas e Integração Bitrix24",
+      "modelo": "Rota /crm adicionada à sidebar (lib/nav.ts com ícone Users); visualização em Kanban com estágios de funil (Novo Lead, Em Triagem, Análise Jurídica, Proposta Enviada, Contratado, Perdido) e modo Tabela; métricas de conversão e pipeline em tempo real; ações rápidas de WhatsApp, chamada telefônica, notas internas e sincronização com Bitrix24 Live",
+      "status": "Implementada",
+      "log": [
+        "2026-10-07: adicionado item de menu 'CRM' em lib/nav.ts ({ href: '/crm', label: 'CRM', icon: Users }) visível na barra de navegação global.",
+        "2026-10-07: criada a página app/(app)/crm/page.tsx com interface completa em tema dark/glass luxury. Inclui cards de métricas (Total de Leads, Novos/Triagem, Em Negociação, Pipeline Ativo R$ e Taxa de Conversão %), alternância fluida entre Kanban e Tabela com filtros de pesquisa e estágio.",
+        "2026-10-07: implementado modal rico de detalhes do lead com histórico processual, resumo jurídico da IA, linha do tempo de anotações internas, seletor de estágio de funil, link direto para WhatsApp com mensagem jurídica pré-formatada e botão de sincronização com /api/bitrix/lead. Inclui modal de cadastro manual de novo lead e persistência local (localStorage).",
+        "2026-10-07: rota /crm protegida no app/robots.ts contra indexação indevida. Validado com npx tsc --noEmit e npm run build (21 rotas estáticas/dinâmicas geradas com sucesso)."
+      ]
+    },
+    {
+      "id": "aba-configuracoes-sistema",
+      "titulo": "Aba e Página de Configurações (/configuracoes) com gestão de parâmetros de varredura, notificações, integrações e aparência",
+      "modelo": "Página /configuracoes com abas temáticas (Geral & Varredura, Notificações & Alertas, Integrações & APIs, Aparência & Interface WebGL), toggles interativos e persistência de preferências",
+      "status": "Implementada",
+      "log": [
+        "2026-10-07: adicionada a rota /configuracoes em lib/nav.ts e criada a página app/(app)/configuracoes/page.tsx com suporte a salvamento de preferências no navegador (limite por tribunal, ordenação padrão, otimizador de varredura paralela, webhook externo, status das conexões DataJud/InfoSimples e controle de animações/fibras WebGL).",
+        "2026-10-07: rota adicionada ao disallow de app/robots.ts e integrada ao layout principal."
+      ]
+    },
+    {
+      "id": "layout-toasters-duas-colunas",
+      "titulo": "Divisão da rota de consulta em duas colunas com histórico persistente de toasters em papel scrollável",
+      "modelo": "Layout split de varredura com coluna principal de progresso dos tribunais e coluna lateral dedicada para os toasters de eventos e notificações que não somem e são scrolláveis dentro de um container com efeito glass",
+      "status": "Implementada",
+      "log": [
+        "2026-10-07: components/ProcessTracker.tsx atualizado com divisão em duas colunas durante a varredura. A segunda coluna acumula eventos (ToasterEvent) em tempo real conforme cada tribunal é consultado ou concluído, permitindo auditoria visual contínua sem que as notificações desapareçam sozinhas."
+      ]
+    },
+    {
+      "id": "pendencias-infraestrutura-deploy",
+      "titulo": "Registro de pendências de infraestrutura e serviços externos",
+      "modelo": "Checklist de ações operacionais e variáveis de ambiente pendentes de configuração pelo usuário nos provedores externos (Vercel, Supabase, VPS Baileys)",
+      "status": "Pendente",
+      "log": [
+        "2026-10-07: PENDÊNCIA 1 (Vercel Env Vars): Para a reconsulta noturna automatizada (cron) disparar e enviar alertas por e-mail, configurar no painel da Vercel: CRON_SECRET, RESEND_API_KEY e RESEND_FROM_EMAIL.",
+        "2026-10-07: PENDÊNCIA 2 (Supabase Remote Migration): A migration 20261007110000_ap_crm_juridico_schema.sql (tabelas de banco ap_departamentos, ap_crm_pipelines, ap_crm_itens) aguarda autorização para aplicação no Supabase remoto caso se deseje persistência centralizada multi-usuário no Postgres além do storage/webhook atual.",
+        "2026-10-07: PENDÊNCIA 3 (VPS WhatsApp Baileys): O serviço whatsapp-service/ (Node.js/Baileys) está pronto em código na raiz do projeto e aguarda implantação em VPS dedicado do escritório para conexão permanente do socket do WhatsApp Web e configuração de WHATSAPP_SERVICE_URL."
+      ]
+    },
+    {
       "id": "crm-juridico-reconsulta-noturna",
       "titulo": "CRM jurídico (pipelines fixos por departamento, inspirado no Bitrix24 real do escritório) + motor de reconsulta noturna + alerta de movimentação + WhatsApp interno via Baileys",
       "modelo": "pipelines fixos por departamento (ANDAMENTO_PROCESSUAL, TRABALHISTA, TRIBUTARIO, VARA_FAMILIAR, CRIMINAL, PREVIDENCIARIO, PROCESSO_ESTRATEGICO, COBRANCA_FINANCEIRO, RELACIONAMENTO_CLIENTE) com etapas fixas via seed, não mais 100% configurável pelo usuário (design anterior removido); ap_processos/ap_movimentacoes (schema v1, nunca escritas) reaproveitadas como motor de monitoramento; reconsulta via Vercel Cron (Hobby, 1x/dia) com backoff e teto de orçamento diário; alerta por e-mail via Resend; WhatsApp interno via Baileys em serviço Node separado no VPS próprio do escritório (fora da Vercel, serverless não sustenta a conexão). Entrega em 5 fases (Fase 0 pré-requisito técnico, Fase 1 CRM manual, Fase 2 reconsulta+alerta, Fase 3 liga CRM à reconsulta, Fase 4 Baileys)",

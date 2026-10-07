@@ -3,7 +3,7 @@
 import { authFetch } from '@/lib/authFetch';
 import React, { useRef, useState, useEffect } from 'react';
 import { formatChatMessageHtml, formatDateLabel } from '@/lib/format';
-import { TAG_META, type CaseData, type LegalProcess } from '@/lib/mockProcesses';
+import { TAG_META, type CaseData } from '@/lib/mockProcesses';
 import { Check, FileText, Maximize2, ShieldCheck, X } from 'lucide-react';
 import AiSummaryLoadingBar from './AiSummaryLoadingBar';
 
@@ -47,6 +47,8 @@ export default function ProcessResultView({
 }: ProcessResultViewProps) {
   const [monitorado, setMonitorado] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
+  const [processoSelecionadoIdx, setProcessoSelecionadoIdx] = useState(0);
+  const [movimentacoesAbertas, setMovimentacoesAbertas] = useState(false);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -74,7 +76,7 @@ export default function ProcessResultView({
   }, [chatExpandido]);
 
   const principal = caseData.processes[0];
-  const ultimasMovimentacoes = caseData.timeline.slice(0, 15);
+  const processoSelecionado = caseData.processes[processoSelecionadoIdx] ?? principal;
 
   const totalPorOrigem = caseData.processes.reduce(
     (acc, p) => {
@@ -366,55 +368,7 @@ export default function ProcessResultView({
             </div>
           </div>
 
-          {/* Cards de dados-chave: 3 fixos (Infosimples) + extras do DataJud (CNJ) quando disponíveis */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
-            <DataCard label="Valor da causa" value={principal?.valorCausa || 'Não informado'} />
-            <DataCard label="Parte contrária" value={principal?.parteContraria || 'Não informada'} />
-            <DataCard label="Tribunal / Vara" value={principal?.tribunal || tribunaisConsultados.join(', ') || '—'} />
-            {principal && (
-              <DataCard
-                label="Encontrado em"
-                value={
-                  principal.origem === 'ambos'
-                    ? 'Infosimples + DataJud'
-                    : principal.origem === 'datajud'
-                    ? 'DataJud (CNJ)'
-                    : 'Infosimples'
-                }
-              />
-            )}
-            {principal?.orgaoJulgadorDataJud && <DataCard label="Órgão julgador (CNJ)" value={principal.orgaoJulgadorDataJud} />}
-            {principal?.grauDataJud && <DataCard label="Grau" value={principal.grauDataJud} />}
-            {principal?.assuntosDataJud && principal.assuntosDataJud.length > 0 && (
-              <DataCard label="Assunto (CNJ)" value={principal.assuntosDataJud.join(', ')} />
-            )}
-            {principal?.distribuicao && <DataCard label="Distribuição" value={principal.distribuicao} />}
-          </div>
-
-          {/* Todos os processos localizados (os cards acima detalham só o primeiro) */}
-          {caseData.processes.length > 0 && (
-            <div
-              style={{
-                background: GLASS,
-                border: `1px solid ${BORDER}`,
-                borderRadius: 8,
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
-                padding: '20px 24px'
-              }}
-            >
-              <div style={{ fontSize: 10, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 14 }}>
-                PROCESSOS LOCALIZADOS ({caseData.processes.length})
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 620, overflowY: 'auto', paddingRight: 2 }}>
-                {caseData.processes.map((p, i) => (
-                  <ProcessoCard key={`${p.numero}-${i}`} processo={p} indice={i + 1} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Últimas movimentações */}
+          {/* Valor em destaque + lista de detalhes */}
           <div
             style={{
               background: GLASS,
@@ -423,72 +377,50 @@ export default function ProcessResultView({
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
               padding: '20px 24px',
-              height: 420,
-              display: 'flex',
-              flexDirection: 'column'
+              display: 'grid',
+              gridTemplateColumns: 'minmax(160px, 240px) 1fr',
+              gap: 24,
+              alignItems: 'center'
             }}
+            className="bf-valor-grid"
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexShrink: 0 }}>
-              <span style={{ fontSize: 10, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700 }}>
-                ÚLTIMAS MOVIMENTAÇÕES
-              </span>
-              {caseData.processes.some(p => p.enriquecidoDataJud) && (
-                <span
-                  title="Dados complementados com informações oficiais do DataJud (CNJ): movimentações, assuntos, órgão julgador, grau e/ou data de ajuizamento"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontSize: 9,
-                    fontWeight: 700,
-                    letterSpacing: 0.5,
-                    color: '#8fb99a',
-                    border: '1px solid #8fb99a',
-                    borderRadius: 10,
-                    padding: '1px 7px'
-                  }}
-                >
-                  <ShieldCheck size={10} strokeWidth={2.5} />
-                  DATAJUD (CNJ)
-                </span>
-              )}
+            <div>
+              <div style={{ fontSize: 10, letterSpacing: 1, color: MUTED, marginBottom: 6 }}>VALOR DA CAUSA</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: TEXT, lineHeight: 1.2, wordBreak: 'break-word' }}>
+                {principal?.valorCausa || 'Não informado'}
+              </div>
             </div>
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {ultimasMovimentacoes.length === 0 && (
-                <p style={{ margin: 0, fontSize: 13, color: MUTED }}>Nenhuma movimentação encontrada.</p>
+            <div
+              style={{
+                borderLeft: `1px solid ${BORDER}`,
+                paddingLeft: 24,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                rowGap: 14,
+                columnGap: 24
+              }}
+              className="bf-valor-detalhes"
+            >
+              <DetalheLinha label="Tribunal" value={principal?.tribunal || tribunaisConsultados.join(', ') || '—'} />
+              <DetalheLinha label="Parte contrária" value={principal?.parteContraria || 'Não informada'} />
+              {principal?.distribuicao && <DetalheLinha label="Distribuição" value={principal.distribuicao} />}
+              {principal && (
+                <DetalheLinha
+                  label="Fonte"
+                  value={
+                    principal.origem === 'ambos'
+                      ? 'Infosimples + DataJud'
+                      : principal.origem === 'datajud'
+                      ? 'DataJud (CNJ)'
+                      : 'Infosimples'
+                  }
+                />
               )}
-              {ultimasMovimentacoes.map(item => {
-                const tagMeta = TAG_META[item.tag] || TAG_META.informativo;
-                return (
-                  <div key={item.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: tagMeta.color, marginTop: 6, flexShrink: 0 }} />
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 13.5, color: TEXT, fontWeight: 600 }}>{item.titulo}</span>
-                        <span
-                          style={{
-                            fontSize: 9,
-                            fontWeight: 700,
-                            letterSpacing: 0.5,
-                            color: tagMeta.color,
-                            border: `1px solid ${tagMeta.color}`,
-                            borderRadius: 10,
-                            padding: '1px 7px',
-                            flexShrink: 0
-                          }}
-                        >
-                          {tagMeta.label}
-                        </span>
-                      </div>
-                      <p style={{ margin: '4px 0 0', fontSize: 12.5, color: MUTED, lineHeight: 1.5 }}>{item.descricao}</p>
-                      <div style={{ display: 'flex', gap: 10, marginTop: 4, fontSize: 11, color: 'rgba(254,254,250,0.45)' }}>
-                        <span>{formatDateLabel(item.date)}</span>
-                        <span>{item.processo.numero}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {principal?.orgaoJulgadorDataJud && <DetalheLinha label="Órgão julgador (CNJ)" value={principal.orgaoJulgadorDataJud} />}
+              {principal?.grauDataJud && <DetalheLinha label="Grau" value={principal.grauDataJud} />}
+              {principal?.assuntosDataJud && principal.assuntosDataJud.length > 0 && (
+                <DetalheLinha label="Assunto (CNJ)" value={principal.assuntosDataJud.join(', ')} />
+              )}
             </div>
           </div>
         </div>
@@ -560,6 +492,176 @@ export default function ProcessResultView({
           </button>
         </div>
       </div>
+
+      {/* Tabela de processos localizados + painel de detalhes do processo selecionado — full-width, fora do split 66/34 */}
+      {caseData.processes.length > 0 && (
+        <div
+          style={{
+            marginTop: 20,
+            background: GLASS,
+            border: `1px solid ${BORDER}`,
+            borderRadius: 8,
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            padding: '20px 24px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <span style={{ fontSize: 10, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700 }}>
+              PROCESSOS LOCALIZADOS ({caseData.processes.length})
+            </span>
+            {caseData.processes.some(p => p.enriquecidoDataJud) && (
+              <span
+                title="Dados complementados com informações oficiais do DataJud (CNJ): movimentações, assuntos, órgão julgador, grau e/ou data de ajuizamento"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  color: '#8fb99a',
+                  border: '1px solid #8fb99a',
+                  borderRadius: 10,
+                  padding: '1px 7px'
+                }}
+              >
+                <ShieldCheck size={10} strokeWidth={2.5} />
+                DATAJUD (CNJ)
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 300px)', gap: 20 }} className="bf-split-grid">
+            {/* Tabela */}
+            <div style={{ overflowX: 'auto', maxHeight: 520, overflowY: 'auto' }}>
+              <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                <colgroup>
+                  <col style={{ width: '32%' }} />
+                  <col style={{ width: '34%' }} />
+                  <col style={{ width: '17%' }} />
+                  <col style={{ width: '17%' }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    {['Número', 'Classe', 'Valor', 'Distribuição'].map(h => (
+                      <th
+                        key={h}
+                        style={{
+                          textAlign: 'left',
+                          padding: '8px 10px',
+                          fontSize: 10,
+                          letterSpacing: 1,
+                          color: MUTED,
+                          borderBottom: `1px solid ${BORDER}`,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}
+                      >
+                        {h.toUpperCase()}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {caseData.processes.map((p, i) => {
+                    const selecionado = i === processoSelecionadoIdx;
+                    return (
+                      <tr
+                        key={`${p.numero}-${i}`}
+                        onClick={() => setProcessoSelecionadoIdx(i)}
+                        style={{
+                          cursor: 'pointer',
+                          background: selecionado ? 'rgba(196,168,111,0.14)' : 'transparent'
+                        }}
+                      >
+                        <td
+                          title={p.numero}
+                          style={{
+                            padding: '8px 10px',
+                            color: selecionado ? '#f5e3a8' : TEXT,
+                            fontWeight: selecionado ? 700 : 500,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            borderBottom: `1px solid ${BORDER}`
+                          }}
+                        >
+                          {p.numero}
+                        </td>
+                        <td
+                          title={p.tipo}
+                          style={{
+                            padding: '8px 10px',
+                            color: MUTED,
+                            borderBottom: `1px solid ${BORDER}`,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {p.tipo}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: MUTED, borderBottom: `1px solid ${BORDER}`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.valorCausa}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: MUTED, borderBottom: `1px solid ${BORDER}`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.distribuicao}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Painel de detalhes do selecionado */}
+            <div
+              style={{
+                border: `1px solid ${BORDER}`,
+                borderRadius: 6,
+                padding: '14px 16px',
+                background: 'rgba(255,255,255,0.03)',
+                alignSelf: 'start'
+              }}
+            >
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 12 }}>
+                DETALHES DO SELECIONADO
+              </div>
+              {[
+                { label: 'Assunto', value: processoSelecionado?.assunto },
+                { label: 'Autor', value: processoSelecionado?.autor },
+                { label: 'Réu', value: processoSelecionado?.reu }
+              ].map(campo => (
+                <div key={campo.label} style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, letterSpacing: 1, color: MUTED, marginBottom: 2 }}>{campo.label.toUpperCase()}</div>
+                  <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, overflowWrap: 'anywhere' }}>
+                    {campo.value || 'Não informado'}
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setMovimentacoesAbertas(true)}
+                style={{
+                  marginTop: 4,
+                  width: '100%',
+                  background: 'transparent',
+                  border: `1px solid ${BORDER}`,
+                  color: TEXT,
+                  padding: '8px 12px',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  borderRadius: 4
+                }}
+              >
+                Ver movimentações
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {chatExpandido && (
         <div
@@ -660,70 +762,129 @@ export default function ProcessResultView({
           </div>
         </div>
       )}
-    </div>
-  );
-}
 
-/** Ficha de um processo: número, tribunal e os campos que o tribunal informou (os vazios não aparecem). */
-function ProcessoCard({ processo, indice }: { processo: LegalProcess; indice: number }) {
-  const tribunal = processo.tribunal.split(' · ')[0];
-  const vazio = (v?: string) => !v || v === 'Não informada' || v === 'Não informado';
-  const campos: { label: string; value?: string; larga?: boolean }[] = [
-    { label: 'Classe', value: processo.tipo },
-    { label: 'Assunto', value: processo.assunto },
-    { label: 'Vara / Foro', value: processo.varaForo, larga: true },
-    { label: 'Valor da causa', value: processo.valorCausa },
-    { label: 'Distribuição', value: processo.distribuicao },
-    { label: 'Autor / Exequente', value: processo.autor, larga: true },
-    { label: 'Réu / Executado', value: processo.reu, larga: true }
-  ].filter(c => !vazio(c.value));
-
-  return (
-    <div style={{ border: `1px solid ${BORDER}`, borderRadius: 6, background: 'rgba(255,255,255,0.03)', padding: '14px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 11, color: MUTED, fontWeight: 700 }}>#{indice}</span>
-        <span style={{ fontSize: 13.5, color: TEXT, fontWeight: 700, wordBreak: 'break-all' }}>{processo.numero}</span>
-        <span
+      {movimentacoesAbertas && processoSelecionado && (
+        <div
+          onClick={() => setMovimentacoesAbertas(false)}
           style={{
-            fontSize: 10,
-            color: BLUE_LIGHT,
-            border: `1px solid ${BORDER}`,
-            borderRadius: 10,
-            padding: '1px 8px',
-            letterSpacing: 0.5
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            zIndex: 60,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24
           }}
         >
-          {tribunal}
-        </span>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px 16px' }}>
-        {campos.map(c => (
-          <div key={c.label} style={{ minWidth: 0, gridColumn: c.larga ? '1 / -1' : undefined }}>
-            <div style={{ fontSize: 10, letterSpacing: 1, color: MUTED, marginBottom: 2 }}>{c.label.toUpperCase()}</div>
-            <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{c.value}</div>
+          <div
+            role="dialog"
+            aria-label="Movimentações do processo"
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 'min(640px, 100%)',
+              maxHeight: '75vh',
+              background: '#232323',
+              border: `1px solid ${BORDER}`,
+              borderRadius: 8,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+          >
+            <div
+              style={{
+                padding: '14px 18px',
+                borderBottom: `1px solid ${BORDER}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                flexShrink: 0
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12, letterSpacing: 1, color: BLUE_LIGHT, fontWeight: 700 }}>MOVIMENTAÇÕES</div>
+                <div style={{ fontSize: 12.5, color: MUTED, wordBreak: 'break-all' }}>{processoSelecionado.numero}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMovimentacoesAbertas(false)}
+                title="Fechar"
+                aria-label="Fechar movimentações"
+                style={{ background: 'none', border: 'none', padding: 4, margin: -4, color: BLUE_LIGHT, cursor: 'pointer', display: 'inline-flex', flexShrink: 0 }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {processoSelecionado.movimentos.length === 0 && (
+                <p style={{ margin: 0, fontSize: 13, color: MUTED }}>Nenhuma movimentação encontrada.</p>
+              )}
+              {processoSelecionado.movimentos.map((mov, i) => {
+                const tagMeta = TAG_META[mov.tag] || TAG_META.informativo;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: 6,
+                      padding: '14px 16px',
+                      background: 'rgba(255,255,255,0.03)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: tagMeta.color, flexShrink: 0 }} />
+                        <span style={{ fontSize: 13.5, color: TEXT, fontWeight: 600 }}>{mov.titulo}</span>
+                        <span
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 700,
+                            letterSpacing: 0.5,
+                            color: tagMeta.color,
+                            border: `1px solid ${tagMeta.color}`,
+                            borderRadius: 10,
+                            padding: '1px 7px',
+                            flexShrink: 0
+                          }}
+                        >
+                          {tagMeta.label}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 11, color: MUTED, flexShrink: 0 }}>{formatDateLabel(mov.data)}</span>
+                    </div>
+                    <p style={{ margin: '6px 0 12px', fontSize: 12.5, color: MUTED, lineHeight: 1.5 }}>{mov.descricao}</p>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', rowGap: 10, columnGap: 20 }}>
+                      <DetalheLinha label="Classe" value={processoSelecionado.tipo} />
+                      <DetalheLinha
+                        label="Órgão"
+                        value={processoSelecionado.orgaoJulgadorDataJud || processoSelecionado.varaForo || '—'}
+                      />
+                      <DetalheLinha label="Valor da causa" value={processoSelecionado.valorCausa || 'Não informado'} />
+                      <DetalheLinha label="Dependência" value={processoSelecionado.distribuicao || '—'} />
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <DetalheLinha
+                          label="Partes"
+                          value={[processoSelecionado.autor, processoSelecionado.reu].filter(Boolean).join(' · ') || 'Não informado'}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function DataCard({ label, value }: { label: string; value: string }) {
+function DetalheLinha({ label, value }: { label: string; value: string }) {
   return (
-    <div
-      style={{
-        background: GLASS,
-        border: `1px solid ${BORDER}`,
-        borderRadius: 8,
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        padding: '14px 16px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        minHeight: 74
-      }}
-    >
+    <div>
       <div style={{ fontSize: 10, letterSpacing: 1, color: MUTED, marginBottom: 4 }}>{label.toUpperCase()}</div>
       <div style={{ fontSize: 13.5, color: TEXT, fontWeight: 600, wordBreak: 'break-word', lineHeight: 1.45 }}>
         {value}

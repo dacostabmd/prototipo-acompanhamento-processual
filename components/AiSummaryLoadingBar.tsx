@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
+import WheatToRingsIcon from './WheatToRingsIcon';
 
 interface Stage {
   id: number;
@@ -45,9 +46,11 @@ export default function AiSummaryLoadingBar() {
     // Intervalo de animação fluida de progresso
     const interval = setInterval(() => {
       setProgress(prev => {
-        if (prev >= 96) return 96; // Aguarda a finalização real da API
-        const stepIncrement = prev < 30 ? 2.4 : prev < 60 ? 1.8 : prev < 85 ? 1.2 : 0.6;
-        const nextVal = Math.min(prev + stepIncrement, 96);
+        // Além de 96%, a barra nunca mais fica parada esperando a resposta real da API: segue
+        // avançando em passos minúsculos rumo a 99%, só para deixar claro que ainda está ativa
+        // (a resposta real pode demorar mais que a animação sintética abaixo de 96%).
+        const stepIncrement = prev < 30 ? 2.4 : prev < 60 ? 1.8 : prev < 85 ? 1.2 : prev < 96 ? 0.6 : 0.04;
+        const nextVal = Math.min(prev + stepIncrement, 99);
 
         // Atualiza a etapa ativa com base no progresso atingido
         if (nextVal >= 84) {
@@ -221,16 +224,7 @@ export default function AiSummaryLoadingBar() {
                     <Check size={13} strokeWidth={3} />
                   </div>
                 ) : isActive ? (
-                  <div
-                    style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: '50%',
-                      border: '2px solid #999999',
-                      borderTopColor: 'transparent',
-                      animation: 'bf-spin 0.8s linear infinite'
-                    }}
-                  />
+                  <WheatToRingsIcon size={22} />
                 ) : (
                   <div
                     style={{

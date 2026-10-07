@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Search, Gavel, User } from 'lucide-react';
+import { LayoutDashboard, Search, Gavel, User, Settings, Users } from 'lucide-react';
 import type { ProfileRole } from './useProfile';
 
 export interface NavItem {
@@ -15,7 +15,10 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/painel', label: 'Visão geral', icon: LayoutDashboard },
   { href: '/consulta', label: 'Consultar processos', icon: Search },
   { href: '/processos', label: 'Meus processos', icon: Gavel },
-  { href: '/perfil', label: 'Meu perfil', icon: User }
+  { href: '/crm', label: 'CRM', icon: Users },
+  { href: '/perfil', label: 'Meu perfil', icon: User },
+  { href: '/configuracoes', label: 'Configurações', icon: Settings }
 ];
 
 export const navIndex = (pathname: string) => NAV_ITEMS.findIndex(i => pathname === i.href || pathname.startsWith(i.href + '/'));
+

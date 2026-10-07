@@ -3,10 +3,9 @@
 import React, { useState, useEffect, Children, useRef, useLayoutEffect, type HTMLAttributes, type ReactNode } from 'react';
 import { motion, AnimatePresence, type Variants } from 'motion/react';
 
-const BLUE = '#5f5f5f';
-const BLUE_DARK = '#3d3d3d';
-const BLUE_LIGHT = '#999999';
-const GOLD = '#c5a059';
+const GOLD = '#c4a86f';
+const GOLD_DARK = '#ab8e5c';
+const GOLD_LIGHT = '#f5e3a8';
 
 export interface StepperProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
@@ -207,7 +206,7 @@ export default function Stepper({
                     fontSize: 12,
                     letterSpacing: 1,
                     cursor: 'pointer',
-                    borderRadius: 2,
+                    borderRadius: 6,
                     transition: 'all 0.2s ease'
                   }}
                   {...backButtonProps}
@@ -220,25 +219,27 @@ export default function Stepper({
                 onClick={isLastStep ? handleComplete : handleNext}
                 disabled={!canAdvance}
                 style={{
-                  background: canAdvance ? BLUE : 'rgba(255,255,255,0.15)',
-                  color: '#ffffff',
-                  border: 'none',
+                  background: canAdvance
+                    ? 'linear-gradient(135deg, #c4a86f 0%, #ab8e5c 100%)'
+                    : 'rgba(255,255,255,0.12)',
+                  color: canAdvance ? '#181818' : 'rgba(255,255,255,0.35)',
+                  border: canAdvance ? '1px solid rgba(245,227,168,0.4)' : '1px solid transparent',
                   padding: '12px 28px',
-                  fontSize: 12,
+                  fontSize: 12.5,
                   letterSpacing: 1.5,
-                  fontWeight: 600,
+                  fontWeight: 700,
                   cursor: canAdvance ? 'pointer' : 'not-allowed',
-                  borderRadius: 2,
+                  borderRadius: 6,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  boxShadow: canAdvance ? '0 4px 14px rgba(36,85,184,0.35)' : 'none',
+                  boxShadow: canAdvance ? '0 4px 16px rgba(171,142,92,0.35)' : 'none',
                   transition: 'all 0.2s ease'
                 }}
                 {...nextButtonProps}
               >
                 {nextButtonText}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </button>
@@ -385,9 +386,9 @@ function StepIndicator({ step, currentStep, onClickStep, disableStepIndicators =
     >
       <motion.div
         variants={{
-          inactive: { scale: 1, backgroundColor: 'rgba(255,255,255,0.12)', color: 'rgba(226,229,245,0.55)' },
-          active: { scale: 1.08, backgroundColor: BLUE, color: '#ffffff' },
-          complete: { scale: 1, backgroundColor: BLUE, color: '#ffffff' }
+          inactive: { scale: 1, backgroundColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' },
+          active: { scale: 1.08, backgroundColor: GOLD, color: '#181818' },
+          complete: { scale: 1, backgroundColor: GOLD_DARK, color: '#181818' }
         }}
         transition={{ duration: 0.3 }}
         style={{
@@ -398,12 +399,12 @@ function StepIndicator({ step, currentStep, onClickStep, disableStepIndicators =
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 13,
-          fontWeight: 600,
-          boxShadow: status === 'active' ? '0 2px 8px rgba(36,85,184,0.4)' : 'none'
+          fontWeight: 700,
+          boxShadow: status === 'active' ? '0 2px 10px rgba(196,168,111,0.45)' : 'none'
         }}
       >
         {status === 'complete' ? (
-          <CheckIcon style={{ width: 16, height: 16, color: '#ffffff' }} />
+          <CheckIcon style={{ width: 16, height: 16, color: '#181818' }} />
         ) : (
           <span>{step}</span>
         )}
@@ -419,7 +420,7 @@ interface StepConnectorProps {
 function StepConnector({ isComplete }: StepConnectorProps) {
   const lineVariants: Variants = {
     incomplete: { width: 0, backgroundColor: 'transparent' },
-    complete: { width: '100%', backgroundColor: BLUE }
+    complete: { width: '100%', backgroundColor: GOLD }
   };
 
   return (
