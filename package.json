@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.65.0",
     "@mantine/core": "^8.3.18",
     "@mantine/hooks": "^8.3.18",
+    "@mantine/notifications": "^8.3.18",
     "@supabase/supabase-js": "^2.117.2",
     "@tailwindcss/postcss": "^4.3.3",
     "@upstash/redis": "^1.39.0",
@@ -24,6 +25,7 @@
     "postcss": "^8.5.28",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "resend": "^6.32.1",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {

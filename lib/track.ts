@@ -10,7 +10,8 @@ export type TipoEvento =
   | 'chat_ia'
   | 'lead'
   | 'page_view'
-  | 'automacao_bitrix';
+  | 'automacao_bitrix'
+  | 'reconsulta_noturna';
 
 export interface EventoInput {
   tipo: TipoEvento;
