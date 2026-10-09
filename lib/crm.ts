@@ -1,19 +1,25 @@
-// Tipos e constantes do CRM jurídico — espelham o seed fixo de
-// supabase/migrations/20261007110000_ap_crm_juridico_schema.sql (pipelines/etapas/departamentos
-// não são editáveis pelo usuário final na v1; só os itens dentro deles são CRUD).
+// Tipos e constantes do CRM jurídico — espelham o seed de
+// supabase/migrations/20261007120500_ap_crm_juridico_schema_v2.sql (tabelas ap_crm_pipelines_v2/
+// ap_crm_etapas_v2/ap_crm_itens_v2: 9 pipelines fixos via seed + pipelines customizados criados
+// por líder de departamento ou admin/owner a partir da v2, via POST /api/crm/pipelines).
 
 export type DepartamentoId = 'juridico' | 'financeiro' | 'comercial' | 'negociacao' | 'atendimento';
 
-export type PipelineId =
-  | 'andamento_processual'
-  | 'trabalhista'
-  | 'tributario'
-  | 'vara_familiar'
-  | 'criminal'
-  | 'previdenciario'
-  | 'processo_estrategico'
-  | 'cobranca_financeiro'
-  | 'relacionamento_cliente';
+/** Pipeline é um id livre (text): os 9 fixos do seed ou qualquer slug criado depois pelo usuário. */
+export type PipelineId = string;
+
+/** Ids dos 9 pipelines fixos do seed — só para ícone/label padrão, não restringe PipelineId. */
+export const PIPELINES_SEED_IDS = [
+  'andamento_processual',
+  'trabalhista',
+  'tributario',
+  'vara_familiar',
+  'criminal',
+  'previdenciario',
+  'processo_estrategico',
+  'cobranca_financeiro',
+  'relacionamento_cliente'
+] as const;
 
 export interface CrmDepartamento {
   id: DepartamentoId;
@@ -60,6 +66,16 @@ export interface CrmItem {
   // Enriquecimento opcional quando processoId aponta para ap_processos (join feito pela API).
   diasSemMovimentacao?: number | null;
   ultimaMovimentacaoEm?: string | null;
+  numeroCnj?: string | null;
+  tribunal?: string | null;
+  classe?: string | null;
+  assunto?: string | null;
+  statusProcesso?: string | null;
+}
+
+export interface CrmResponsavel {
+  id: string;
+  nome: string;
 }
 
 export interface CrmItemHistoricoEntrada {

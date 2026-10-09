@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5E3A8"></stop><stop offset=".45" stop-color="#C9A24B"></stop><stop offset="1" stop-color="#8C6B26"></stop></linearGradient></defs><rect width="256" height="256" rx="56" fill="#15110C"></rect><rect x="8" y="8" width="240" height="240" rx="50" fill="none" stroke="#C9A24B" stroke-opacity=".5" stroke-width="2"></rect><g transform="translate(71 26) scale(.95)"><path fill="url(#g)" d="M4 6 L57 12 L53 38 Z"></path>
+<path fill="url(#g)" d="M116 6 L63 12 L67 38 Z"></path>
+<path fill="url(#g)" d="M52 14 L68 14 L64 40 L56 40 Z"></path>
+<path fill="url(#g)" fill-rule="evenodd" d="M60 38 L106 132 L60 204 L14 132Z M60 50 L95 130 L60 192 L25 130Z"></path>
+<g fill="url(#g)">
+<path d="M0 0 C4.2 -3.6400000000000006 4.2 -9.36 0 -13 C-4.2 -9.36 -4.2 -3.6400000000000006 0 0Z" transform="translate(60 76) rotate(0)"></path>
+<path d="M0 0 C4.6 -4.2 4.6 -10.799999999999999 0 -15 C-4.6 -10.799999999999999 -4.6 -4.2 0 0Z" transform="translate(60 86.0) rotate(-42)"></path>
+<path d="M0 0 C4.6 -4.2 4.6 -10.799999999999999 0 -15 C-4.6 -10.799999999999999 -4.6 -4.2 0 0Z" transform="translate(60 86.0) rotate(42)"></path>
+<path d="M0 0 C4.6 -4.2 4.6 -10.799999999999999 0 -15 C-4.6 -10.799999999999999 -4.6 -4.2 0 0Z" transform="translate(60 95.5) rotate(-42)"></path>
+<path d="M0 0 C4.6 -4.2 4.6 -10.799999999999999 0 -15 C-4.6 -10.799999999999999 -4.6 -4.2 0 0Z" transform="translate(60 95.5) rotate(42)"></path>
+<path d="M0 0 C4.6 -4.2 4.6 -10.799999999999999 0 -15 C-4.6 -10.799999999999999 -4.6 -4.2 0 0Z" transform="translate(60 105.0) rotate(-42)"></path>
+<path d="M0 0 C4.6 -4.2 4.6 -10.799999999999999 0 -15 C-4.6 -10.799999999999999 -4.6 -4.2 0 0Z" transform="translate(60 105.0) rotate(42)"></path>
+<path d="M0 0 C4.6 -4.2 4.6 -10.799999999999999 0 -15 C-4.6 -10.799999999999999 -4.6 -4.2 0 0Z" transform="translate(60 114.5) rotate(-42)"></path>
+<path d="M0 0 C4.6 -4.2 4.6 -10.799999999999999 0 -15 C-4.6 -10.799999999999999 -4.6 -4.2 0 0Z" transform="translate(60 114.5) rotate(42)"></path>
+<path d="M0 0 C4.6 -4.2 4.6 -10.799999999999999 0 -15 C-4.6 -10.799999999999999 -4.6 -4.2 0 0Z" transform="translate(60 124.0) rotate(-42)"></path>
+<path d="M0 0 C4.6 -4.2 4.6 -10.799999999999999 0 -15 C-4.6 -10.799999999999999 -4.6 -4.2 0 0Z" transform="translate(60 124.0) rotate(42)"></path>
+</g>
+<rect x="59.3" y="82" width="1.4" height="52" fill="url(#g)"></rect>
+<g fill="url(#g)"><path d="M0 0 C9 -8.4 9 -21.599999999999998 0 -30 C-9 -21.599999999999998 -9 -8.4 0 0Z" transform="translate(60 146) rotate(-38)"></path><path d="M0 0 C9 -8.4 9 -21.599999999999998 0 -30 C-9 -21.599999999999998 -9 -8.4 0 0Z" transform="translate(60 146) rotate(38)"></path></g></g></svg>

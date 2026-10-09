@@ -17,20 +17,20 @@ const DESCRIPTION = 'Consulte processos judiciais vinculados ao seu CPF, acompan
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: 'Blindagem Financeira | Acompanhamento de Processos', template: '%s | Blindagem Financeira' },
+  title: { default: 'TechTie | Acompanhamento de Processos', template: '%s | TechTie' },
   description: DESCRIPTION,
-  applicationName: 'Blindagem Financeira',
+  applicationName: 'TechTie',
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     locale: 'pt_BR',
-    siteName: 'Blindagem Financeira',
-    title: 'Blindagem Financeira | Acompanhamento de Processos',
+    siteName: 'TechTie',
+    title: 'TechTie | Acompanhamento de Processos',
     description: DESCRIPTION,
     images: [{ url: '/blindagem-logo.png', width: 224, height: 74 }]
   },
-  twitter: { card: 'summary', title: 'Blindagem Financeira', description: DESCRIPTION },
-  icons: { icon: '/blindagem-logo.png' }
+  twitter: { card: 'summary', title: 'TechTie', description: DESCRIPTION },
+  icons: { icon: '/favicon.svg' }
 };
 
 export const viewport: Viewport = {
@@ -42,7 +42,7 @@ export const viewport: Viewport = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'Blindagem Financeira',
+  name: 'TechTie',
   url: SITE_URL,
   logo: `${SITE_URL}/blindagem-logo.png`
 };

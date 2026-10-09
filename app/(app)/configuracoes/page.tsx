@@ -129,7 +129,7 @@ export default function ConfiguracoesPage() {
   };
 
   return (
-    <div className="relative min-h-[calc(100vh-64px)] w-full p-4 sm:p-6 lg:p-8">
+    <div className="relative flex min-h-[calc(100vh-64px)] w-full items-start justify-center p-4 sm:p-6 lg:p-8">
       {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
@@ -153,7 +153,7 @@ export default function ConfiguracoesPage() {
         )}
       </AnimatePresence>
 
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="mx-auto w-[80vw] min-h-[80vh] space-y-6">
         {/* Cabeçalho */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -191,28 +191,33 @@ export default function ConfiguracoesPage() {
         </div>
 
         {/* Barra de Abas Estilizada */}
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-black/40 p-1.5 backdrop-blur-xl">
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-black/40 p-2.5 backdrop-blur-xl">
           {ABAS.map(item => {
             const ativa = aba === item.id;
             const Icon = item.icon;
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => setAba(item.id)}
-                className={`relative flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
-                  ativa ? 'text-amber-200' : 'text-neutral-400 hover:text-white'
+                className={`relative flex cursor-pointer items-center gap-2.5 rounded-xl px-7 py-4 text-sm font-medium transition-all duration-200 ${
+                  ativa ? 'text-white' : 'text-neutral-400 hover:bg-white/5 hover:text-neutral-200'
                 }`}
               >
                 {ativa && (
                   <motion.div
                     layoutId="tab-pill-config"
-                    className="absolute inset-0 rounded-xl border border-amber-400/30 bg-amber-400/10 shadow-sm"
+                    className="absolute inset-0 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/20 via-amber-400/15 to-amber-500/20 shadow-lg shadow-amber-950/30"
                     transition={{ type: 'spring', stiffness: 450, damping: 35 }}
                   />
                 )}
                 <span className="relative z-10 flex items-center gap-2">
-                  <Icon size={16} strokeWidth={1.8} className={ativa ? 'text-amber-400' : 'text-neutral-400'} />
-                  {item.label}
+                  <Icon
+                    size={16}
+                    strokeWidth={1.8}
+                    className={ativa ? 'text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.4)]' : 'text-neutral-400'}
+                  />
+                  <span>{item.label}</span>
                 </span>
               </button>
             );

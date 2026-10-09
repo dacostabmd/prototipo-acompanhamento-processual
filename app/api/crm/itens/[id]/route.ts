@@ -3,6 +3,9 @@ import { requireUser } from '@/lib/requireUser';
 import { requireAdvogadoOuAdmin } from '@/lib/requireRole';
 import { getAdminClient, getUserId } from '@/lib/track';
 
+const TABELA_ITENS = 'ap_crm_itens_v2';
+const TABELA_HISTORICO = 'ap_crm_itens_historico';
+
 const CAMPOS_EDITAVEIS = [
   'etapaId',
   'titulo',
@@ -52,18 +55,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   let etapaAnteriorId: string | null = null;
   if ('etapaId' in body) {
-    const { data: atual } = await db.from('ap_crm_itens').select('etapa_id').eq('id', id).maybeSingle();
+    const { data: atual } = await db.from(TABELA_ITENS).select('etapa_id').eq('id', id).maybeSingle();
     etapaAnteriorId = (atual?.etapa_id as string | null) ?? null;
   }
 
-  const { data, error } = await db.from('ap_crm_itens').update(updates).eq('id', id).select().maybeSingle();
+  const { data, error } = await db.from(TABELA_ITENS).update(updates).eq('id', id).select().maybeSingle();
   if (error || !data) {
     console.error('[api/crm/itens/:id] erro ao atualizar:', error?.message);
     return NextResponse.json({ error: 'Não foi possível atualizar o item (verifique permissão).' }, { status: 403 });
   }
 
   if ('etapaId' in body && etapaAnteriorId !== body.etapaId) {
-    await db.from('ap_crm_itens_historico').insert({
+    await db.from(TABELA_HISTORICO).insert({
       item_id: id,
       etapa_anterior_id: etapaAnteriorId,
       etapa_nova_id: body.etapaId,
@@ -85,7 +88,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const db = getAdminClient();
   if (!db) return NextResponse.json({ error: 'Indisponível no modo demonstração.' }, { status: 503 });
 
-  const { error } = await db.from('ap_crm_itens').delete().eq('id', id);
+  const { error } = await db.from(TABELA_ITENS).delete().eq('id', id);
   if (error) {
     console.error('[api/crm/itens/:id] erro ao excluir:', error.message);
     return NextResponse.json({ error: 'Não foi possível excluir (verifique permissão).' }, { status: 403 });

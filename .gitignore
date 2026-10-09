@@ -18,6 +18,8 @@ next-env.d.ts
 *.log
 
 .vercel
+scratch/
+.claude/
 
 # seed com credenciais
 supabase/seed_admin.sql

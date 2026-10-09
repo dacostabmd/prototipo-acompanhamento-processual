@@ -1,0 +1,150 @@
+.wrapper {
+  --gold: #c4a86f;
+  --success: #6fc4b1;
+  --danger: #ee8c72;
+}
+
+.row {
+  cursor: pointer;
+}
+
+.row:hover,
+.row:focus-within {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.row:focus-within {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+
+.clienteNome {
+  font-weight: 600;
+  color: #fefefa;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clienteNome:hover,
+.clienteNome:focus-visible {
+  color: var(--gold);
+  text-decoration: underline;
+  outline: none;
+}
+
+.clienteMeta {
+  margin-top: 2px;
+  font-family: 'Courier New', ui-monospace, monospace;
+  font-size: 12px;
+  color: rgba(254, 254, 250, 0.55);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.movData {
+  font-size: 14px;
+  color: #fefefa;
+}
+
+.movDias {
+  margin-top: 2px;
+  font-size: 12px;
+  color: rgba(254, 254, 250, 0.55);
+}
+
+.movAlerta {
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--danger);
+  flex: none;
+  animation: bf-crm-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes bf-crm-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.72);
+  }
+}
+
+.responsavel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.responsavelNome {
+  display: none;
+  font-size: 13.5px;
+  color: rgba(254, 254, 250, 0.85);
+  white-space: nowrap;
+}
+
+@media (min-width: 75em) {
+  .responsavelNome {
+    display: inline;
+  }
+}
+
+.situacao {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.situacaoAdimplente {
+  color: var(--success);
+}
+
+.situacaoInadimplente {
+  color: var(--danger);
+}
+
+.valor {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #fefefa;
+}
+
+.acao {
+  text-align: right;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.row:hover .acao,
+.row:focus-within .acao {
+  opacity: 1;
+}

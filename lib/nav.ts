@@ -13,9 +13,9 @@ export interface NavItem {
 /** A ordem define o índice usado para decidir a direção do slide entre rotas. */
 export const NAV_ITEMS: NavItem[] = [
   { href: '/painel', label: 'Visão geral', icon: LayoutDashboard },
+  { href: '/crm', label: 'CRM', icon: Users },
   { href: '/consulta', label: 'Consultar processos', icon: Search },
   { href: '/processos', label: 'Meus processos', icon: Gavel },
-  { href: '/crm', label: 'CRM', icon: Users },
   { href: '/perfil', label: 'Meu perfil', icon: User },
   { href: '/configuracoes', label: 'Configurações', icon: Settings }
 ];
