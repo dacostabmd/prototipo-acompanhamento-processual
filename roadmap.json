@@ -3,6 +3,29 @@
   "criado_em": "2026-09-30",
   "features": [
     {
+      "id": "clone-jusbrasil-cascata-dados",
+      "titulo": "Clone funcional do Jusbrasil (busca, páginas de processo, monitoramento e alertas) com cascata de dados de custo mínimo",
+      "modelo": "Mesmo layout/estilização glassmorphism atual, adaptado às funcionalidades do Jusbrasil. Cascata de fontes por consulta: (1) cache Redis + base própria (ap_processos) -> (2) DataJud (gratuito) -> (3) Lemit -> (4) Infosimples (último recurso); todo retorno é gravado na base própria; TTL de frescor por backoff, cache negativo, deduplicação de chamadas simultâneas, custo registrado por fonte e teto diário. Entrega: (a) resolvedor em cascata com cache e registro de custos; (b) integração Lemit; (c) páginas públicas /processo/{cnj} com ISR e SEO (somente dados públicos, atenção a LGPD e segredo de justiça).",
+      "status": "Em andamento",
+      "log": [
+        "2026-10-21: criada a branch feature/jusbrasil-clone. Removido todo o escopo de CRM a pedido do usuário: página /crm, /api/crm/*, lib/crm.ts, /api/whatsapp/*, lib/whatsappService.ts, serviço whatsapp-service/ (Baileys), /api/bitrix/lead e a chamada em ProcessTracker.tsx, item de menu, entrada em robots.ts, requireAdvogadoOuAdmin e variáveis de ambiente correspondentes. Mantido o cron de reconsulta noturna + alerta por e-mail (monitoramento é feature do Jusbrasil). Migrations do CRM em supabase/migrations/ e tabelas no banco remoto NÃO foram tocadas (exigem autorização do usuário). Validado com npx tsc --noEmit.",
+        "2026-10-21: BLOQUEIO — documentação, token e preços da Lemit não foram encontrados (busca web sem resultado; lemit.com.br não resolveu). Aguardando o usuário fornecer link da documentação, token de teste, tabela de preços e escopo de consultas cobertas. A etapa (a) (resolvedor em cascata) pode começar sem a Lemit, com a fonte plugável.",
+        "2026-10-21: achados da auditoria que seguem abertos — HTML do assistente sem escape antes de dangerouslySetInnerHTML (lib/format.ts formatChatMessageHtml), zod usado em lib/agent/tools.ts mas não declarado no package.json, dependência langchain sem uso, migrations do repo divergentes do banco real (_v2 aplicada via MCP sem arquivo), senha temporária e dados E2E de teste em produção."
+      ]
+    },
+    {
+      "id": "agente-langchain-andamento-processual",
+      "titulo": "Agente ReAct em LangChain para dúvidas de andamento processual, diagnóstico de penhora e prazos",
+      "modelo": "Agente ReAct baseado em LangChain (@langchain/openai e @langchain/langgraph/prebuilt) integrado em app/api/ai/chat/route.ts com ferramentas para consulta ao DataJud (CNJ), análise de riscos patrimoniais (Sisbajud/Renajud/Leilões), explicação de termos jurídicos e cálculo de prazos do CPC",
+      "status": "Implementada",
+      "log": [
+        "2026-10-13: instalados os pacotes langchain, @langchain/core, @langchain/openai e @langchain/langgraph.",
+        "2026-10-13: criadas as ferramentas modulares em lib/agent/tools.ts (consultarDataJudTool, analisarRiscoPenhoraTool, explicarTermoJuridicoTool, calcularPrazoProcessualTool).",
+        "2026-10-13: criado o executor do agente ReAct em lib/agent/processAgent.ts com prompts contextuais de Blindagem Financeira e formatação em tópicos/parágrafos sem texto denso.",
+        "2026-10-13: integrado o agente na rota POST /api/ai/chat/route.ts mantendo total compatibilidade com o frontend e fallback de contingência. Validado com npx tsc --noEmit."
+      ]
+    },
+    {
       "id": "selecao-manual-estado-busca",
       "titulo": "Seleção manual de estado (UF) para início de varredura processual + priorização no backend",
       "modelo": "Dropdown de estados no Passo 4 (Revisar e Consultar) do Stepper com opção 'Automático (DDD)' ou escolha explícita de qualquer UF; reordenação da 1ª onda de economia de varredura no frontend e backend por tribunal estadual manual",
