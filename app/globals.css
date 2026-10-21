@@ -20,8 +20,9 @@ html,
 body {
   margin: 0;
   font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: radial-gradient(ellipse 120% 80% at 20% -10%, #3a331f 0%, transparent 55%),
-    linear-gradient(160deg, #232323 0%, #3d3d3d 50%, #2a2a2a 100%);
+  background-color: #181818;
+  background: radial-gradient(ellipse 120% 80% at 50% -10%, #242424 0%, #181818 70%);
+  color: #ffffff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -361,24 +362,25 @@ a:hover {
    ============================================================ */
 :root {
   --bf-navy-950: #181818;
-  --bf-navy-900: #232323;
-  --bf-navy-800: #2a2a2a;
+  --bf-navy-900: #202020;
+  --bf-navy-800: #262626;
   --bf-blue-700: #8a7148;
   --bf-blue-600: #ab8e5c;
   --bf-blue-500: #c4a86f;
   --bf-surface: #f7f7f6;
   --bf-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* Tema dark/glass do shell autenticado (Grey Olive / Charcoal / Gunmetal / Porcelain) */
+  /* Tema dark/glass do shell autenticado (#181818 Charcoal + White Glass Contrast) */
   --bf-purple-950: #181818;
-  --bf-purple-900: #232323;
-  --bf-purple-800: #3d3d3d;
-  --bf-glass-bg: rgba(254, 254, 250, 0.05);
-  --bf-glass-bg-strong: rgba(254, 254, 250, 0.08);
-  --bf-glass-border: rgba(254, 254, 250, 0.1);
-  --bf-glass-blur: blur(16px);
-  --bf-text-primary: #fefefa;
-  --bf-text-muted: rgba(254, 254, 250, 0.65);
+  --bf-purple-900: #202020;
+  --bf-purple-800: #282828;
+  --bf-glass-bg: rgba(255, 255, 255, 0.05);
+  --bf-glass-bg-strong: rgba(255, 255, 255, 0.08);
+  --bf-glass-border: rgba(255, 255, 255, 0.12);
+  --bf-glass-border-strong: rgba(255, 255, 255, 0.22);
+  --bf-glass-blur: blur(20px);
+  --bf-text-primary: #ffffff;
+  --bf-text-muted: rgba(255, 255, 255, 0.7);
 }
 
 /* ============================================================
@@ -387,8 +389,11 @@ a:hover {
    Fica fora de @layer para vencer os estilos do Mantine.
    ============================================================ */
 .bf-side.bf-side {
-  background: linear-gradient(180deg, var(--bf-purple-900) 0%, var(--bf-purple-950) 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(24, 24, 24, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 1px 0 24px rgba(0, 0, 0, 0.4);
   padding: 12px;
   overflow: hidden;
   display: flex;
@@ -477,7 +482,7 @@ a:hover {
   width: 100%;
   height: 48px;
   border-radius: 14px;
-  color: #d8d4cc;
+  color: rgba(255, 255, 255, 0.72);
   text-decoration: none;
   cursor: pointer;
   transition: background-color 160ms ease, color 160ms ease;
@@ -485,17 +490,17 @@ a:hover {
 }
 
 .bf-side .bf-nav-item:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
 
 .bf-side .bf-nav-item:focus-visible {
-  outline: 2px solid var(--bf-blue-500);
+  outline: 2px solid rgba(255, 255, 255, 0.4);
   outline-offset: 2px;
 }
 
 .bf-side .bf-nav-item[data-active] {
-  color: var(--bf-blue-500);
+  color: #ffffff;
 }
 
 .bf-side .bf-nav-item[data-active]:hover {
@@ -503,15 +508,16 @@ a:hover {
 }
 
 .bf-side .bf-nav-muted {
-  color: rgba(254, 254, 250, 0.72);
+  color: rgba(255, 255, 255, 0.65);
 }
 
 .bf-nav-pill {
   position: absolute;
   inset: 0;
   border-radius: 14px;
-  background: rgba(196, 168, 111, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .bf-nav-icon {
@@ -559,8 +565,10 @@ a:hover {
   align-items: center;
   gap: 12px;
   padding: 0 24px;
-  background: transparent;
-  border-bottom: none;
+  background: rgba(24, 24, 24, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 @media (max-width: 47.99em) {
@@ -595,9 +603,18 @@ a:hover {
   }
 }
 
+.mantine-AppShell-root {
+  background-color: #181818 !important;
+}
+
+.mantine-AppShell-main {
+  background-color: #181818 !important;
+}
+
 .bf-main.bf-main {
   position: relative;
-  background: var(--bf-navy-950);
+  background-color: #181818;
+  background: radial-gradient(circle at 50% 0%, #202020 0%, #181818 70%);
   color: var(--bf-text-primary);
   min-height: 100dvh;
 }
@@ -615,9 +632,9 @@ a:hover {
   background: var(--bf-glass-bg);
   backdrop-filter: var(--bf-glass-blur);
   -webkit-backdrop-filter: var(--bf-glass-blur);
-  color: inherit;
+  color: #ffffff;
   text-decoration: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transition: transform 220ms var(--bf-ease), box-shadow 220ms var(--bf-ease), border-color 220ms ease;
 }
 
@@ -626,17 +643,17 @@ a:hover {
   position: absolute;
   inset: 0;
   opacity: 0;
-  background: radial-gradient(320px circle at var(--mx) var(--my), rgba(153, 153, 153, 0.28), transparent 70%);
+  background: radial-gradient(320px circle at var(--mx) var(--my), rgba(255, 255, 255, 0.16), transparent 70%);
   transition: opacity 220ms ease;
   pointer-events: none;
 }
 
 .bf-spot:hover,
 .bf-spot:focus-visible {
-  color: inherit;
+  color: #ffffff;
   transform: translateY(-3px);
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow: 0 18px 36px -16px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .bf-spot:hover::before {
@@ -650,8 +667,10 @@ a:hover {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  color: #d4d4d2;
-  background: var(--bf-glass-bg-strong);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -705,8 +724,15 @@ a:hover {
    tema light padrão (fundo branco, texto escuro). */
 .mantine-Modal-content,
 .mantine-Modal-header {
-  background: var(--bf-navy-900) !important;
+  background: rgba(26, 26, 26, 0.95) !important;
   color: var(--bf-text-primary) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+}
+
+.mantine-Modal-content {
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
 }
 
 .mantine-Modal-title {
@@ -719,17 +745,27 @@ a:hover {
 
 .mantine-Modal-close:hover {
   background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
 }
 
 .mantine-Modal-overlay {
-  background: rgba(0, 0, 0, 0.6) !important;
+  background: rgba(0, 0, 0, 0.65) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
 }
 
 .mantine-Drawer-content,
 .mantine-Drawer-header,
 .mantine-Drawer-body {
-  background: var(--bf-navy-900) !important;
+  background: rgba(24, 24, 24, 0.95) !important;
   color: var(--bf-text-primary) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+}
+
+.mantine-Drawer-content {
+  border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.6) !important;
 }
 
 .mantine-Drawer-title {
@@ -743,10 +779,13 @@ a:hover {
 
 .mantine-Drawer-close:hover {
   background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
 }
 
 .mantine-Drawer-overlay {
-  background: rgba(0, 0, 0, 0.6) !important;
+  background: rgba(0, 0, 0, 0.65) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
 }
 
 .mantine-TextInput-label,
@@ -769,6 +808,8 @@ a:hover {
   background: rgba(255, 255, 255, 0.06) !important;
   border: 1px solid var(--bf-glass-border) !important;
   color: var(--bf-text-primary) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
 }
 
 .mantine-TextInput-input::placeholder,
@@ -779,8 +820,11 @@ a:hover {
 
 .mantine-Select-dropdown,
 .mantine-Combobox-dropdown {
-  background: var(--bf-navy-800) !important;
-  border: 1px solid var(--bf-glass-border) !important;
+  background: rgba(26, 26, 26, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
 .mantine-Select-option,

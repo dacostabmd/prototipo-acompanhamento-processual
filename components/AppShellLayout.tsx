@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import { AppShell, Burger, Tooltip, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
@@ -15,11 +14,6 @@ import { ProfileProvider, useSharedProfile } from './ProfileProvider';
 import PageTransition from './PageTransition';
 import UserChip from './UserChip';
 import Changelog from './Changelog';
-
-// WebGL (ogl) é custoso e puramente decorativo: carregado só no client, fora do caminho
-// crítico de render inicial de cada rota autenticada (diagnóstico de performance registrado
-// em roadmap.json, feature "tema-dark-glass-shell").
-const GhostFibers = dynamic(() => import('./GhostFibers'), { ssr: false });
 
 const RAIL = 80;
 const EXPANDED = 250;
@@ -154,20 +148,7 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
       </AppShell.Navbar>
 
       <AppShell.Main className="bf-main">
-        {/* Montado uma única vez no shell (fora do PageTransition): persiste entre navegações
-            em vez de reinicializar o contexto WebGL a cada troca de rota. */}
-        <GhostFibers
-          lineColor="#2e2612"
-          glowColor="#4a3a16"
-          backdropColor="#0e0e0e"
-          speed={0.15}
-          brightness={1}
-          glowIntensity={0.9}
-          blueBoost={0}
-        />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <PageTransition>{children}</PageTransition>
-        </div>
+        <PageTransition>{children}</PageTransition>
       </AppShell.Main>
       <Changelog isOwner={profile.role === 'owner'} />
     </AppShell>
