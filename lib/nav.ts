@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Search, Gavel, User, Settings, Users } from 'lucide-react';
+import { LayoutDashboard, Search, Gavel, User, Settings } from 'lucide-react';
 import type { ProfileRole } from './useProfile';
 
 export interface NavItem {
@@ -13,7 +13,6 @@ export interface NavItem {
 /** A ordem define o índice usado para decidir a direção do slide entre rotas. */
 export const NAV_ITEMS: NavItem[] = [
   { href: '/painel', label: 'Visão geral', icon: LayoutDashboard },
-  { href: '/crm', label: 'CRM', icon: Users },
   { href: '/consulta', label: 'Consultar processos', icon: Search },
   { href: '/processos', label: 'Meus processos', icon: Gavel },
   { href: '/perfil', label: 'Meu perfil', icon: User },

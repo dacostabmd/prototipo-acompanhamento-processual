@@ -182,10 +182,6 @@ export default function ProcessTracker({
     return () => window.clearInterval(id);
   }, [searching]);
 
-  // Bitrix states
-  const [bitrixLeadId, setBitrixLeadId] = useState<string | number | null>(null);
-  const [bitrixSimulated, setBitrixSimulated] = useState(false);
-
   // AI Summary state
   const [aiSummary, setAiSummary] = useState('');
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
@@ -689,32 +685,7 @@ export default function ProcessTracker({
 
       setHasSearched(true);
 
-      // 2. Integração com Bitrix24 (criação automática de card)
-      try {
-        const bitrixRes = await authFetch('/api/bitrix/lead', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fullName,
-            cpf: formatDocumento(digits),
-            phone: formatPhone(phoneDigits),
-            state: estadoManual,
-            processNumber: processNumberInput,
-            processesCount: totalFound,
-            tribunal: Array.from(todosTribunais).join(', ') || estadoManual,
-            processesSummary: currentCases
-              ? currentCases.processes.slice(0, 3).map(p => `${p.tipo} (${p.numero}) - ${p.valorCausa}`).join('; ')
-              : 'Nenhum processo localizado automaticamente'
-          })
-        });
-        const bitrixData = await bitrixRes.json().catch(() => ({}));
-        if (bitrixData && bitrixData.leadId) setBitrixLeadId(bitrixData.leadId);
-        if (bitrixData && bitrixData.simulated) setBitrixSimulated(true);
-      } catch (err) {
-        console.error('[Bitrix integration error]', err);
-      }
-
-      // 3. Se encontrou processos, gera automaticamente o resumo por IA
+      // 2. Se encontrou processos, gera automaticamente o resumo por IA
       if (currentCases) {
         void fetchAiSummary(currentCases);
       }
