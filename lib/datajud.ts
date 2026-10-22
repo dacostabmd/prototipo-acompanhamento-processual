@@ -34,13 +34,41 @@ export interface DataJudResultado {
   dataAjuizamento?: string;
 }
 
-// A API pública do DataJud pode demorar muito em tribunais com acervo grande: testes reais contra
-// o endpoint do TJSP (dezenas de milhões de processos) levaram 30-56s mesmo buscando por número
-// específico (match_phrase), em mais de uma tentativa — 5s era curto demais e abortava quase toda
-// consulta a esse tribunal antes de uma resposta real chegar. Como essa consulta roda em paralelo
-// A consulta roda em paralelo sem bloquear a Infosimples. 30s: o índice do TJMG passou de 15s em produção
-// (a busca por número ficava sem o DataJud); a Infosimples, que leva mais, já segura a tela por mais tempo.
-const TIMEOUT_MS = 30000;
+// A API pública do DataJud demora muito em tribunais com acervo grande: o TJSP levou 30-56s por número com
+// match_phrase e o TJMG oscilou entre 7s e 22s, passando de 30s em duas buscas reais (o processo existia e
+// a tela dizia "não localizado"). Na busca por número sem Infosimples o DataJud é a ÚNICA fonte, então o
+// prazo é folgado; a rota tem maxDuration de 300s.
+const TIMEOUT_MS = 60000;
+
+/**
+ * hits do índice do tribunal para um número CNJ (só dígitos). Primeiro o termo exato em numeroProcesso.keyword
+ * (no TJMG, 7s contra 19s do match_phrase); se o índice não tiver esse subcampo e vier vazio, cai no
+ * match_phrase. Lança em erro de rede/timeout para quem chama tratar.
+ */
+async function buscarHitsDataJud(alias: string, numero: string, apiKey: string, signal: AbortSignal): Promise<any[]> {
+  const consultar = async (query: object) => {
+    const res = await fetch(`https://api-publica.datajud.cnj.jus.br/api_publica_${alias}/_search`, {
+      method: 'POST',
+      headers: { Authorization: `APIKey ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+      signal
+    });
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => null);
+    return Array.isArray(data?.hits?.hits) ? data.hits.hits : [];
+  };
+  const exatos = await consultar({ term: { 'numeroProcesso.keyword': numero } });
+  return exatos.length > 0 ? exatos : consultar({ match_phrase: { numeroProcesso: numero } });
+}
+
+/**
+ * O mesmo número pode ter um registro por grau/sistema (ex.: TJMG 0009044-95.2017: G1 PJe com 212 movimentações
+ * e G2 com sistema "Inválido" e 21). Usa o mais completo, não o primeiro que o índice devolver.
+ */
+function melhorRegistro(hits: any[]): DataJudSource | undefined {
+  const fontes: DataJudSource[] = hits.map(h => h?._source).filter(Boolean);
+  return fontes.sort((a, b) => (b.movimentos?.length ?? 0) - (a.movimentos?.length ?? 0))[0];
+}
 
 /**
  * dataAjuizamento do processo vem em dois formatos observados na API: ISO ("2018-10-29T00:00:00Z")
@@ -88,19 +116,7 @@ export async function consultarDataJud(
   signalExterno?.addEventListener('abort', onAbortExterno);
 
   try {
-    const res = await fetch(`https://api-publica.datajud.cnj.jus.br/api_publica_${alias}/_search`, {
-      method: 'POST',
-      headers: {
-        Authorization: `APIKey ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ query: { match_phrase: { numeroProcesso: numeroProcessoDigits } } }),
-      signal: controller.signal
-    });
-    if (!res.ok) return null;
-
-    const data = await res.json().catch(() => null);
-    const source: DataJudSource | undefined = data?.hits?.hits?.[0]?._source;
+    const source = melhorRegistro(await buscarHitsDataJud(alias, numeroProcessoDigits, apiKey, controller.signal));
     if (!source) return null;
 
     const movimentos: Movement[] = (source.movimentos ?? [])
@@ -168,19 +184,7 @@ export async function buscarProcessoDiretoDataJud(
   signalExterno?.addEventListener('abort', onAbortExterno);
 
   try {
-    const res = await fetch(`https://api-publica.datajud.cnj.jus.br/api_publica_${info.datajudAlias}/_search`, {
-      method: 'POST',
-      headers: {
-        Authorization: `APIKey ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ query: { match_phrase: { numeroProcesso: info.numeroLimpo } } }),
-      signal: controller.signal
-    });
-    if (!res.ok) return null;
-
-    const data = await res.json().catch(() => null);
-    const source: DataJudSource | undefined = data?.hits?.hits?.[0]?._source;
+    const source = melhorRegistro(await buscarHitsDataJud(info.datajudAlias, info.numeroLimpo, apiKey, controller.signal));
     if (!source) return null;
 
     const movimentos: Movement[] = (source.movimentos ?? [])

@@ -49,7 +49,6 @@ import {
   parseCnj
 } from '@/lib/format';
 import { useDevPagante } from '@/lib/devPagante';
-import { ufsDoAlias } from '@/lib/regioes';
 import { extractDdd, prioritizeByTribunalOrDdd, tribunalByDdd, tribunalByUf, ESTADOS_BRASIL } from '@/lib/ddd';
 import { useSharedProfile } from '@/components/ProfileProvider';
 import { getAvgMs, recordSample } from '@/lib/tribunalTiming';
@@ -132,7 +131,8 @@ export default function ProcessTracker({
 
   // Dados da busca
   const [fullName, setFullName] = useState('');
-  const [searchMode, setSearchMode] = useState<'cpf' | 'numero' | 'nome'>('cpf');
+  // Padrão: busca por número (gratuita, só DataJud). Por pessoa/empresa e por nome ficam para a visão de advogado.
+  const [searchMode, setSearchMode] = useState<'cpf' | 'numero' | 'nome'>('numero');
   const [cpfInput, setCpfInput] = useState('');
   // Documentos extras (CPF/CNPJ adicionais do mesmo titular, ex.: empresas dele) — cada um roda
   // como uma busca completa própria, em sequência, depois do documento principal (botão "+").
@@ -147,6 +147,7 @@ export default function ProcessTracker({
 
   // Consultante: documento fixo do próprio perfil, pré-preenchido e travado.
   useEffect(() => {
+    if (isConsultante) setSearchMode('cpf');
     if (isConsultante && profile.documento) {
       setCpfInput(formatDocumento(profile.documento));
       setFullName(prev => prev || profile.nome);
@@ -157,6 +158,12 @@ export default function ProcessTracker({
   // endpoints DataJud (começa em todos, são gratuitos). Por número CNJ: só liga/desliga as 2 fontes.
   const [infosimplesSel, setInfosimplesSel] = useState<string[]>(IDS_PRINCIPAIS_INFOSIMPLES);
   const [datajudSel, setDatajudSel] = useState<string[]>(IDS_TODOS_DATAJUD);
+  // Por número a busca é gratuita: a Infosimples do tribunal (paga) começa desmarcada e só o advogado pode ligá-la.
+  const [infosimplesNumeroSel, setInfosimplesNumeroSel] = useState<string[]>([]);
+  const [infosimplesSegundaTentativa, setInfosimplesSegundaTentativa] = useState(false);
+  const [refazerBusca, setRefazerBusca] = useState(false);
+  // número já tentado na Infosimples: não oferece pagar de novo pelo mesmo resultado
+  const [numeroTentadoNaInfosimples, setNumeroTentadoNaInfosimples] = useState('');
 
   // "Visualizar como": usuário comum vê o formulário enxuto (busca recomendada); advogado vê também busca por
   // nome, documentos extras, estado inicial e a escolha manual de fontes. Consultante é sempre usuário comum.
@@ -255,10 +262,16 @@ export default function ProcessTracker({
   // Onde procurar: fontes efetivas. Por número, o tribunal vem do CNJ e só há 2 fontes (DataJud e Infosimples).
   const aliasDatajudCnj = detectedTribunal?.datajudAlias ?? '';
   const servicosDoNumero = fontesInfosimplesDoTribunal(aliasDatajudCnj);
-  const usaDatajudNumero = !!aliasDatajudCnj && datajudSel.includes(aliasDatajudCnj);
+  // 2ª tentativa opcional por número: o DataJud não achou e o usuário pediu para buscar na Infosimples do
+  // tribunal (paga). Nela o DataJud não é consultado de novo.
+  const usaDatajudNumero = !!aliasDatajudCnj && datajudSel.includes(aliasDatajudCnj) && !infosimplesSegundaTentativa;
   const idsInfosimplesEfetivos =
     tipoBusca === 'numero'
-      ? servicosDoNumero.filter(s => infosimplesSel.includes(s.id)).map(s => s.id)
+      ? infosimplesSegundaTentativa
+        ? servicosDoNumero.map(s => s.id)
+        : visaoAdvogado
+        ? servicosDoNumero.filter(s => infosimplesNumeroSel.includes(s.id)).map(s => s.id)
+        : []
       : fontesInfosimplesPara(tipoBusca)
           .filter(f => infosimplesSel.includes(f.id))
           .map(f => f.id);
@@ -273,7 +286,7 @@ export default function ProcessTracker({
     }).length;
   const custoPrevistoPorDocumento =
     tipoBusca === 'numero'
-      ? custoTotal(servicosDoNumero.filter(s => infosimplesSel.includes(s.id)).map(s => s.service))
+      ? custoTotal(servicosDoNumero.filter(s => idsInfosimplesEfetivos.includes(s.id)).map(s => s.service))
       : custoFontesSelecionadas(tipoBusca, infosimplesSel);
   const custoPrevisto = custoPrevistoPorDocumento * (tipoBusca === 'numero' ? 1 : qtdDocumentosValidos);
   const custoPrevistoLabel =
@@ -284,11 +297,6 @@ export default function ProcessTracker({
       : qtdDocumentosValidos > 1
       ? `${formatarReais(custoPrevisto)} (${qtdDocumentosValidos} documentos)`
       : formatarReais(custoPrevisto);
-  // Resumo de "Onde vamos procurar": estados cobertos pelos tribunais estaduais marcados e se há federais.
-  const fontesMarcadas = tipoBusca === 'numero' ? [] : fontesInfosimplesPara(tipoBusca).filter(f => infosimplesSel.includes(f.id));
-  const ufsCobertas = [...new Set(fontesMarcadas.filter(f => f.grupo === 'Justiça Estadual').flatMap(f => ufsDoAlias(f.datajud ?? '')))];
-  const temFederais = fontesMarcadas.some(f => f.grupo === 'Justiça Federal');
-  const listaPt = (itens: string[]) => (itens.length <= 1 ? itens.join('') : `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}`);
   const qtdDatajudEfetivos = tipoBusca === 'numero' ? (usaDatajudNumero ? 1 : 0) : datajudSel.length;
 
   // Ao buscar por número de processo, o CNJ (20 dígitos) é o dado principal e Nome/CPF tornam-se opcionais.
@@ -722,6 +730,21 @@ export default function ProcessTracker({
 
   // Encerra a varredura sem descartar nada: os tribunais ainda consultando são interrompidos (a 2ª onda e os
   // próximos documentos da fila não começam) e o resultado mostra o que já foi encontrado.
+  // A busca roda só depois que o estado da 2ª tentativa entrou no render (handleFinalStepCompleted lê as fontes
+  // efetivas do render atual).
+  useEffect(() => {
+    if (!refazerBusca) return;
+    setRefazerBusca(false);
+    // vale só para esta busca: a próxima pelo formulário volta ao padrão gratuito
+    void handleFinalStepCompleted().finally(() => setInfosimplesSegundaTentativa(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refazerBusca]);
+
+  // Outro número: volta ao padrão (só DataJud).
+  useEffect(() => {
+    setInfosimplesSegundaTentativa(false);
+  }, [processNumberInput]);
+
   const handleEncerrarEVerResultados = () => {
     if (buscaEncerradaRef.current) return;
     buscaEncerradaRef.current = true;
@@ -1329,8 +1352,8 @@ export default function ProcessTracker({
                       onChange={v => {
                         const advogado = v === 'advogado';
                         setVisaoAdvogado(advogado);
-                        // A busca por nome só existe na visão de advogado.
-                        if (!advogado && searchMode === 'nome') setSearchMode('cpf');
+                        // Usuário comum só busca por número (gratuito); pessoa/empresa e nome são da visão de advogado.
+                        if (!advogado && searchMode !== 'numero') setSearchMode('numero');
                       }}
                       data={[
                         { label: 'Usuário comum', value: 'comum' },
@@ -1365,7 +1388,7 @@ export default function ProcessTracker({
                   <motion.header variants={secaoEntradaVariants}>
                     <div style={{ fontSize: 12, color: BLUE, fontWeight: 600, marginBottom: 6 }}>Nova consulta</div>
                     <h2 style={{ margin: '0 0 6px', fontSize: 'clamp(19px, 3.2vw, 22px)', color: TEXT, fontWeight: 700, letterSpacing: -0.3 }}>
-                      Encontre processos de uma pessoa ou empresa
+                      {isConsultante || visaoAdvogado ? 'Encontre processos de uma pessoa ou empresa' : 'Consulte um processo pelo número'}
                     </h2>
                     <p style={{ margin: 0, fontSize: 13.5, color: MUTED, lineHeight: 1.5 }}>
                       {isConsultante
@@ -1379,18 +1402,19 @@ export default function ProcessTracker({
                       <h3 style={tituloBlocoStyle}>Como você quer buscar?</h3>
                       <div role="radiogroup" aria-label="Como você quer buscar" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
                         <OpcaoBusca
-                          ativa={searchMode === 'cpf'}
-                          onClick={() => setSearchMode('cpf')}
-                          icone={<UserRound size={15} />}
-                          titulo="Por pessoa ou empresa"
-                          subtitulo="Nome e CPF ou CNPJ"
-                        />
-                        <OpcaoBusca
                           ativa={searchMode === 'numero'}
                           onClick={() => setSearchMode('numero')}
                           icone={<FileText size={15} />}
                           titulo="Por número do processo"
                           subtitulo="Busca gratuita"
+                        />
+                        <OpcaoBusca
+                          ativa={searchMode === 'cpf'}
+                          onClick={() => visaoAdvogado && setSearchMode('cpf')}
+                          desabilitada={!visaoAdvogado}
+                          icone={visaoAdvogado ? <UserRound size={15} /> : <Lock size={15} />}
+                          titulo="Por pessoa ou empresa"
+                          subtitulo={visaoAdvogado ? 'Nome e CPF ou CNPJ' : 'Disponível para advogados'}
                         />
                         {visaoAdvogado && (
                           <OpcaoBusca
@@ -1539,58 +1563,20 @@ export default function ProcessTracker({
                     </div>
                   </Revelar>
 
-                  {/* Onde vamos procurar */}
+                  {/* Escolha manual de fontes (só na visão do advogado; o resumo "Onde vamos procurar" foi removido) */}
                   <motion.div variants={secaoEntradaVariants}>
-                    <h3 style={tituloBlocoStyle}>Onde vamos procurar</h3>
-                    <div style={painelStyle}>
-                      <AlturaSuave>
-                      {searchMode === 'numero' ? (
-                        <motion.div key="onde-numero" {...trocaSuave}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>Busca direta</div>
-                          <p style={{ margin: '4px 0 10px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
-                            {detectedTribunal?.valido
-                              ? `No ${detectedTribunal.tribunalLabel}, onde o processo tramita, e na base pública nacional.`
-                              : 'Com o número completo, identificamos o tribunal sozinhos.'}
-                          </p>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            {detectedTribunal?.valido && idsInfosimplesEfetivos.length > 0 && <Selo>{detectedTribunal.tribunalLabel}</Selo>}
-                            {usaDatajudNumero && <Selo verde>Base nacional · grátis</Selo>}
-                          </div>
-                        </motion.div>
-                      ) : (
-                        <motion.div key="onde-documento" {...trocaSuave}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>
-                            {fontesManuaisAbertas ? 'Busca personalizada' : 'Busca recomendada'}
-                          </div>
-                          <p style={{ margin: '4px 0 10px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
-                            {ufsCobertas.length > 0 || temFederais
-                              ? `${[ufsCobertas.length > 0 ? `Tribunais de ${listaPt(ufsCobertas)}` : null, temFederais ? 'tribunais federais' : null]
-                                  .filter(Boolean)
-                                  .join(', ')}${datajudSel.length > 0 ? ', mais a base pública nacional.' : '.'}`
-                              : 'Nenhum tribunal selecionado.'}
-                          </p>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            {ufsCobertas.length > 0 && <Selo>Tribunais estaduais</Selo>}
-                            {temFederais && <Selo>Tribunais federais</Selo>}
-                            {usarLemit && tipoBusca === 'cpf' && <Selo>Dados do CPF · incluso</Selo>}
-                            {datajudSel.length > 0 && <Selo verde>Base nacional · grátis</Selo>}
-                          </div>
-                          {visaoAdvogado && (
-                            <button type="button" onClick={() => setFontesManuaisAbertas(v => !v)} style={{ ...linkAcaoStyle, marginTop: 12 }}>
-                              <SlidersHorizontal size={14} /> {fontesManuaisAbertas ? 'Ocultar escolha de fontes' : 'Escolher fontes manualmente'}
-                            </button>
-                          )}
-                        </motion.div>
-                      )}
-                      </AlturaSuave>
-                    </div>
+                    {visaoAdvogado && searchMode !== 'numero' && (
+                      <button type="button" onClick={() => setFontesManuaisAbertas(v => !v)} style={linkAcaoStyle}>
+                        <SlidersHorizontal size={14} /> {fontesManuaisAbertas ? 'Ocultar escolha de fontes' : 'Escolher fontes manualmente'}
+                      </button>
+                    )}
                     <Revelar aberto={visaoAdvogado && (fontesManuaisAbertas || searchMode === 'numero')}>
                       <div style={{ paddingTop: 12 }}>
                         <FontesSelector
                           tipoBusca={tipoBusca}
                           detectado={detectedTribunal}
-                          infosimplesSel={infosimplesSel}
-                          onInfosimplesChange={setInfosimplesSel}
+                          infosimplesSel={tipoBusca === 'numero' ? infosimplesNumeroSel : infosimplesSel}
+                          onInfosimplesChange={tipoBusca === 'numero' ? setInfosimplesNumeroSel : setInfosimplesSel}
                           datajudSel={datajudSel}
                           onDatajudChange={setDatajudSel}
                           lemitAtivo={usarLemit}
@@ -1825,6 +1811,44 @@ export default function ProcessTracker({
               >
                 PRECISO DE AUXÍLIO JURÍDICO
               </button>
+              {searchMode === 'numero' &&
+                idsInfosimplesEfetivos.length === 0 &&
+                servicosDoNumero.length > 0 &&
+                numeroTentadoNaInfosimples !== processNumberInput && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotFound(false);
+                      setNumeroTentadoNaInfosimples(processNumberInput);
+                      setInfosimplesSegundaTentativa(true);
+                      setRefazerBusca(true);
+                    }}
+                    className="bf-btn-sec"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: 'rgba(255,255,255,0.06)',
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: 4,
+                      color: TEXT,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: '10px 18px'
+                    }}
+                  >
+                    <Search size={15} strokeWidth={1.8} />
+                    Buscar direto no portal do {detectedTribunal?.tribunalLabel ?? 'tribunal'} ·{' '}
+                    {formatarReais(custoTotal(servicosDoNumero.map(s => s.service)))}
+                  </button>
+                  <span style={{ fontSize: 12, color: MUTED, textAlign: 'center', maxWidth: 420 }}>
+                    Opcional. A base do CNJ pode demorar a incluir processos ou ficar instável; esta consulta vai ao
+                    sistema do tribunal pela Infosimples e é cobrada.
+                  </span>
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
                 <button
                   type="button"
@@ -2759,25 +2783,6 @@ function OpcaoBusca({
   );
 }
 
-/** Selo de fonte no resumo de "Onde vamos procurar" (verde = gratuito). */
-function Selo({ verde, children }: { verde?: boolean; children: React.ReactNode }) {
-  return (
-    <span
-      style={{
-        fontSize: 12,
-        padding: '4px 10px',
-        borderRadius: 999,
-        border: `1px solid ${verde ? 'rgba(143,185,154,0.45)' : INPUT_BORDER}`,
-        color: verde ? '#8fb99a' : 'rgba(245,246,250,0.85)',
-        background: verde ? 'rgba(143,185,154,0.08)' : 'transparent',
-        whiteSpace: 'nowrap'
-      }}
-    >
-      {children}
-    </span>
-  );
-}
-
 const seloOpcionalStyle: React.CSSProperties = {
   fontSize: 10.5,
   fontWeight: 500,
@@ -2951,24 +2956,6 @@ function Revelar({ aberto, id, style, children }: { aberto: boolean; id?: string
         </motion.div>
       )}
     </AnimatePresence>
-  );
-}
-
-/** Acompanha a altura do conteúdo e anima as mudanças (troca de texto/selos dentro de um painel). */
-function AlturaSuave({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [altura, setAltura] = useState<number | 'auto'>('auto');
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new ResizeObserver(([entrada]) => setAltura(entrada.contentRect.height));
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return (
-    <motion.div initial={false} animate={{ height: altura }} transition={TRANSICAO_SUAVE} style={{ overflow: 'hidden' }}>
-      <div ref={ref}>{children}</div>
-    </motion.div>
   );
 }
 
