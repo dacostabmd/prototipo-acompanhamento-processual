@@ -296,7 +296,9 @@ a:hover {
   border: 1px solid #ececea;
 }
 
-.bf-input {
+/* Inputs do cartão claro de login/redefinição. Escopados em .bf-auth-card: o .bf-input global é glass
+   (transparente) e esta versão clara não pode vazar para os campos do restante do app. */
+.bf-auth-card .bf-input {
   width: 100%;
   padding: 15px 18px;
   border: 1.5px solid #d4d4d2;
@@ -308,7 +310,15 @@ a:hover {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
-.bf-input:focus {
+.bf-auth-card .bf-input::placeholder {
+  color: #9a9a98;
+}
+
+.bf-auth-card .bf-input:hover:not(:disabled) {
+  border-color: #b8b8b6;
+}
+
+.bf-auth-card .bf-input:focus {
   border-color: #5f5f5f;
   background: #fefefa;
   box-shadow: 0 0 0 4px rgba(95, 95, 95, 0.14);
@@ -585,6 +595,12 @@ a:hover {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
+  /* Janela baixa (ex.: zoom alto): a lista rola em vez de invadir o rodapé da barra lateral. */
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.bf-side-nav::-webkit-scrollbar {
+  display: none;
   padding: 0 !important;
 }
 
@@ -699,6 +715,72 @@ a:hover {
   gap: 6px !important;
   transition: color 150ms ease !important;
 }
+/* Lado direito do topo: zoom (-/+) + usuário. */
+.bf-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-left: auto;
+}
+.bf-topbar-right .bf-user {
+  margin-left: 0;
+}
+
+.bf-zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+/* Limite do zoom: o ActionIcon desabilitado do Mantine clareia o fundo e some o ícone branco do tema. */
+.bf-zoom .mantine-ActionIcon-root:disabled,
+.bf-zoom .mantine-ActionIcon-root[data-disabled] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.bf-zoom-nivel {
+  min-width: 46px;
+  padding: 4px 6px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.bf-zoom-nivel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+.bf-zoom-nivel:disabled {
+  cursor: default;
+}
+/* Zoom é recurso só do desktop. */
+@media (max-width: 47.99em) {
+  .bf-zoom {
+    display: none;
+  }
+}
+
+/* O zoom por CSS (html { zoom }) multiplica alturas em dvh/vh: compensa para a barra lateral, a área
+   principal e os modais continuarem do tamanho da janela. --bf-zoom é definido em components/ZoomControls.tsx. */
+@media (min-width: 48em) {
+  .bf-side.bf-side {
+    height: calc(100dvh / var(--bf-zoom, 1));
+  }
+  /* :root eleva a especificidade: o .bf-main.bf-main com min-height: 100dvh é declarado mais abaixo. */
+  :root .bf-main.bf-main {
+    min-height: calc(100dvh / var(--bf-zoom, 1));
+  }
+  .mantine-Modal-content {
+    max-height: calc((100dvh - var(--modal-y-offset, 5vh) * 2) / var(--bf-zoom, 1));
+  }
+}
+
 
 .mantine-SegmentedControl-label[data-active] {
   color: #232323 !important;
@@ -838,6 +920,48 @@ a:hover {
 .mantine-Combobox-option:hover {
   background: rgba(255, 255, 255, 0.1) !important;
 }
+/* Zoom da interface (components/ZoomControls.tsx): aplicado só no contêiner do app, não no <html>.
+   Tooltips, dropdowns e menus do Mantine são montados no <body>, fora dele, e posicionados pelo Floating UI
+   com getBoundingClientRect (pixels reais): com o zoom no <html> eles apareciam deslocados por um fator igual
+   ao zoom. Fora do contêiner ficam no tamanho padrão e corretamente ancorados. Modais e gavetas são centrados
+   por CSS (não por JS), então acompanham o zoom normalmente. */
+html[data-bf-zoom] .bf-zoom-root {
+  zoom: var(--bf-zoom, 1);
+}
+html[data-bf-zoom] .mantine-Modal-content,
+html[data-bf-zoom] .mantine-Drawer-content {
+  zoom: var(--bf-zoom, 1);
+}
+
+/* Com zoom ativo (html[data-bf-zoom], ver components/ZoomControls.tsx) o destaque do SegmentedControl,
+   dimensionado pelo Mantine em JS com getBoundingClientRect, sai escalado duas vezes. Nesse caso o
+   indicador some e o rótulo ativo pinta o próprio fundo por CSS, que acompanha qualquer zoom. */
+html[data-bf-zoom] .mantine-SegmentedControl-indicator {
+  display: none !important;
+}
+html[data-bf-zoom] .mantine-SegmentedControl-label[data-active]::before {
+  content: '' !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: -1 !important;
+  border-radius: 6px !important;
+  background: linear-gradient(135deg, var(--bf-blue-500) 0%, var(--bf-blue-600) 100%) !important;
+  box-shadow: 0 2px 10px rgba(138, 113, 72, 0.3) !important;
+}
+
+/* Variante 50/50: cada aba ocupa metade da largura. O label global é inline-flex (encolhe ao conteúdo),
+   então aqui ele volta a preencher o próprio controle. Uso: classNames={{ control, label }} no SegmentedControl. */
+.bf-seg-igual-control {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+.bf-seg-igual-label {
+  display: flex !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
 
 .mantine-NumberInput-control {
   border-color: var(--bf-glass-border) !important;

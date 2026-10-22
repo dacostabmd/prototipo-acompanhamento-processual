@@ -13,6 +13,7 @@ import { authFetch } from '@/lib/authFetch';
 import { ProfileProvider, useSharedProfile } from './ProfileProvider';
 import PageTransition from './PageTransition';
 import UserChip from './UserChip';
+import ZoomControls from './ZoomControls';
 import Changelog from './Changelog';
 
 const RAIL = 80;
@@ -67,6 +68,7 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
   };
 
   return (
+    <div className="bf-zoom-root">
     <AppShell
       header={{ height: 64 }}
       navbar={{
@@ -79,7 +81,10 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
     >
       <AppShell.Header className="bf-topbar">
         <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" aria-label="Abrir menu" />
-        <UserChip />
+        <div className="bf-topbar-right">
+          <ZoomControls />
+          <UserChip />
+        </div>
       </AppShell.Header>
 
       <AppShell.Navbar className="bf-side" data-expanded={expanded || undefined}>
@@ -152,5 +157,6 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
       </AppShell.Main>
       <Changelog isOwner={profile.role === 'owner'} />
     </AppShell>
+    </div>
   );
 }

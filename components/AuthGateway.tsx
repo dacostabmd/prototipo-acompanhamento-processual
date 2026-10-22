@@ -11,8 +11,22 @@ const BLUE = '#5f5f5f';
 const TEXT = '#232323';
 const MUTED = '#7a7a7a';
 
-type Mode = 'login' | 'signup';
+type Mode = 'login' | 'signup' | 'forgot';
 type Perfil = 'advogado' | 'broker' | 'cliente';
+
+// Cadastro e redefinição exigem mais que o login: contas antigas com 6 caracteres continuam entrando.
+const MIN_SENHA_CADASTRO = 8;
+
+const linkButton: CSSProperties = {
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  color: '#5f5f5f',
+  textDecoration: 'underline',
+  fontWeight: 600,
+  cursor: 'pointer',
+  fontSize: 13
+};
 
 const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', margin: '0 0 8px' };
 
@@ -39,15 +53,14 @@ export default function AuthGateway() {
     router.refresh();
   };
 
-  // Carrega credenciais salvas no localStorage (Lembrar senha)
+  // Lembra apenas o e-mail. A senha nunca fica no navegador; versões antigas a gravavam em texto puro, então apaga.
   useEffect(() => {
     try {
+      localStorage.removeItem('bf_saved_password');
       const savedRemember = localStorage.getItem('bf_remember_me');
       if (savedRemember === 'true') {
         const savedEmail = localStorage.getItem('bf_saved_email') || '';
-        const savedPassword = localStorage.getItem('bf_saved_password') || '';
         if (savedEmail) setEmail(savedEmail);
-        if (savedPassword) setPassword(savedPassword);
         setRememberMe(true);
       }
     } catch {}
@@ -114,7 +127,9 @@ export default function AuthGateway() {
     if (trimmedInput !== 'admin' && !/^\S+@\S+\.\S+$/.test(trimmedInput)) {
       return setError('Informe um e-mail válido.');
     }
-    if (password.length < 6) return setError('A senha deve ter ao menos 6 caracteres.');
+    if (password.length < (mode === 'signup' ? MIN_SENHA_CADASTRO : 6)) {
+      return setError(`A senha deve ter ao menos ${mode === 'signup' ? MIN_SENHA_CADASTRO : 6} caracteres.`);
+    }
     if (mode === 'signup' && name.trim().length < 3) return setError('Informe seu nome completo.');
     if (mode === 'signup' && perfil === 'cliente' && !isDocumentoValido) {
       return setError('Informe um CPF ou CNPJ válido para a Consulta Avulsa.');
@@ -122,16 +137,14 @@ export default function AuthGateway() {
 
     setLoading(true);
     try {
-      // Salva ou remove credenciais do localStorage conforme checkbox "Lembrar dados"
+      // Salva ou remove o e-mail do localStorage conforme o checkbox "Lembrar meu e-mail"
       try {
         if (rememberMe) {
           localStorage.setItem('bf_remember_me', 'true');
           localStorage.setItem('bf_saved_email', email);
-          localStorage.setItem('bf_saved_password', password);
         } else {
           localStorage.removeItem('bf_remember_me');
           localStorage.removeItem('bf_saved_email');
-          localStorage.removeItem('bf_saved_password');
         }
       } catch {}
 
@@ -172,6 +185,34 @@ export default function AuthGateway() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgot = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+    const trimmedInput = email.trim().toLowerCase();
+    const normalizedEmail = trimmedInput === 'admin' ? 'admin@dap.com.br' : trimmedInput;
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) return setError('Informe um e-mail válido.');
+    if (!supabase) return setInfo('Modo demonstração: a recuperação de senha não está disponível.');
+
+    setLoading(true);
+    try {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: `${window.location.origin}/redefinir-senha`
+      });
+      // Resposta neutra para não revelar se o e-mail está cadastrado; só erros de envio (ex.: limite) aparecem.
+      if (err) return setError('Não foi possível enviar o e-mail agora. Tente novamente em alguns minutos.');
+      setInfo('Se o e-mail estiver cadastrado, você receberá em instantes um link para redefinir a senha.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const trocarModo = (novo: Mode) => {
+    setMode(novo);
+    setError('');
+    setInfo('');
   };
 
 
@@ -229,11 +270,47 @@ export default function AuthGateway() {
       <section className="bf-auth-right">
         <div className="bf-auth-card">
           <h2 style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.6, color: TEXT, margin: '0 0 8px' }}>
-            {mode === 'login' ? 'Acesse sua conta' : 'Crie sua conta'}
+            {mode === 'login' ? 'Acesse sua conta' : mode === 'signup' ? 'Crie sua conta' : 'Recuperar senha'}
           </h2>
           <p style={{ fontSize: 15, color: MUTED, margin: '0 0 24px' }}>
-            {mode === 'login' ? 'Entre para consultar e acompanhar seus processos.' : 'Leva menos de um minuto.'}
+            {mode === 'login'
+              ? 'Entre para consultar e acompanhar seus processos.'
+              : mode === 'signup'
+                ? 'Leva menos de um minuto.'
+                : 'Informe seu e-mail e enviaremos um link para criar uma nova senha.'}
           </p>
+
+          {mode === 'forgot' && (
+            <form onSubmit={handleForgot} noValidate style={{ display: 'grid', gap: 16 }}>
+              <div>
+                <label style={label} htmlFor="bf-forgot-email">
+                  E-mail
+                </label>
+                <input
+                  id="bf-forgot-email"
+                  type="email"
+                  className="bf-input"
+                  placeholder="voce@exemplo.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              </div>
+              {error && (
+                <div role="alert" style={{ background: '#fef2f2', color: '#b42318', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
+                  {error}
+                </div>
+              )}
+              {info && (
+                <div style={{ background: '#ecfdf3', color: '#067647', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
+                  {info}
+                </div>
+              )}
+              <button type="submit" disabled={loading} className="bf-btn-primary">
+                {loading ? 'Aguarde…' : 'Enviar link de redefinição'}
+              </button>
+            </form>
+          )}
 
           {mode === 'signup' && (
             <div style={{ margin: '0 0 20px' }}>
@@ -257,6 +334,8 @@ export default function AuthGateway() {
             </div>
           )}
 
+          {mode !== 'forgot' && (
+          <>
           <button type="button" onClick={handleGoogle} className="bf-btn-google">
             <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
               <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z" />
@@ -323,22 +402,29 @@ export default function AuthGateway() {
                 id="bf-pass"
                 type="password"
                 className="bf-input"
-                placeholder="Mínimo de 6 caracteres"
+                placeholder={mode === 'signup' ? `Mínimo de ${MIN_SENHA_CADASTRO} caracteres` : 'Sua senha'}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </div>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#475569', cursor: 'pointer', userSelect: 'none', marginTop: -4 }}>
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={e => setRememberMe(e.target.checked)}
-                style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#2455b8' }}
-              />
-              <span>Lembrar meus dados de acesso neste navegador</span>
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginTop: -4 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#475569', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#2455b8' }}
+                />
+                <span>Lembrar meu e-mail neste navegador</span>
+              </label>
+              {mode === 'login' && (
+                <button type="button" onClick={() => trocarModo('forgot')} style={linkButton}>
+                  Esqueci minha senha
+                </button>
+              )}
+            </div>
 
             {error && (
               <div role="alert" style={{ background: '#fef2f2', color: '#b42318', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
@@ -355,19 +441,17 @@ export default function AuthGateway() {
               {loading ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
             </button>
           </form>
+          </>
+          )}
 
           <p style={{ fontSize: 14, color: MUTED, textAlign: 'center', marginTop: 22 }}>
-            {mode === 'login' ? 'Ainda não tem conta?' : 'Já possui conta?'}{' '}
+            {mode === 'login' ? 'Ainda não tem conta?' : mode === 'signup' ? 'Já possui conta?' : 'Lembrou a senha?'}{' '}
             <button
               type="button"
-              onClick={() => {
-                setMode(mode === 'login' ? 'signup' : 'login');
-                setError('');
-                setInfo('');
-              }}
+              onClick={() => trocarModo(mode === 'login' ? 'signup' : 'login')}
               style={{ background: 'none', border: 'none', padding: 0, color: '#ffffff', textDecoration: 'underline', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}
             >
-              {mode === 'login' ? 'Criar conta' : 'Fazer login'}
+              {mode === 'login' ? 'Criar conta' : mode === 'signup' ? 'Fazer login' : 'Voltar para o login'}
             </button>
           </p>
         </div>
