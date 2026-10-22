@@ -3,10 +3,29 @@
 import { authFetch } from '@/lib/authFetch';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { SegmentedControl, Switch, Tooltip, Paper } from '@mantine/core';
+import { AnimatePresence, MotionConfig, motion, type Variants } from 'motion/react';
+import { SegmentedControl, Switch, Tooltip } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { Lock, Info, XCircle, Scale, AlertTriangle, FlaskConical, CheckCircle2, Bell, X } from 'lucide-react';
-import Stepper, { Step } from './Stepper';
+import {
+  Lock,
+  Info,
+  XCircle,
+  AlertTriangle,
+  AlertCircle,
+  FlaskConical,
+  CheckCircle2,
+  X,
+  Timer,
+  ListChecks,
+  FileText,
+  Fingerprint,
+  Search,
+  Plus,
+  UserRound,
+  ArrowRight,
+  ChevronDown,
+  SlidersHorizontal
+} from 'lucide-react';
 import ProcessResultView from './ProcessResultView';
 import FontesSelector, {
   IDS_TODOS_DATAJUD,
@@ -30,6 +49,7 @@ import {
   parseCnj
 } from '@/lib/format';
 import { useDevPagante } from '@/lib/devPagante';
+import { ufsDoAlias } from '@/lib/regioes';
 import { extractDdd, prioritizeByTribunalOrDdd, tribunalByDdd, tribunalByUf, ESTADOS_BRASIL } from '@/lib/ddd';
 import { useSharedProfile } from '@/components/ProfileProvider';
 import { getAvgMs, recordSample } from '@/lib/tribunalTiming';
@@ -64,7 +84,16 @@ type ScanStatus = 'pending' | 'loading' | 'found' | 'not-found' | 'cancelled' | 
 /** De onde o card está consultando: Infosimples (raspagem do portal) ou DataJud (API pública do CNJ). */
 type ScanFonte = 'infosimples' | 'datajud';
 /** Progresso de uma única fonte dentro do card do tribunal. */
-type ScanFonteProgresso = { status: ScanStatus; startedAt?: number; elapsedMs?: number; erro?: string };
+type ScanFonteProgresso = {
+  status: ScanStatus;
+  startedAt?: number;
+  elapsedMs?: number;
+  /** Falha em linguagem simples (é o que aparece). */
+  erro?: string;
+  /** Causa técnica com código/tempo/tentativas, mostrada só ao passar o mouse. */
+  erroTecnico?: string;
+  custo?: number;
+};
 /**
  * Um card por tribunal/estado (não mais um card por fonte): reúne o progresso da Infosimples e do
  * DataJud para o mesmo tribunal num só lugar, já que as duas consultam o mesmo processo.
@@ -75,13 +104,14 @@ type ScanItem = {
   datajud?: ScanFonteProgresso;
 };
 
-export interface ToasterEvent {
-  id: string;
-  title: string;
-  message: string;
-  status: ScanStatus | 'info';
-  timestamp: string;
-}
+/** Processo achado durante a varredura (evento 'processo' do backend), exibido antes do resultado final. */
+type ProcessoParcial = { numero: string; tribunal: string; tipo?: string; autor?: string };
+
+/** Consulta da Lemit durante a varredura (evento de progresso fonte 'lemit'), exibida na tela de varredura. */
+type LemitEvento = { label: string; status: 'loading' | 'ok' | 'vazio' | 'erro'; detalhe?: string; custo?: number; descoberto?: boolean };
+
+/** Limite de uma varredura no servidor (maxDuration de app/api/processos/route.ts), mostrado no cronômetro. */
+const LIMITE_VARREDURA_S = 300;
 
 const MOSS_GREEN = '#3d6b4f';
 const WARN = '#d4a65f';
@@ -100,7 +130,7 @@ export default function ProcessTracker({
   const { profile } = useSharedProfile();
   const isConsultante = profile.role === 'cliente';
 
-  // Passo 1 · Como buscar
+  // Dados da busca
   const [fullName, setFullName] = useState('');
   const [searchMode, setSearchMode] = useState<'cpf' | 'numero' | 'nome'>('cpf');
   const [cpfInput, setCpfInput] = useState('');
@@ -110,7 +140,7 @@ export default function ProcessTracker({
   const [processNumberInput, setProcessNumberInput] = useState('');
   const [partyNameInput, setPartyNameInput] = useState('');
   const [estadoManual, setEstadoManual] = useState('');
-  // Checkbox opcional do Passo 1: quando marcado, a API só retorna processos em que o nome/documento
+  // Opção "somente autor": quando marcado, a API só retorna processos em que o nome/documento
   // pesquisado está no polo ativo (Autor), descartando os em que o pesquisado é Réu/parte contrária.
   // Processos sem informação de polo confiável na fonte permanecem visíveis (não são descartados).
   const [somenteAutor, setSomenteAutor] = useState(false);
@@ -123,27 +153,28 @@ export default function ProcessTracker({
     }
   }, [isConsultante, profile.documento, profile.nome]);
 
-  // Passo 2 · Onde procurar. Por CPF/CNPJ/nome: ids das fontes Infosimples (começa nas principais) e
+  // Onde procurar. Por CPF/CNPJ/nome: ids das fontes Infosimples (começa nas principais) e
   // endpoints DataJud (começa em todos, são gratuitos). Por número CNJ: só liga/desliga as 2 fontes.
   const [infosimplesSel, setInfosimplesSel] = useState<string[]>(IDS_PRINCIPAIS_INFOSIMPLES);
   const [datajudSel, setDatajudSel] = useState<string[]>(IDS_TODOS_DATAJUD);
 
-  // Passo 3 · Avisos
-  const [avisarNovidades, setAvisarNovidades] = useState(false);
-  const [canalEmail, setCanalEmail] = useState(true);
-  const [canalWhatsapp, setCanalWhatsapp] = useState(false);
-  const [resumoSimples, setResumoSimples] = useState(false);
+  // "Visualizar como": usuário comum vê o formulário enxuto (busca recomendada); advogado vê também busca por
+  // nome, documentos extras, estado inicial e a escolha manual de fontes. Consultante é sempre usuário comum.
+  const [visaoAdvogado, setVisaoAdvogado] = useState(false);
+  const [ajustesAbertos, setAjustesAbertos] = useState(false);
+  const [fontesManuaisAbertas, setFontesManuaisAbertas] = useState(false);
 
-  // Passo 4 · Revisar e consultar
+  // Refinar a busca (opcional)
   const [phoneInput, setPhoneInput] = useState('');
-  // Toggle do Passo 4: com DDD identificado, tenta só o tribunal do estado dele primeiro e só
+  // Toggle "economizar": com DDD identificado, tenta só o tribunal do estado dele primeiro e só
   // dispara os demais tribunais selecionados se essa primeira leva não achar nada — economiza
   // chamadas pagas da Infosimples. Ligado por padrão.
   const [economizarPorDdd, setEconomizarPorDdd] = useState(true);
+  // Lemit (enriquecimento cadastral por CPF): automática por padrão, desligável em "Onde procurar".
+  const [usarLemit, setUsarLemit] = useState(true);
   const [formError, setFormError] = useState('');
 
   // Search & Result states
-  const [currentStepIndex, setCurrentStepIndex] = useState(1);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -161,10 +192,17 @@ export default function ProcessTracker({
   // No fluxo por número (Fluxo A), o evento do DataJud vem como "DataJud (CNJ)" sem o nome do
   // tribunal embutido — guarda o único tribunal-alvo da busca para rotear a sub-fonte certa no card.
   const targetTribunalRef = useRef<string>('');
-  // Múltiplos documentos (botão "+" no Passo 1): rodam em sequência, cada um como uma busca completa.
+  // Múltiplos documentos (botão "+" ao lado do documento): rodam em sequência, cada um como uma busca completa.
   // O ref permite interromper a fila assim que o usuário clicar em "cancelar busca" (lido de forma
   // síncrona entre um documento e o próximo, sem esperar o próximo render do state).
   const buscaCanceladaRef = useRef(false);
+  // "Encerrar e ver resultados": interrompe os tribunais em andamento mas mostra o que já foi achado
+  // (≠ cancelar, que descarta tudo e volta ao formulário).
+  const buscaEncerradaRef = useRef(false);
+  const [processosParciais, setProcessosParciais] = useState<ProcessoParcial[]>([]);
+  const [varreduraIniciadaEm, setVarreduraIniciadaEm] = useState<number | null>(null);
+  const [planoVarredura, setPlanoVarredura] = useState<string | null>(null);
+  const [lemitEventos, setLemitEventos] = useState<LemitEvento[]>([]);
   const [documentoAtualIdx, setDocumentoAtualIdx] = useState(0);
   const [totalDocumentos, setTotalDocumentos] = useState(1);
   const [custoAcumulado, setCustoAcumulado] = useState(0);
@@ -196,32 +234,14 @@ export default function ProcessTracker({
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [chatEnded, setChatEnded] = useState(false);
-  const [toasters, setToasters] = useState<ToasterEvent[]>([]);
 
   const found = hasSearched && !notFound && !!caseData;
-
-  const adicionarToaster = (
-    title: string,
-    message: string,
-    status: ScanStatus | 'info'
-  ) => {
-    const agora = new Date();
-    const timestamp = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const novo: ToasterEvent = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      title,
-      message,
-      status,
-      timestamp
-    };
-    setToasters(prev => [novo, ...prev]);
-  };
 
   const detectedTribunal = useMemo(() => {
     return searchMode === 'numero' ? parseCnj(processNumberInput) : null;
   }, [searchMode, processNumberInput]);
 
-  // Validações por passo do novo Stepper: 1·Como buscar 2·Onde procurar 3·Avisos 4·Revisar e consultar
+  // Validações do formulário (tela única): dados da busca, onde procurar e refinamento opcional.
   // O campo de documento aceita CPF (11 dígitos) ou CNPJ (14), identificado pelo tamanho.
   const cpfInputDigits = cleanDigits(cpfInput);
   const isDocValid =
@@ -232,7 +252,7 @@ export default function ProcessTracker({
   const tipoBusca: TipoBusca =
     searchMode === 'numero' ? 'numero' : searchMode === 'nome' ? 'nome' : cpfInputDigits.length === 14 ? 'cnpj' : 'cpf';
 
-  // Passo 2: fontes efetivas. Por número, o tribunal vem do CNJ e só há 2 fontes (DataJud e Infosimples).
+  // Onde procurar: fontes efetivas. Por número, o tribunal vem do CNJ e só há 2 fontes (DataJud e Infosimples).
   const aliasDatajudCnj = detectedTribunal?.datajudAlias ?? '';
   const servicosDoNumero = fontesInfosimplesDoTribunal(aliasDatajudCnj);
   const usaDatajudNumero = !!aliasDatajudCnj && datajudSel.includes(aliasDatajudCnj);
@@ -264,6 +284,11 @@ export default function ProcessTracker({
       : qtdDocumentosValidos > 1
       ? `${formatarReais(custoPrevisto)} (${qtdDocumentosValidos} documentos)`
       : formatarReais(custoPrevisto);
+  // Resumo de "Onde vamos procurar": estados cobertos pelos tribunais estaduais marcados e se há federais.
+  const fontesMarcadas = tipoBusca === 'numero' ? [] : fontesInfosimplesPara(tipoBusca).filter(f => infosimplesSel.includes(f.id));
+  const ufsCobertas = [...new Set(fontesMarcadas.filter(f => f.grupo === 'Justiça Estadual').flatMap(f => ufsDoAlias(f.datajud ?? '')))];
+  const temFederais = fontesMarcadas.some(f => f.grupo === 'Justiça Federal');
+  const listaPt = (itens: string[]) => (itens.length <= 1 ? itens.join('') : `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}`);
   const qtdDatajudEfetivos = tipoBusca === 'numero' ? (usaDatajudNumero ? 1 : 0) : datajudSel.length;
 
   // Ao buscar por número de processo, o CNJ (20 dígitos) é o dado principal e Nome/CPF tornam-se opcionais.
@@ -275,25 +300,19 @@ export default function ProcessTracker({
       ? isPagante && partyNameInput.trim().length >= 3 && (cpfInputDigits.length === 0 || isDocValid)
       : fullName.trim().length >= 3 && isDocValid;
   const isStep2Valid = tipoBusca === 'numero' ? usaDatajudNumero || idsInfosimplesEfetivos.length > 0 : idsInfosimplesEfetivos.length > 0;
-  // Com o aviso de novidades ligado, exige pelo menos um canal de envio (E-mail ou WhatsApp) marcado.
-  const isStep3Valid = !avisarNovidades || canalEmail || canalWhatsapp;
   // Celular opcional (da parte pesquisada): vazio é válido; se preenchido, exige DDD + número.
   const isStep4Valid = cleanDigits(phoneInput).length === 0 || cleanDigits(phoneInput).length >= 10;
-
-  const canAdvanceCurrentStep = useMemo(() => {
-    switch (currentStepIndex) {
-      case 1:
-        return isStep1Valid;
-      case 2:
-        return isStep2Valid;
-      case 3:
-        return isStep3Valid;
-      case 4:
-        return isStep4Valid;
-      default:
-        return true;
-    }
-  }, [currentStepIndex, isStep1Valid, isStep2Valid, isStep3Valid, isStep4Valid]);
+  const formularioValido = isStep1Valid && isStep2Valid && isStep4Valid;
+  // O que ainda falta para liberar "Consultar agora" (exibido ao lado do botão).
+  const pendenciasFormulario = [
+    searchMode === 'numero' && !isProcessNumberValid && 'número do processo (20 dígitos)',
+    searchMode === 'nome' && partyNameInput.trim().length < 3 && 'nome da parte',
+    searchMode === 'cpf' && fullName.trim().length < 3 && 'nome completo',
+    searchMode === 'cpf' && !isDocValid && 'CPF ou CNPJ válido',
+    searchMode !== 'cpf' && cpfInputDigits.length > 0 && !isDocValid && 'CPF/CNPJ válido (ou deixe em branco)',
+    !isStep2Valid && 'ao menos uma fonte de consulta',
+    !isStep4Valid && 'celular com DDD (ou deixe em branco)'
+  ].filter((p): p is string => typeof p === 'string');
 
   // Dispara Confete com a paleta nobre estendida (Grey Olive, Charcoal, Gunmetal, Dourado e Porcelain)
   const triggerConfetti = () => {
@@ -333,29 +352,6 @@ export default function ProcessTracker({
     }, 137);
   };
 
-  // Card adicionado ao painel de Notificações (paper) assim que um tribunal termina de consultar
-  // (todas as suas sub-fontes saíram de pending/loading), com título de acordo com o resultado.
-  const notificarTribunalConcluido = (item: ScanItem) => {
-    const status = statusGeralDoItem(item);
-    const title =
-      status === 'found'
-        ? 'Processo localizado'
-        : status === 'error'
-        ? 'Falha na consulta'
-        : 'Consulta concluída';
-
-    const message =
-      status === 'found'
-        ? `${item.label}: processo encontrado.`
-        : status === 'error'
-        ? `${item.label}: não foi possível concluir a consulta.`
-        : status === 'cancelled'
-        ? `${item.label}: consulta cancelada.`
-        : `${item.label}: nenhum processo encontrado.`;
-
-    adicionarToaster(title, message, status);
-  };
-
   // Busca completa para UM documento (CPF ou CNPJ) — usada tanto pelo documento principal quanto
   // por cada documento adicional (botão "+"), em sequência. Devolve os processos achados e o custo
   // real desta rodada; null se cancelada pelo usuário no meio do caminho.
@@ -390,23 +386,14 @@ export default function ProcessTracker({
     const usaDataJudAgora = isBuscaNumero ? usaDatajudNumero : datajudSel.length > 0;
     targetTribunalRef.current = isBuscaNumero ? cnjParsed?.tribunalLabel || '' : '';
 
-    // Mesma regra de divisão em 2 ondas do backend (app/api/processos/route.ts): com a economia por
-    // DDD/Estado ligada e um tribunal prioritário entre os alvos selecionados, só ele entra "loading" de cara — os
-    // demais nascem "pending" (aguardando) e só viram "loading" quando o evento de progresso real
-    // chegar (1ª onda sem achado nada).
-    const tribunalPrioritario = !isBuscaNumero && !tribunaisForcados ? (tjManual || tribunalByDdd(extractDdd(phoneDigits))) : null;
-    const estaNaPrimeiraOnda = (label: string) =>
-      !tribunalPrioritario || label === tribunalPrioritario || label.startsWith(`${tribunalPrioritario} (`);
-    const dividirPorDdd = !isBuscaNumero && !tribunaisForcados && economizarPorDdd && targets.some(estaNaPrimeiraOnda);
-    const tribunaisRestantesSeAchou = dividirPorDdd ? targets.filter(label => !estaNaPrimeiraOnda(label)) : [];
+    // Com a economia por estado ligada, quem decide a 1ª onda é o backend (lib/planoVarredura.ts: estado
+    // manual > endereço na Lemit > DDD > região fiscal do CPF), e ele pode esperar a Lemit antes de começar.
+    // Por isso todos nascem "aguardando"; cada tribunal vira "consultando" quando o evento real de início
+    // chega, e o evento 'plano' traz o motivo e põe os tribunais da 1ª onda no topo da lista.
+    const aguardaPlano = !isBuscaNumero && !tribunaisForcados && economizarPorDdd;
 
-    // Prioridade visual: tribunal(is) do Estado/DDD informado sempre no topo da lista
-    const targetsOrdenados = tribunalPrioritario
-      ? [...targets].sort((a, b) => Number(!estaNaPrimeiraOnda(a)) - Number(!estaNaPrimeiraOnda(b)))
-      : targets;
-
-    const novosItens = targetsOrdenados.map((label): ScanItem => {
-      const naPrimeiraOnda = !dividirPorDdd || estaNaPrimeiraOnda(label);
+    const novosItens = targets.map((label): ScanItem => {
+      const naPrimeiraOnda = !aguardaPlano;
       return {
         label,
         infosimples: usaInfosimples
@@ -425,6 +412,8 @@ export default function ProcessTracker({
     // concluídos na tela, só acrescentando os novos — em vez de apagar tudo e recomeçar do zero.
     setScanItems(prev => (tribunaisForcados ? [...prev, ...novosItens] : novosItens));
     consultaIdRef.current = null;
+    setVarreduraIniciadaEm(scanStartedAt);
+    if (!tribunaisForcados) setPlanoVarredura(null);
 
     const res = await authFetch('/api/processos', {
       method: 'POST',
@@ -434,9 +423,10 @@ export default function ProcessTracker({
         nomeParte: searchMode === 'nome' ? partyNameInput.trim() : '',
         fullName: fullName.trim() || (isBuscaNumero ? 'Consulta por Número' : ''),
         phone: phoneDigits,
-        state: estadoManual || (tribunalPrioritario ? tribunalPrioritario.replace(/^TJ/, '') : 'AUTO'),
+        // Só o estado escolhido à mão vai como "state": o DDD segue no phone, e o backend decide entre os sinais.
+        state: estadoManual || 'AUTO',
         processNumber: isBuscaNumero ? processNumberInput : '',
-        // Fontes do Passo 2: ids Infosimples (lista explícita) e endpoints DataJud (null = todos).
+        // Fontes de "Onde procurar": ids Infosimples (lista explícita) e endpoints DataJud (null = todos).
         // Na 2ª chamada (tribunaisForcados), restringe aos tribunais restantes e desliga a divisão em
         // ondas no backend — essa chamada já É a continuação da 2ª onda, não deve dividir de novo.
         tribunaisSelecionados: tribunaisForcados ?? idsInfosimplesEfetivos,
@@ -449,9 +439,8 @@ export default function ProcessTracker({
           : datajudSel,
         somenteAutor,
         economizarPorDdd: tribunaisForcados ? false : economizarPorDdd,
-        avisarMovimentacao: avisarNovidades,
-        canalAviso: !avisarNovidades ? 'nenhum' : canalEmail && canalWhatsapp ? 'ambos' : canalEmail ? 'email' : canalWhatsapp ? 'whatsapp' : 'nenhum',
-        resumoLinguagemSimples: resumoSimples
+        // A continuação da 2ª onda não repete a Lemit: o CPF pesquisado já foi consultado na 1ª chamada.
+        usarLemit: tribunaisForcados ? false : usarLemit
       })
     });
 
@@ -495,6 +484,40 @@ export default function ProcessTracker({
         const evt = JSON.parse(line);
         if (evt.type === 'started') {
           consultaIdRef.current = evt.consultaId;
+        } else if (evt.type === 'plano') {
+          const primeira = new Set<string>(evt.primeiraOnda ?? []);
+          if (!tribunaisForcados) {
+            setScanItems(prev => [...prev].sort((a, b) => Number(!primeira.has(a.label)) - Number(!primeira.has(b.label))));
+          }
+          const qtdSegunda = evt.segundaOnda?.length ?? 0;
+          setPlanoVarredura(
+            evt.motivo ? `${evt.motivo}${qtdSegunda > 0 ? ` Os outros ${qtdSegunda} tribunais só serão consultados se nada for encontrado.` : ''}` : null
+          );
+        } else if (evt.type === 'processo' && evt.processo?.numero) {
+          setProcessosParciais(prev => (prev.some(p => p.numero === evt.processo.numero) ? prev : [...prev, evt.processo]));
+        } else if (evt.type === 'progress' && evt.fonte === 'lemit') {
+          // Lemit não é um tribunal: fica num quadro próprio da tela de varredura, com o resumo e o custo.
+          const r = evt.resumo;
+          const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+          const detalhe = evt.found && r
+            ? [
+                r.nome,
+                [plural(r.celulares + r.fixos, 'telefone', 'telefones'), plural(r.emails, 'e-mail', 'e-mails'), plural(r.enderecos, 'endereço', 'endereços')]
+                  .concat(r.socios ? [plural(r.socios, 'sócio', 'sócios')] : [])
+                  .join(', '),
+                r.situacaoCpf ? `situação do CPF: ${r.situacaoCpf}` : null
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            : evt.erro;
+          const novo: LemitEvento = {
+            label: evt.label,
+            status: evt.status === 'loading' ? 'loading' : evt.found ? 'ok' : evt.erro ? 'erro' : 'vazio',
+            detalhe: detalhe || undefined,
+            custo: typeof evt.custo === 'number' ? evt.custo : undefined,
+            descoberto: !!evt.descoberto
+          };
+          setLemitEventos(prev => (prev.some(e => e.label === novo.label) ? prev.map(e => (e.label === novo.label ? novo : e)) : [...prev, novo]));
         } else if (evt.type === 'progress') {
           // O backend rotula o evento do DataJud como "DataJud (CNJ)" (fluxo por número, sem o nome
           // do tribunal embutido — usa o tribunal-alvo guardado no ref) ou "DataJud · <tribunal>"
@@ -515,7 +538,7 @@ export default function ProcessTracker({
               // Tribunal cancelado pelo usuário não entra na média histórica (não é um tempo real de resposta).
               if (elapsedMs && !evt.cancelado && !evt.erro) recordSample(`${tribunalLabel} (${chave})`, elapsedMs);
               const status: ScanStatus = evt.cancelado ? 'cancelled' : evt.found ? 'found' : evt.erro ? 'error' : 'not-found';
-              return { status, erro: evt.erro, elapsedMs };
+              return { status, erro: evt.erro, erroTecnico: evt.erroTecnico, elapsedMs, custo: typeof evt.custo === 'number' ? evt.custo : undefined };
             };
 
             // O card do DataJud por um processo achado num tribunal que não tinha varredura própria
@@ -539,18 +562,6 @@ export default function ProcessTracker({
                   ? { ...item, datajud: { status: 'not-found' } }
                   : item
               );
-            }
-
-            // Notifica (toast Mantine) assim que o tribunal como um todo termina — ou seja, quando
-            // nenhuma das suas sub-fontes ainda está pending/loading — e não tinha terminado antes.
-            const itemAnterior = prev.find(item => item.label === tribunalLabel);
-            const itemAtual = proximo.find(item => item.label === tribunalLabel);
-            if (itemAnterior && itemAtual) {
-              const aindaEmCurso = (item: ScanItem) =>
-                [item.infosimples, item.datajud].some(f => f && (f.status === 'pending' || f.status === 'loading'));
-              if (aindaEmCurso(itemAnterior) && !aindaEmCurso(itemAtual)) {
-                notificarTribunalConcluido(itemAtual);
-              }
             }
 
             return proximo;
@@ -578,13 +589,15 @@ export default function ProcessTracker({
       processes: processesEncontrados,
       custo: typeof data.custoEstimado === 'number' ? data.custoEstimado : 0,
       tribunaisConsultados: data.tribunaisConsultados || [],
-      // Só relevante quando a 1ª onda JÁ achou algo (senão o backend já continua sozinho para a 2ª onda).
-      tribunaisRestantes: processesEncontrados.length > 0 ? tribunaisRestantesSeAchou : [],
+      // Só relevante quando a 1ª onda JÁ achou algo (senão o backend já continua sozinho para a 2ª onda) e o
+      // usuário não encerrou a busca de propósito.
+      tribunaisRestantes:
+        !data.encerradaPeloUsuario && processesEncontrados.length > 0 ? (data.tribunaisNaoConsultados as string[] | undefined) ?? [] : [],
       descartadosPorPolo: data.descartadosPorPolo || []
     };
   };
 
-  // Envio final do Stepper e Execução da Busca + Bitrix. Documentos adicionais (botão "+" do Passo 1)
+  // Envio do formulário e execução da busca. Documentos adicionais (botão "+")
   // rodam em sequência, depois do documento principal — cada um é uma busca completa à parte.
   const handleFinalStepCompleted = async () => {
     const documentosDigits = [cpfInput, ...extraDocsInput]
@@ -603,17 +616,12 @@ export default function ProcessTracker({
     setHasSearched(false);
     setDescartadosPorPolo([]);
     buscaCanceladaRef.current = false;
+    buscaEncerradaRef.current = false;
+    setProcessosParciais([]);
+    setLemitEventos([]);
     setTotalDocumentos(documentosDigits.length || 1);
     setDocumentoAtualIdx(0);
     setCustoAcumulado(0);
-
-    adicionarToaster(
-      'Varredura iniciada',
-      searchMode === 'numero'
-        ? `Consultando número CNJ ${processNumberInput}...`
-        : `Varrendo bases judiciais para o documento ${formatDocumento(digits)} em paralelo...`,
-      'info'
-    );
 
     try {
       const todosProcessos: any[] = [];
@@ -623,7 +631,7 @@ export default function ProcessTracker({
       const fila = documentosDigits.length > 0 ? documentosDigits : [digits];
 
       for (let i = 0; i < fila.length; i++) {
-        if (buscaCanceladaRef.current) break;
+        if (buscaCanceladaRef.current || buscaEncerradaRef.current) break;
         setDocumentoAtualIdx(i);
         const resultado = await executarBuscaDocumento(fila[i]);
         if (!resultado) break; // cancelado no meio desta rodada
@@ -636,7 +644,7 @@ export default function ProcessTracker({
 
         // Economia por DDD já achou algo na 1ª onda, mas sobraram tribunais selecionados que não
         // chegaram a ser consultados — pergunta se o usuário quer continuar buscando neles também.
-        if (resultado.tribunaisRestantes.length > 0 && !buscaCanceladaRef.current) {
+        if (resultado.tribunaisRestantes.length > 0 && !buscaCanceladaRef.current && !buscaEncerradaRef.current) {
           const continuar = await new Promise<boolean>(resolve => {
             resolverContinuarOndaRef.current = resolve;
             setPerguntaContinuarOnda({ tribunaisRestantes: resultado.tribunaisRestantes });
@@ -674,13 +682,11 @@ export default function ProcessTracker({
       if (todosProcessos.length === 0) {
         setNotFound(true);
         setCaseData(null);
-        adicionarToaster('Consulta finalizada', 'Nenhum processo foi localizado nas bases consultadas.', 'not-found');
       } else {
         setNotFound(false);
         currentCases = buildCaseDataFromProcesses(todosProcessos);
         setCaseData(currentCases);
         totalFound = todosProcessos.length;
-        adicionarToaster('Processos localizados', `${totalFound} processo(s) localizado(s) com sucesso.`, 'found');
       }
 
       setHasSearched(true);
@@ -714,6 +720,25 @@ export default function ProcessTracker({
     }
   };
 
+  // Encerra a varredura sem descartar nada: os tribunais ainda consultando são interrompidos (a 2ª onda e os
+  // próximos documentos da fila não começam) e o resultado mostra o que já foi encontrado.
+  const handleEncerrarEVerResultados = () => {
+    if (buscaEncerradaRef.current) return;
+    buscaEncerradaRef.current = true;
+    if (resolverContinuarOndaRef.current) {
+      resolverContinuarOndaRef.current(false);
+      resolverContinuarOndaRef.current = null;
+      setPerguntaContinuarOnda(null);
+    }
+    const consultaId = consultaIdRef.current;
+    if (!consultaId) return;
+    void authFetch('/api/processos/cancelar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ consultaId, encerrar: true })
+    }).catch(() => {});
+  };
+
   // Cancela a consulta inteira (todos os tribunais do documento atual + os próximos documentos da fila).
   const handleCancelarBuscaInteira = () => {
     buscaCanceladaRef.current = true;
@@ -724,7 +749,6 @@ export default function ProcessTracker({
       resolverContinuarOndaRef.current = null;
       setPerguntaContinuarOnda(null);
     }
-    adicionarToaster('Consulta cancelada', 'A varredura foi cancelada pelo usuário.', 'cancelled');
     const consultaId = consultaIdRef.current;
     if (!consultaId) return;
     // Aborta cada tribunal/sub-fonte ainda em andamento da rodada atual (o backend libera os recursos
@@ -766,7 +790,7 @@ export default function ProcessTracker({
     { label: 'TJDFT', infosimples: { status: 'pending' } }
   ];
 
-  const simularEtapa = (etapa: 'passo1' | 'passo2' | 'passo3' | 'passo4' | 'varrendo' | 'organizando' | 'nao-encontrado' | 'resultado') => {
+  const simularEtapa = (etapa: 'formulario' | 'varrendo' | 'organizando' | 'nao-encontrado' | 'resultado') => {
     setSearching(false);
     setHasSearched(false);
     setNotFound(false);
@@ -775,24 +799,14 @@ export default function ProcessTracker({
     setFormError('');
 
     switch (etapa) {
-      case 'passo1':
-      case 'passo2':
-      case 'passo3':
-      case 'passo4': {
-        const indice = { passo1: 1, passo2: 2, passo3: 3, passo4: 4 }[etapa];
-        setCurrentStepIndex(indice);
+      case 'formulario':
         break;
-      }
       case 'varrendo':
         setScanItems(simularScanItemsDemo());
         setSearching(true);
-        setToasters([
-          { id: '1', title: 'Processo localizado', message: 'TJSP: processo encontrado.', status: 'found', timestamp: '14:52:05' },
-          { id: '2', title: 'Processo localizado', message: 'TJRJ: processo encontrado.', status: 'found', timestamp: '14:52:08' },
-          { id: '3', title: 'Consulta concluída', message: 'TJMG: nenhum processo encontrado.', status: 'not-found', timestamp: '14:52:12' },
-          { id: '4', title: 'Falha na consulta', message: 'TRF3: Tempo de resposta excedido.', status: 'error', timestamp: '14:52:15' },
-          { id: '5', title: 'Varredura iniciada', message: 'Iniciando varredura em 14 tribunais em paralelo...', status: 'info', timestamp: '14:52:00' }
-        ]);
+        setPlanoVarredura('Começando por TJSP: endereço mais recente na Lemit é em SP. Os outros 13 tribunais só serão consultados se nada for encontrado.');
+        setProcessosParciais([{ numero: '1001234-56.2023.8.26.0100', tribunal: 'TJSP', tipo: 'Procedimento Comum Cível' }]);
+        setLemitEventos([{ label: 'Lemit · CPF ***.456.789-**', status: 'ok', detalhe: 'Maria Silva · 3 telefones, 1 e-mail, 2 endereços', custo: 0.35 }]);
         break;
       case 'organizando':
         setScanItems(simularScanItemsDemo());
@@ -811,12 +825,6 @@ export default function ProcessTracker({
         setHasSearched(true);
         setTribunaisConsultados(['TJSP', 'TJRJ']);
         setCustoEstimado(2.3);
-        setToasters([
-          { id: 'r1', title: 'Processos localizados', message: '2 processo(s) localizado(s) com sucesso.', status: 'found', timestamp: '14:52:20' },
-          { id: 'r2', title: 'Processo localizado', message: 'TJSP: processo encontrado.', status: 'found', timestamp: '14:52:05' },
-          { id: 'r3', title: 'Processo localizado', message: 'TJRJ: processo encontrado.', status: 'found', timestamp: '14:52:08' },
-          { id: 'r4', title: 'Varredura iniciada', message: 'Iniciando varredura em 14 tribunais em paralelo...', status: 'info', timestamp: '14:52:00' }
-        ]);
         void fetchAiSummary(demoData);
         break;
       }
@@ -934,7 +942,7 @@ export default function ProcessTracker({
         fontFamily: 'var(--font-inter), sans-serif'
       }}
     >
-      {/* Container principal com layout em 2 colunas */}
+      {/* Container principal */}
       <div
         style={{
           position: 'relative',
@@ -948,10 +956,9 @@ export default function ProcessTracker({
         }}
       >
         <div
-          className="bf-consulta-split"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 380px',
+            gridTemplateColumns: 'minmax(0, 1fr)',
             gap: 24,
             alignItems: 'start',
             width: '100%'
@@ -960,10 +967,10 @@ export default function ProcessTracker({
           {/* COLUNA 1: FLUXO DE CONSULTA (FORMULÁRIO / VARREDURA / RESULTADOS) */}
           <div style={{ minWidth: 0, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             {/* ═════════════════════════════════════════════════════════════════
-                FASE 1: FORMULÁRIO EM STEPPER ANIMADO (4 PASSOS)
+                FASE 1: FORMULÁRIO DE PESQUISA (TELA ÚNICA)
                 ═════════════════════════════════════════════════════════════════ */}
         {!hasSearched && (
-          <div style={{ width: '100%', maxWidth: searching ? 900 : 720, animation: 'bf-fadein 0.5s ease both' }}>
+          <div style={{ width: '100%', maxWidth: searching ? 900 : 780, animation: 'bf-fadein 0.5s ease both' }}>
             {formError && (
               <div
                 style={{
@@ -1030,7 +1037,7 @@ export default function ProcessTracker({
                 <p style={{ margin: '0 0 20px', fontSize: 13.5, color: MUTED }}>
                   {searchMode === 'numero'
                     ? 'Cruzamos o DataJud (CNJ) e o tribunal de origem em paralelo para trazer o resultado completo.'
-                    : `Consultamos os ${scanItems.length || 14} tribunais em paralelo. O progresso é estimado pelo histórico e se completa conforme cada tribunal responde.`}
+                    : `Consultamos ${scanItems.length || 14} tribunais. Alguns levam até 4 minutos para responder, e a busca toda pode chegar a 5 minutos. Os processos aparecem abaixo assim que são encontrados.`}
                 </p>
 
                 <div
@@ -1049,6 +1056,28 @@ export default function ProcessTracker({
                       <strong style={{ color: TEXT }}>{formatarReais(custoAcumulado)}</strong>
                     </span>
                   )}
+                  <CronometroVarredura inicio={varreduraIniciadaEm} />
+                  <button
+                    type="button"
+                    onClick={handleEncerrarEVerResultados}
+                    title="Interrompe os tribunais que ainda estão consultando e mostra o que já foi encontrado"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'transparent',
+                      border: `1px solid ${BLUE}`,
+                      color: BLUE_LIGHT,
+                      borderRadius: 4,
+                      padding: '6px 14px',
+                      fontSize: 12,
+                      letterSpacing: 0.3,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <ListChecks size={14} strokeWidth={2} />
+                    ENCERRAR E VER RESULTADOS
+                  </button>
                   <button
                     type="button"
                     onClick={handleCancelarBuscaInteira}
@@ -1189,6 +1218,87 @@ export default function ProcessTracker({
                   );
                 })()}
 
+                {planoVarredura && (
+                  <p style={{ maxWidth: 560, margin: '-12px auto 16px', fontSize: 12, color: MUTED, textAlign: 'left', lineHeight: 1.5 }}>
+                    {planoVarredura}
+                  </p>
+                )}
+
+                {lemitEventos.length > 0 && (
+                  <div
+                    style={{
+                      maxWidth: 560,
+                      margin: '0 auto 14px',
+                      textAlign: 'left',
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: 6,
+                      padding: '10px 12px',
+                      background: 'rgba(255,255,255,0.03)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6
+                    }}
+                  >
+                    {lemitEventos.map(e => (
+                      <div key={e.label} style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 12, color: TEXT, minWidth: 0 }}>
+                        <Fingerprint
+                          size={13}
+                          style={{
+                            flexShrink: 0,
+                            position: 'relative',
+                            top: 2,
+                            color: e.status === 'ok' ? MOSS_GREEN : e.status === 'erro' ? WARN : e.status === 'loading' ? BLUE : MUTED
+                          }}
+                        />
+                        <span style={{ minWidth: 0 }}>
+                          <strong style={{ fontWeight: 600 }}>{e.label}</strong>
+                          {e.descoberto ? <span style={{ color: MUTED }}> (CPF achado nos processos)</span> : null}
+                          <span style={{ color: MUTED }}>
+                            {' · '}
+                            {e.status === 'loading'
+                              ? 'consultando...'
+                              : e.status === 'vazio'
+                              ? 'sem dados'
+                              : e.detalhe || (e.status === 'erro' ? 'falha na consulta' : 'dados encontrados')}
+                            {e.status !== 'loading' && typeof e.custo === 'number' ? ` · ${formatarReais(e.custo)}` : ''}
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {processosParciais.length > 0 && (
+                  <div
+                    style={{
+                      maxWidth: 560,
+                      margin: '0 auto 18px',
+                      textAlign: 'left',
+                      border: `1px solid ${MOSS_GREEN}`,
+                      borderRadius: 6,
+                      padding: '10px 12px',
+                      background: 'rgba(61,107,79,0.10)'
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 700, color: TEXT, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <CheckCircle2 size={14} style={{ color: MOSS_GREEN }} />
+                      Encontrados até agora ({processosParciais.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 180, overflowY: 'auto' }}>
+                      {processosParciais.map(p => (
+                        <div key={p.numero} style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 12, color: TEXT, minWidth: 0 }}>
+                          <FileText size={12} style={{ color: MUTED, flexShrink: 0, position: 'relative', top: 1 }} />
+                          <span style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{p.numero}</span>
+                          <span style={{ color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            · {p.tribunal}
+                            {p.tipo ? ` · ${p.tipo}` : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {scanItems.length > 0 && (
                   <div
                     style={{
@@ -1209,518 +1319,447 @@ export default function ProcessTracker({
                 )}
               </div>
             ) : (
-              <Stepper
-                initialStep={1}
-                goToStep={currentStepIndex}
-                onStepChange={step => setCurrentStepIndex(step)}
-                onFinalStepCompleted={handleFinalStepCompleted}
-                canAdvance={canAdvanceCurrentStep}
-                backButtonText="VOLTAR"
-                nextButtonText={currentStepIndex === 4 ? 'CONSULTAR AGORA' : 'CONTINUAR'}
-              >
-                {/* ── PASSO 1: COMO BUSCAR ── */}
-                <Step>
-                  <div>
-                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 4 }}>
-                      PASSO 1 DE 4 · COMO BUSCAR
-                    </div>
-                    <h2 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
-                      Como você quer buscar?
-                    </h2>
-                    <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
-                      {isConsultante
-                        ? 'Você consulta apenas os processos ligados ao seu próprio CPF/CNPJ cadastrado.'
-                        : 'Escolha o dado que você tem em mãos para localizar o processo.'}
-                    </p>
-
-                    {!isConsultante && (
-                      <SegmentedControl
-                        fullWidth
-                        value={searchMode}
-                        onChange={v => setSearchMode(v as 'cpf' | 'numero' | 'nome')}
-                        data={[
-                          { label: 'CPF / CNPJ', value: 'cpf' },
-                          { label: 'Nº do processo', value: 'numero' },
-                          {
-                            label: (
-                              <Tooltip label={isPagante ? 'Buscar pelo nome da parte' : 'Disponível para assinantes'} withArrow>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                  Nome da parte {!isPagante && <Lock size={12} strokeWidth={2.5} style={{ opacity: 0.85 }} />}
-                                </span>
-                              </Tooltip>
-                            ) as unknown as string,
-                            value: 'nome',
-                            disabled: !isPagante
-                          }
-                        ]}
-                        mb={18}
-                      />
-                    )}
-
-                    {!isConsultante && searchMode === 'numero' && (
-                      <div style={{ marginBottom: 16 }}>
-                        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
-                          NÚMERO DO PROCESSO (CNJ)
-                        </label>
-                        <input
-                          type="text"
-                          value={processNumberInput}
-                          onChange={e => setProcessNumberInput(formatProcessNumber(e.target.value))}
-                          placeholder="0000000-00.0000.0.00.0000"
-                          style={inputStyle}
-                          maxLength={25}
-                          autoFocus
-                        />
-                        {detectedTribunal && (
-                          <div style={{ marginTop: 6, fontSize: 11.5, color: '#a9c3ef', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Scale size={13} />
-                            <span>
-                              Tribunal identificado: <strong style={{ color: TEXT }}>{detectedTribunal.tribunalLabel}</strong> ({detectedTribunal.tribunalNome})
-                            </span>
-                          </div>
-                        )}
-                        {cleanDigits(processNumberInput).length > 0 && cleanDigits(processNumberInput).length < 20 && (
-                          <span style={{ fontSize: 11, color: DANGER, marginTop: 4, display: 'block' }}>
-                            O número CNJ deve conter 20 dígitos numéricos ({cleanDigits(processNumberInput).length}/20).
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Nome: na busca por nome da parte o campo é um só (nome da parte = nome completo). */}
-                    {searchMode === 'nome' ? (
-                      <div style={{ marginBottom: 16 }}>
-                        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
-                          NOME DA PARTE
-                        </label>
-                        <input
-                          type="text"
-                          value={partyNameInput}
-                          onChange={e => {
-                            setPartyNameInput(e.target.value);
-                            setFullName(e.target.value);
-                          }}
-                          placeholder="Nome completo da parte, como consta no processo"
-                          style={inputStyle}
-                          autoFocus
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
-                          {searchMode === 'numero' && !isConsultante ? 'NOME COMPLETO (OPCIONAL)' : 'NOME COMPLETO'}
-                        </label>
-                        <input
-                          type="text"
-                          value={fullName}
-                          onChange={e => setFullName(e.target.value)}
-                          placeholder={
-                            searchMode === 'numero' && !isConsultante
-                              ? 'Nome do titular ou da parte (opcional)'
-                              : 'Nome completo exatamente como consta no documento ou processo'
-                          }
-                          style={{ ...inputStyle, marginBottom: 16 }}
-                          autoFocus={!isConsultante && searchMode !== 'numero'}
-                        />
-                      </>
-                    )}
-
-                    <label style={{ display: 'flex', alignItems: 'center', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
-                      {isConsultante
-                        ? 'SEU CPF/CNPJ'
-                        : searchMode === 'numero' || searchMode === 'nome'
-                        ? 'CPF OU CNPJ (OPCIONAL)'
-                        : 'CPF OU CNPJ DO TITULAR'}
-                      <Tooltip
-                        label={
-                          isConsultante
-                            ? 'CPF/CNPJ fixo, definido no cadastro e travado para consultantes'
-                            : searchMode === 'numero'
-                            ? 'Opcional na busca por processo CNJ'
-                            : searchMode === 'nome'
-                            ? 'Opcional. Identifica o titular no resumo e no contato; não filtra homônimos.'
-                            : 'Digite 11 dígitos para CPF ou 14 para CNPJ — o sistema identifica sozinho.'
-                        }
-                        withArrow
-                      >
-                        <span style={{ marginLeft: 6, display: 'inline-flex', alignItems: 'center', color: MUTED, cursor: 'help' }}>
-                          {isConsultante ? <Lock size={13} strokeWidth={2.2} /> : <Info size={14} />}
-                        </span>
-                      </Tooltip>
-                    </label>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        value={cpfInput}
-                        onChange={e => setCpfInput(formatDocumento(e.target.value))}
-                        placeholder={
-                          (searchMode === 'numero' || searchMode === 'nome') && !isConsultante
-                            ? 'CPF ou CNPJ (opcional)'
-                            : '000.000.000-00 ou 00.000.000/0000-00'
-                        }
-                        maxLength={18}
-                        inputMode="numeric"
-                        style={{ ...inputStyle, flex: 1 }}
-                        disabled={isConsultante}
-                      />
-                      {!isConsultante && searchMode !== 'numero' && (
-                        <Tooltip label="Adicionar outro documento (ex.: CNPJ de uma empresa do mesmo titular) — roda como uma busca própria, depois desta" withArrow>
-                          <button
-                            type="button"
-                            onClick={() => setExtraDocsInput(prev => [...prev, ''])}
-                            aria-label="Adicionar outro documento"
-                            style={{
-                              flexShrink: 0,
-                              width: 48,
-                              height: 48,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              background: 'rgba(255,255,255,0.04)',
-                              border: `1px solid ${INPUT_BORDER}`,
-                              borderRadius: 6,
-                              color: TEXT,
-                              fontSize: 22,
-                              lineHeight: 1,
-                              cursor: 'pointer',
-                              boxSizing: 'border-box',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            +
-                          </button>
-                        </Tooltip>
-                      )}
-                    </div>
-                    {!isDocValid && cpfInputDigits.length >= 11 && (
-                      <span style={{ fontSize: 11, color: DANGER, marginTop: 4, display: 'block' }}>
-                        {cpfInputDigits.length === 11 || cpfInputDigits.length === 14
-                          ? `Dígito verificador do ${docLabel} inválido. Verifique os números.`
-                          : 'O CPF tem 11 dígitos e o CNPJ tem 14.'}
-                      </span>
-                    )}
-
-                    {extraDocsInput.map((doc, i) => {
-                      const digits = cleanDigits(doc);
-                      const valido = (digits.length === 11 && isValidCpf(digits)) || (digits.length === 14 && isValidCnpj(digits));
-                      return (
-                        <div key={i} style={{ marginTop: 8 }}>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <input
-                              type="text"
-                              value={doc}
-                              onChange={e =>
-                                setExtraDocsInput(prev => prev.map((d, idx) => (idx === i ? formatDocumento(e.target.value) : d)))
-                              }
-                              placeholder={`Documento adicional ${i + 2} (CPF ou CNPJ)`}
-                              maxLength={18}
-                              inputMode="numeric"
-                              style={{ ...inputStyle, flex: 1 }}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setExtraDocsInput(prev => prev.filter((_, idx) => idx !== i))}
-                              aria-label={`Remover documento adicional ${i + 2}`}
-                              title="Remover este documento"
-                              style={{
-                                flexShrink: 0,
-                                width: 48,
-                                height: 48,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: 'rgba(255,255,255,0.04)',
-                                border: `1px solid ${INPUT_BORDER}`,
-                                borderRadius: 6,
-                                color: MUTED,
-                                cursor: 'pointer',
-                                boxSizing: 'border-box',
-                                transition: 'all 0.15s ease'
-                              }}
-                            >
-                              <XCircle size={18} strokeWidth={1.8} />
-                            </button>
-                          </div>
-                          {!valido && digits.length >= 11 && (
-                            <span style={{ fontSize: 11, color: DANGER, marginTop: 4, display: 'block' }}>
-                              {digits.length === 11 || digits.length === 14
-                                ? 'Dígito verificador inválido. Verifique os números.'
-                                : 'O CPF tem 11 dígitos e o CNPJ tem 14.'}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {!isConsultante && (searchMode === 'cpf' || (searchMode !== 'numero' && cpfInput)) && (
-                      <span style={{ fontSize: 11, color: MUTED, marginTop: 6, display: 'block', lineHeight: 1.5 }}>
-                        {extraDocsInput.length > 0
-                          ? `A busca vai rodar em sequência: o documento principal e mais ${extraDocsInput.length} documento(s) adicional(is), cada um varrendo os mesmos tribunais — o custo soma por documento.`
-                          : 'A busca é feita por documento. Se o titular tem processos tanto no CPF quanto em CNPJ(s) de empresas dele, use o botão "+" para adicionar cada documento — todos rodam na mesma consulta.'}
-                      </span>
-                    )}
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={somenteAutor}
-                        onChange={e => setSomenteAutor(e.target.checked)}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      <span style={{ fontSize: 13, color: MUTED, lineHeight: 1.4 }}>
-                        Exibir apenas processos em que{' '}
-                        <strong style={{ color: TEXT }}>{fullName.trim() || partyNameInput.trim() || 'o titular'}</strong>{' '}
-                        é Autor (oculta réu/parte contrária).
-                      </span>
-                    </label>
-                  </div>
-                </Step>
-
-                {/* ── PASSO 2: ONDE PROCURAR ── */}
-                <Step>
-                  <div>
-                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 4 }}>
-                      PASSO 2 DE 4 · ONDE PROCURAR
-                    </div>
-                    <h2 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
-                      Onde procurar?
-                    </h2>
-                    <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
-                      {searchMode === 'numero' && detectedTribunal?.valido
-                        ? 'Tribunal de origem identificado a partir do número CNJ.'
-                        : 'Já deixamos marcadas as fontes principais. Abra cada grupo para ver todas, com o custo de cada uma.'}
-                    </p>
-
-                    <FontesSelector
-                      tipoBusca={tipoBusca}
-                      detectado={detectedTribunal}
-                      infosimplesSel={infosimplesSel}
-                      onInfosimplesChange={setInfosimplesSel}
-                      datajudSel={datajudSel}
-                      onDatajudChange={setDatajudSel}
+              <>
+                {!isConsultante && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12.5, color: MUTED }}>Visualizar como</span>
+                    <SegmentedControl
+                      size="sm"
+                      value={visaoAdvogado ? 'advogado' : 'comum'}
+                      onChange={v => {
+                        const advogado = v === 'advogado';
+                        setVisaoAdvogado(advogado);
+                        // A busca por nome só existe na visão de advogado.
+                        if (!advogado && searchMode === 'nome') setSearchMode('cpf');
+                      }}
+                      data={[
+                        { label: 'Usuário comum', value: 'comum' },
+                        { label: 'Advogado', value: 'advogado' }
+                      ]}
                     />
+                  </div>
+                )}
 
-                    <div
+              <MotionConfig reducedMotion="user">
+              <motion.form
+                initial="oculto"
+                animate="visivel"
+                variants={formEntradaVariants}
+                noValidate
+                onSubmit={e => {
+                  e.preventDefault();
+                  if (formularioValido) void handleFinalStepCompleted();
+                }}
+                style={{
+                  background: 'rgba(28,28,30,0.92)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: 14,
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+                  overflow: 'hidden',
+                  textAlign: 'left'
+                }}
+              >
+                <motion.div variants={formEntradaVariants} style={{ padding: 'clamp(20px, 4vw, 26px)', display: 'flex', flexDirection: 'column', gap: 22 }}>
+                  <motion.header variants={secaoEntradaVariants}>
+                    <div style={{ fontSize: 12, color: BLUE, fontWeight: 600, marginBottom: 6 }}>Nova consulta</div>
+                    <h2 style={{ margin: '0 0 6px', fontSize: 'clamp(19px, 3.2vw, 22px)', color: TEXT, fontWeight: 700, letterSpacing: -0.3 }}>
+                      Encontre processos de uma pessoa ou empresa
+                    </h2>
+                    <p style={{ margin: 0, fontSize: 13.5, color: MUTED, lineHeight: 1.5 }}>
+                      {isConsultante
+                        ? 'Você consulta os processos ligados ao seu próprio CPF ou CNPJ.'
+                        : 'Informe os dados abaixo. A gente cuida de procurar nos lugares certos.'}
+                    </p>
+                  </motion.header>
+
+                  {!isConsultante && (
+                    <motion.div variants={secaoEntradaVariants}>
+                      <h3 style={tituloBlocoStyle}>Como você quer buscar?</h3>
+                      <div role="radiogroup" aria-label="Como você quer buscar" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                        <OpcaoBusca
+                          ativa={searchMode === 'cpf'}
+                          onClick={() => setSearchMode('cpf')}
+                          icone={<UserRound size={15} />}
+                          titulo="Por pessoa ou empresa"
+                          subtitulo="Nome e CPF ou CNPJ"
+                        />
+                        <OpcaoBusca
+                          ativa={searchMode === 'numero'}
+                          onClick={() => setSearchMode('numero')}
+                          icone={<FileText size={15} />}
+                          titulo="Por número do processo"
+                          subtitulo="Busca gratuita"
+                        />
+                        {visaoAdvogado && (
+                          <OpcaoBusca
+                            ativa={searchMode === 'nome'}
+                            onClick={() => isPagante && setSearchMode('nome')}
+                            desabilitada={!isPagante}
+                            icone={isPagante ? <Search size={15} /> : <Lock size={15} />}
+                            titulo="Por nome da parte"
+                            subtitulo={isPagante ? 'Sem documento, só o nome' : 'Disponível para assinantes'}
+                          />
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  <motion.div variants={secaoEntradaVariants} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                    <Revelar aberto={!isConsultante && searchMode === 'numero'} style={{ gridColumn: '1 / -1' }}>
+                        <CampoTexto
+                          id="campo-cnj"
+                          rotulo="Número do processo"
+                          valor={processNumberInput}
+                          onChange={v => setProcessNumberInput(formatProcessNumber(v))}
+                          placeholder="0000000-00.0000.0.00.0000"
+                          monoespacado
+                          maxLength={25}
+                          inputMode="numeric"
+                          autoFocus
+                          ok={isProcessNumberValid}
+                          erro={
+                            cleanDigits(processNumberInput).length > 0 && cleanDigits(processNumberInput).length < 20
+                              ? `Faltam ${20 - cleanDigits(processNumberInput).length} dígitos (${cleanDigits(processNumberInput).length}/20).`
+                              : null
+                          }
+                          dica={
+                            detectedTribunal?.valido
+                              ? `Tribunal identificado: ${detectedTribunal.tribunalLabel} (${detectedTribunal.tribunalNome}).`
+                              : 'Encontrado em qualquer documento do processo'
+                          }
+                        />
+                    </Revelar>
+
+                    {searchMode === 'nome' ? (
+                      <motion.div key="campo-nome-parte" {...trocaSuave} style={{ gridColumn: '1 / -1' }}>
+                        <CampoTexto
+                          id="campo-nome-parte"
+                          rotulo="Nome da parte"
+                          valor={partyNameInput}
+                          onChange={v => {
+                            setPartyNameInput(v);
+                            setFullName(v);
+                          }}
+                          placeholder="Como aparece no processo"
+                          autoFocus
+                          ok={partyNameInput.trim().length >= 3}
+                          dica="Use o nome completo para evitar homônimos"
+                        />
+                      </motion.div>
+                    ) : (
+                      <motion.div key="campo-nome" {...trocaSuave} style={{ minWidth: 0 }}>
+                      <CampoTexto
+                        id="campo-nome"
+                        rotulo="Nome completo"
+                        opcional={searchMode === 'numero' && !isConsultante}
+                        valor={fullName}
+                        onChange={setFullName}
+                        placeholder="Como aparece no documento"
+                        autoFocus={!isConsultante && searchMode === 'cpf'}
+                        ok={fullName.trim().length >= 3}
+                        dica="Ajuda a confirmar a pessoa certa"
+                      />
+                      </motion.div>
+                    )}
+
+                    <CampoTexto
+                      id="campo-documento"
+                      rotulo={isConsultante ? 'Seu CPF ou CNPJ' : 'CPF ou CNPJ'}
+                      opcional={!isConsultante && searchMode !== 'cpf'}
+                      ajuda={isConsultante ? 'Definido no seu cadastro.' : undefined}
+                      travado={isConsultante}
+                      valor={cpfInput}
+                      onChange={v => setCpfInput(formatDocumento(v))}
+                      placeholder="000.000.000-00"
+                      maxLength={18}
+                      inputMode="numeric"
+                      disabled={isConsultante}
+                      ok={isDocValid}
+                      erro={
+                        !isDocValid && cpfInputDigits.length >= 11
+                          ? cpfInputDigits.length === 11 || cpfInputDigits.length === 14
+                            ? `${docLabel} inválido. Confira os números.`
+                            : 'O CPF tem 11 dígitos e o CNPJ tem 14.'
+                          : null
+                      }
+                      dica="Só números, a gente formata"
+                    />
+                  </motion.div>
+
+                  {/* Documentos extras do mesmo titular: só na visão de advogado. */}
+                  <Revelar aberto={visaoAdvogado && !isConsultante && searchMode !== 'numero'} style={{ marginTop: -6 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <AnimatePresence initial={false}>
+                      {extraDocsInput.map((doc, i) => {
+                        const digits = cleanDigits(doc);
+                        const valido = (digits.length === 11 && isValidCpf(digits)) || (digits.length === 14 && isValidCnpj(digits));
+                        return (
+                          <motion.div
+                            key={i}
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }}
+                            exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                            transition={TRANSICAO_SUAVE}
+                            style={{ overflow: 'hidden' }}
+                          >
+                          <div style={{ paddingBottom: 12 }}>
+                          <CampoTexto
+                            id={`campo-documento-extra-${i}`}
+                            rotulo={`Outro documento do titular (${i + 2})`}
+                            valor={doc}
+                            onChange={v => setExtraDocsInput(prev => prev.map((d, idx) => (idx === i ? formatDocumento(v) : d)))}
+                            placeholder="CPF ou CNPJ"
+                            maxLength={18}
+                            inputMode="numeric"
+                            ok={valido}
+                            erro={!valido && digits.length >= 11 ? 'Documento inválido. Confira os números.' : null}
+                            dica="Roda como uma busca própria, em sequência; o custo soma por documento"
+                            acao={
+                              <button
+                                type="button"
+                                className="bf-btn-sec"
+                                onClick={() => setExtraDocsInput(prev => prev.filter((_, idx) => idx !== i))}
+                                aria-label={`Remover documento ${i + 2}`}
+                                style={botaoIconeStyle}
+                              >
+                                <X size={16} />
+                              </button>
+                            }
+                          />
+                          </div>
+                          </motion.div>
+                        );
+                      })}
+                      </AnimatePresence>
+                      <button type="button" onClick={() => setExtraDocsInput(prev => [...prev, ''])} style={linkAcaoStyle}>
+                        <Plus size={14} /> Adicionar outro documento do mesmo titular
+                      </button>
+                    </div>
+                  </Revelar>
+
+                  {/* Onde vamos procurar */}
+                  <motion.div variants={secaoEntradaVariants}>
+                    <h3 style={tituloBlocoStyle}>Onde vamos procurar</h3>
+                    <div style={painelStyle}>
+                      <AlturaSuave>
+                      {searchMode === 'numero' ? (
+                        <motion.div key="onde-numero" {...trocaSuave}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>Busca direta</div>
+                          <p style={{ margin: '4px 0 10px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+                            {detectedTribunal?.valido
+                              ? `No ${detectedTribunal.tribunalLabel}, onde o processo tramita, e na base pública nacional.`
+                              : 'Com o número completo, identificamos o tribunal sozinhos.'}
+                          </p>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {detectedTribunal?.valido && idsInfosimplesEfetivos.length > 0 && <Selo>{detectedTribunal.tribunalLabel}</Selo>}
+                            {usaDatajudNumero && <Selo verde>Base nacional · grátis</Selo>}
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div key="onde-documento" {...trocaSuave}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>
+                            {fontesManuaisAbertas ? 'Busca personalizada' : 'Busca recomendada'}
+                          </div>
+                          <p style={{ margin: '4px 0 10px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+                            {ufsCobertas.length > 0 || temFederais
+                              ? `${[ufsCobertas.length > 0 ? `Tribunais de ${listaPt(ufsCobertas)}` : null, temFederais ? 'tribunais federais' : null]
+                                  .filter(Boolean)
+                                  .join(', ')}${datajudSel.length > 0 ? ', mais a base pública nacional.' : '.'}`
+                              : 'Nenhum tribunal selecionado.'}
+                          </p>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {ufsCobertas.length > 0 && <Selo>Tribunais estaduais</Selo>}
+                            {temFederais && <Selo>Tribunais federais</Selo>}
+                            {usarLemit && tipoBusca === 'cpf' && <Selo>Dados do CPF · incluso</Selo>}
+                            {datajudSel.length > 0 && <Selo verde>Base nacional · grátis</Selo>}
+                          </div>
+                          {visaoAdvogado && (
+                            <button type="button" onClick={() => setFontesManuaisAbertas(v => !v)} style={{ ...linkAcaoStyle, marginTop: 12 }}>
+                              <SlidersHorizontal size={14} /> {fontesManuaisAbertas ? 'Ocultar escolha de fontes' : 'Escolher fontes manualmente'}
+                            </button>
+                          )}
+                        </motion.div>
+                      )}
+                      </AlturaSuave>
+                    </div>
+                    <Revelar aberto={visaoAdvogado && (fontesManuaisAbertas || searchMode === 'numero')}>
+                      <div style={{ paddingTop: 12 }}>
+                        <FontesSelector
+                          tipoBusca={tipoBusca}
+                          detectado={detectedTribunal}
+                          infosimplesSel={infosimplesSel}
+                          onInfosimplesChange={setInfosimplesSel}
+                          datajudSel={datajudSel}
+                          onDatajudChange={setDatajudSel}
+                          lemitAtivo={usarLemit}
+                          onLemitChange={setUsarLemit}
+                        />
+                      </div>
+                    </Revelar>
+                  </motion.div>
+
+                  {/* Ajustes opcionais (recolhível) */}
+                  <motion.div variants={secaoEntradaVariants} style={{ ...painelStyle, padding: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => setAjustesAbertos(v => !v)}
+                      aria-expanded={ajustesAbertos}
+                      aria-controls="ajustes-opcionais"
                       style={{
-                        marginTop: 14,
+                        width: '100%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         gap: 12,
-                        flexWrap: 'wrap',
-                        padding: '10px 14px',
-                        borderRadius: 4,
-                        border: `1px solid ${INPUT_BORDER}`,
-                        background: 'rgba(255,255,255,0.04)'
+                        background: 'transparent',
+                        border: 'none',
+                        color: TEXT,
+                        padding: '14px 16px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        fontFamily: 'inherit'
                       }}
                     >
-                      <span style={{ fontSize: 12, color: MUTED, letterSpacing: 0.5 }}>CUSTO ESTIMADO (INFOSIMPLES + DATAJUD)</span>
-                      <span style={{ fontSize: 14, color: TEXT, fontWeight: 700 }}>{custoPrevistoLabel}</span>
-                    </div>
-                  </div>
-                </Step>
-
-                {/* ── PASSO 3: AVISOS ── */}
-                <Step>
-                  <div>
-                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 4 }}>
-                      PASSO 3 DE 4 · AVISOS
-                    </div>
-                    <h2 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
-                      Quer ser avisado das novidades?
-                    </h2>
-                    <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
-                      Você pode mudar isso depois.
-                    </p>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', fontSize: 13.5, color: TEXT, gap: 6 }}>
-                        Avisar quando o processo andar
-                        <Tooltip label="Monitoramento contínuo — recurso pago, ativado por processo" withArrow>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', color: MUTED, cursor: 'help' }}>
-                            <Info size={14} />
-                          </span>
-                        </Tooltip>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>Ajustes opcionais</span>
+                        <span style={{ display: 'block', marginTop: 2, fontSize: 12, color: MUTED }}>
+                          {visaoAdvogado ? 'Papel no processo, celular, estado inicial e economia' : 'Papel no processo, celular e economia'}
+                        </span>
                       </span>
-                      <Switch checked={avisarNovidades} onChange={e => setAvisarNovidades(e.currentTarget.checked)} color={BLUE} />
-                    </div>
-
-                    {avisarNovidades && (
-                      <div style={{ marginBottom: 16 }}>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                          <button
-                            type="button"
-                            onClick={() => setCanalEmail(v => !v)}
-                            style={channelChipStyle(canalEmail)}
-                          >
-                            E-mail
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setCanalWhatsapp(v => !v)}
-                            style={channelChipStyle(canalWhatsapp)}
-                          >
-                            WhatsApp
-                          </button>
+                      <motion.span
+                        animate={{ rotate: ajustesAbertos ? 180 : 0 }}
+                        transition={TRANSICAO_SUAVE}
+                        style={{ display: 'inline-flex', flexShrink: 0, color: MUTED }}
+                      >
+                        <ChevronDown size={16} />
+                      </motion.span>
+                    </button>
+                    <Revelar aberto={ajustesAbertos} id="ajustes-opcionais">
+                      <div style={{ padding: '4px 16px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div>
+                          <span style={rotuloCampoStyle}>Papel no processo</span>
+                          <SegmentedControl
+                            fullWidth
+                            classNames={{ control: 'bf-seg-igual-control', label: 'bf-seg-igual-label' }}
+                            value={somenteAutor ? 'autor' : 'qualquer'}
+                            onChange={v => setSomenteAutor(v === 'autor')}
+                            data={[
+                              { label: 'Qualquer papel', value: 'qualquer' },
+                              { label: 'Só como autor', value: 'autor' }
+                            ]}
+                          />
+                          <span style={{ display: 'block', marginTop: 6, fontSize: 11.5, color: MUTED }}>
+                            {somenteAutor ? 'Oculta processos em que a pessoa é ré ou parte contrária.' : 'Mostra processos em que a pessoa é autora ou ré.'}
+                          </span>
                         </div>
-                        {!canalEmail && !canalWhatsapp && (
-                          <span style={{ display: 'block', marginTop: 8, fontSize: 11.5, color: DANGER }}>
-                            Escolha ao menos um canal (E-mail ou WhatsApp) para receber os avisos.
-                          </span>
-                        )}
-                      </div>
-                    )}
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', fontSize: 13.5, color: TEXT, gap: 6 }}>
-                        Resumo em palavras simples
-                        <Tooltip label="Uma linguagem menos jurídica, mais direta ao ponto no resumo gerado por IA" withArrow>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', color: MUTED, cursor: 'help' }}>
-                            <Info size={14} />
-                          </span>
-                        </Tooltip>
-                      </span>
-                      <Switch checked={resumoSimples} onChange={e => setResumoSimples(e.currentTarget.checked)} color={BLUE} />
-                    </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                          <CampoTexto
+                            id="campo-celular"
+                            rotulo="Celular da pessoa"
+                            opcional
+                            valor={phoneInput}
+                            onChange={v => setPhoneInput(formatPhone(v))}
+                            placeholder="(00) 00000-0000"
+                            maxLength={15}
+                            inputMode="tel"
+                            ok={cleanDigits(phoneInput).length >= 10}
+                            erro={!isStep4Valid && cleanDigits(phoneInput).length > 0 ? 'Informe o DDD e os 9 dígitos.' : null}
+                            dica="O DDD ajuda a começar pelo estado certo"
+                          />
+
+                          {visaoAdvogado && tipoBusca !== 'numero' && (
+                            <motion.div {...trocaSuave} style={{ minWidth: 0 }}>
+                              <label htmlFor="campo-estado" style={rotuloCampoStyle}>
+                                Começar pelo estado <span style={seloOpcionalStyle}>opcional</span>
+                              </label>
+                              <select
+                                id="campo-estado"
+                                className="bf-input bf-input-sem-icone"
+                                value={estadoManual}
+                                onChange={e => setEstadoManual(e.target.value)}
+                                style={{ color: estadoManual ? TEXT : MUTED }}
+                              >
+                                <option value="">Automático</option>
+                                {ESTADOS_BRASIL.map(est => (
+                                  <option key={est.uf} value={est.uf}>
+                                    {est.uf} — {est.nome} ({est.tj})
+                                  </option>
+                                ))}
+                              </select>
+                              <span style={{ display: 'block', marginTop: 6, fontSize: 11.5, color: MUTED }}>
+                                {estadoManual ? `Começa pelo ${tribunalByUf(estadoManual)}` : 'Pela Lemit, pelo DDD ou pela região do CPF'}
+                              </span>
+                            </motion.div>
+                          )}
+                        </div>
+
+                        <Revelar aberto={tipoBusca !== 'numero'} style={{ marginTop: -16 }}>
+                          <div style={{ paddingTop: 16 }}>
+                          <LinhaSwitch
+                            titulo="Economizar"
+                            descricao="Começa pelo estado mais provável e só consulta os outros tribunais se nada for encontrado."
+                            checked={economizarPorDdd}
+                            onChange={setEconomizarPorDdd}
+                          />
+                          </div>
+                        </Revelar>
+                      </div>
+                    </Revelar>
+                  </motion.div>
+                </motion.div>
+
+                <motion.footer
+                  variants={secaoEntradaVariants}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 16,
+                    flexWrap: 'wrap',
+                    padding: '16px clamp(20px, 4vw, 26px)',
+                    borderTop: `1px solid ${BORDER}`,
+                    background: 'rgba(255,255,255,0.02)'
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: MUTED }}>Custo estimado</div>
+                    <div style={{ fontSize: 19, color: custoPrevisto === 0 ? '#8fb99a' : TEXT, fontWeight: 700 }}>{custoPrevistoLabel}</div>
                   </div>
-                </Step>
-
-                {/* ── PASSO 4: REVISAR E CONSULTAR ── */}
-                <Step>
-                  <div>
-                    <div style={{ fontSize: 11, letterSpacing: 1.5, color: BLUE_LIGHT, fontWeight: 700, marginBottom: 4 }}>
-                      PASSO 4 DE 4 · REVISAR E CONSULTAR
-                    </div>
-                    <h2 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
-                      Tudo certo?
-                    </h2>
-                    <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
-                      Confira antes de consultar.
-                    </p>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-                      <ReviewRow
-                        label="Buscar por"
-                        value={
-                          searchMode === 'numero'
-                            ? `Nº ${processNumberInput || '—'}${cpfInput ? ` · ${docLabel} ${cpfInput}` : ''}${fullName ? ` · ${fullName}` : ''}`
-                            : searchMode === 'nome'
-                            ? `Nome ${partyNameInput || '—'}${cpfInput ? ` · ${docLabel} ${cpfInput}` : ''}`
-                            : `${docLabel} ${cpfInput || '—'}`
-                        }
-                        onEdit={() => setCurrentStepIndex(1)}
-                      />
-                      <ReviewRow
-                        label="Onde"
-                        value={
-                          searchMode === 'numero' && detectedTribunal?.valido
-                            ? `${detectedTribunal.tribunalLabel} · ${[usaDatajudNumero && 'DataJud', idsInfosimplesEfetivos.length > 0 && 'Infosimples'].filter(Boolean).join(' + ') || 'nenhuma fonte'}`
-                            : `${estadoManual ? `Início por ${estadoManual} (${tribunalByUf(estadoManual)}) · ` : ''}${idsInfosimplesEfetivos.length} fonte(s) Infosimples · ${qtdDatajudEfetivos} endpoint(s) DataJud`
-                        }
-                        onEdit={() => setCurrentStepIndex(2)}
-                      />
-                      <ReviewRow
-                        label="Avisos"
-                        value={
-                          avisarNovidades
-                            ? `Sim · ${[canalEmail && 'E-mail', canalWhatsapp && 'WhatsApp'].filter(Boolean).join(' + ') || 'nenhum canal'}${resumoSimples ? ' · Resumo simples' : ''}`
-                            : 'Não avisar'
-                        }
-                        onEdit={() => setCurrentStepIndex(3)}
-                      />
-                    </div>
-
-                    <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
-                      CELULAR DA PARTE PESQUISADA (OPCIONAL, COM DDD)
-                    </label>
-                    <input
-                      type="text"
-                      value={phoneInput}
-                      onChange={e => setPhoneInput(formatPhone(e.target.value))}
-                      placeholder="(21) 97402-6883"
-                      maxLength={15}
-                      style={{ ...inputStyle, marginBottom: 12 }}
-                    />
-                    {!isStep4Valid && cleanDigits(phoneInput).length > 0 ? (
-                      <span style={{ fontSize: 11, color: DANGER, marginTop: -8, marginBottom: 14, display: 'block' }}>
-                        Informe o DDD e os 9 dígitos do celular.
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 11, color: MUTED, marginTop: -8, marginBottom: 14, display: 'block' }}>
-                        Telefone de quem está sendo pesquisado, não o seu. Com o DDD, consultamos primeiro o tribunal do estado dele.
-                      </span>
-                    )}
-
-                    {tipoBusca !== 'numero' && (
-                      <div style={{ marginBottom: 16 }}>
-                        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: TEXT, marginBottom: 6 }}>
-                          ESTADO / TRIBUNAL INICIAL PARA COMEÇAR A BUSCA (OPCIONAL)
-                        </label>
-                        <select
-                          value={estadoManual}
-                          onChange={e => setEstadoManual(e.target.value)}
-                          style={{
-                            ...inputStyle,
-                            cursor: 'pointer',
-                            color: estadoManual ? TEXT : MUTED,
-                            marginBottom: 6
-                          }}
-                        >
-                          <option value="" style={{ background: '#1e1e1e', color: '#fff' }}>
-                            Automático (priorizar pelo DDD do celular ou ordem padrão)
-                          </option>
-                          {ESTADOS_BRASIL.map(est => (
-                            <option key={est.uf} value={est.uf} style={{ background: '#1e1e1e', color: '#fff' }}>
-                              {est.uf} — {est.nome} ({est.tj})
-                            </option>
-                          ))}
-                        </select>
-                        <span style={{ fontSize: 11, color: MUTED, display: 'block', lineHeight: 1.4 }}>
-                          {estadoManual
-                            ? `A varredura começará prioritariamente pelo ${tribunalByUf(estadoManual)} (${ESTADOS_BRASIL.find(e => e.uf === estadoManual)?.nome}) na 1ª onda de economia.`
-                            : 'Caso queira priorizar um tribunal específico sem depender do DDD, escolha o estado acima.'}
-                        </span>
-                      </div>
-                    )}
-
-                    {tipoBusca !== 'numero' && (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                        <span style={{ display: 'flex', alignItems: 'center', fontSize: 13.5, color: TEXT, gap: 6 }}>
-                          Economizar busca por DDD / Estado
-                          <Tooltip
-                            label="Com o estado ou DDD identificado, consultamos primeiro só o tribunal correspondente; os demais tribunais selecionados só entram se essa primeira leva não encontrar nada — economiza chamadas pagas da Infosimples."
-                            withArrow
-                            multiline
-                            w={260}
-                          >
-                            <span style={{ display: 'inline-flex', alignItems: 'center', color: MUTED, cursor: 'help' }}>
-                              <Info size={14} />
-                            </span>
-                          </Tooltip>
-                        </span>
-                        <Switch checked={economizarPorDdd} onChange={e => setEconomizarPorDdd(e.currentTarget.checked)} color={BLUE} />
-                      </div>
-                    )}
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px 16px',
-                        borderRadius: 4,
-                        border: `1px solid ${INPUT_BORDER}`,
-                        background: 'rgba(255,255,255,0.04)'
-                      }}
-                    >
-                      <span style={{ fontSize: 12.5, color: MUTED }}>CUSTO DESTA CONSULTA</span>
-                      <span style={{ fontSize: 15, color: custoPrevisto === 0 ? '#8fb99a' : TEXT, fontWeight: 700 }}>
-                        {custoPrevistoLabel}
-                      </span>
-                    </div>
-                  </div>
-                </Step>
-              </Stepper>
+                  <button
+                    type="submit"
+                    className="bf-btn-ouro"
+                    disabled={!formularioValido}
+                    title={pendenciasFormulario.length > 0 ? `Falta: ${pendenciasFormulario.join(', ')}` : undefined}
+                    style={{
+                      ...primaryButtonStyle,
+                      letterSpacing: 0,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      padding: '12px 22px',
+                      borderRadius: 8,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      ...(formularioValido
+                        ? {}
+                        : {
+                            background: 'rgba(255,255,255,0.03)',
+                            color: 'rgba(255,255,255,0.4)',
+                            border: `1px solid ${INPUT_BORDER}`,
+                            boxShadow: 'none',
+                            cursor: 'not-allowed'
+                          })
+                    }}
+                  >
+                    Pesquisar processos <ArrowRight size={16} />
+                  </button>
+                </motion.footer>
+              </motion.form>
+              </MotionConfig>
+              </>
             )}
           </div>
         )}
@@ -1781,6 +1820,7 @@ export default function ProcessTracker({
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
               <button
                 onClick={() => setInfoModalOpen(true)}
+                className="bf-btn-ouro"
                 style={{ ...primaryButtonStyle, padding: '13px 28px', fontWeight: 400, letterSpacing: 1 }}
               >
                 PRECISO DE AUXÍLIO JURÍDICO
@@ -1795,6 +1835,7 @@ export default function ProcessTracker({
                     setHasSearched(true);
                     void fetchAiSummary(demoData);
                   }}
+                  className="bf-btn-sec"
                   style={{
                     background: 'rgba(255,255,255,0.08)',
                     border: `1px solid ${BORDER}`,
@@ -1815,6 +1856,7 @@ export default function ProcessTracker({
                     setHasSearched(false);
                     setNotFound(false);
                   }}
+                  className="bf-btn-sec"
                   style={{
                     background: 'transparent',
                     border: `1px solid ${BORDER}`,
@@ -1837,7 +1879,6 @@ export default function ProcessTracker({
             FASE 3: DASHBOARD SPLIT 70% / 30% (TRANSITION AUTOMÁTICA EM FADE)
             ═════════════════════════════════════════════════════════════════ */}
         {found && caseData && <DescartadosPorPoloAviso itens={descartadosPorPolo} />}
-        {found && caseData && <FontesComErroAviso itens={scanItems} />}
         {found && caseData && (
           <ProcessResultView
             fullName={fullName || 'Cliente'}
@@ -1845,6 +1886,7 @@ export default function ProcessTracker({
             phone={phoneInput}
             caseData={caseData}
             tribunaisConsultados={tribunaisConsultados}
+            fontes={scanItems.map(i => ({ label: i.label, status: statusGeralDoItem(i) }))}
             custoEstimado={custoEstimado}
             aiSummary={aiSummary}
             aiSummaryLoading={aiSummaryLoading}
@@ -1861,130 +1903,6 @@ export default function ProcessTracker({
         )}
           </div>
 
-          {/* COLUNA 2: PAPER COM TOASTERS SCROLLÁVEIS QUE NÃO SOMEM */}
-          <Paper
-            className="bf-toasters-paper"
-            style={{
-              position: 'sticky',
-              top: 80,
-              background: 'rgba(20,20,20,0.85)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: `1px solid ${BORDER}`,
-              borderRadius: 14,
-              padding: '18px 16px',
-              display: 'flex',
-              flexDirection: 'column',
-              maxHeight: 'calc(100vh - 110px)',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
-              boxSizing: 'border-box'
-            }}
-          >
-            {/* Cabeçalho do Paper */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 14,
-                paddingBottom: 12,
-                borderBottom: `1px solid ${BORDER}`
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Bell size={17} style={{ color: BLUE }} />
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: TEXT, letterSpacing: -0.2 }}>
-                  Notificações
-                </span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    background: toasters.length > 0 ? 'rgba(196,168,111,0.2)' : 'rgba(255,255,255,0.08)',
-                    color: toasters.length > 0 ? BLUE_LIGHT : MUTED,
-                    border: `1px solid ${toasters.length > 0 ? 'rgba(196,168,111,0.3)' : BORDER}`,
-                    padding: '1px 7px',
-                    borderRadius: 12
-                  }}
-                >
-                  {toasters.length}
-                </span>
-              </div>
-              {toasters.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setToasters([])}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: MUTED,
-                    fontSize: 11.5,
-                    cursor: 'pointer',
-                    padding: '2px 6px',
-                    borderRadius: 4,
-                    transition: 'color 0.15s ease'
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
-                  onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
-                >
-                  Limpar
-                </button>
-              )}
-            </div>
-
-            {/* Lista Scrollável de Toasters */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
-                overflowY: 'auto',
-                paddingRight: 4,
-                flex: 1,
-                minHeight: 200
-              }}
-              className="bf-toasters-scroll"
-            >
-              {toasters.length === 0 ? (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textAlign: 'center',
-                    padding: '40px 16px',
-                    color: MUTED,
-                    fontSize: 12.5,
-                    gap: 10
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: '50%',
-                      background: 'rgba(255,255,255,0.04)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: MUTED
-                    }}
-                  >
-                    <Bell size={18} style={{ opacity: 0.6 }} />
-                  </div>
-                  <p style={{ margin: 0, fontWeight: 500, color: 'rgba(255,255,255,0.75)' }}>Nenhuma notificação no momento</p>
-                  <p style={{ margin: 0, fontSize: 11.5, opacity: 0.6, lineHeight: 1.4 }}>
-                    Os eventos e status dos tribunais durante a varredura serão registrados aqui em tempo real.
-                  </p>
-                </div>
-              ) : (
-                toasters.map(t => (
-                  <ToasterCard key={t.id} toaster={t} onDismiss={() => setToasters(prev => prev.filter(item => item.id !== t.id))} />
-                ))
-              )}
-            </div>
-          </Paper>
         </div>
       </div>
 
@@ -2029,6 +1947,7 @@ export default function ProcessTracker({
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button
+                className="bf-btn-sec"
                 type="button"
                 onClick={() => {
                   resolverContinuarOndaRef.current?.(false);
@@ -2052,6 +1971,7 @@ export default function ProcessTracker({
                   resolverContinuarOndaRef.current?.(true);
                   resolverContinuarOndaRef.current = null;
                 }}
+                className="bf-btn-ouro"
                 style={{
                   background: 'linear-gradient(135deg, #c4a86f 0%, #ab8e5c 100%)',
                   border: '1px solid rgba(245,227,168,0.4)',
@@ -2182,6 +2102,7 @@ export default function ProcessTracker({
                   setInfoModalOpen(false);
                   openChat();
                 }}
+                className="bf-btn-ouro"
                 style={{ ...primaryButtonStyle, padding: '11px 24px', fontSize: 12 }}
               >
                 INICIAR CHAT DE TRIAGEM
@@ -2361,13 +2282,10 @@ function DevStageSimulator({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSimular: (etapa: 'passo1' | 'passo2' | 'passo3' | 'passo4' | 'varrendo' | 'organizando' | 'nao-encontrado' | 'resultado') => void;
+  onSimular: (etapa: 'formulario' | 'varrendo' | 'organizando' | 'nao-encontrado' | 'resultado') => void;
 }) {
   const ETAPAS: { etapa: Parameters<typeof onSimular>[0]; label: string }[] = [
-    { etapa: 'passo1', label: 'Passo 1 · Como buscar' },
-    { etapa: 'passo2', label: 'Passo 2 · Onde procurar' },
-    { etapa: 'passo3', label: 'Passo 3 · Avisos' },
-    { etapa: 'passo4', label: 'Passo 4 · Revisar e consultar' },
+    { etapa: 'formulario', label: 'Formulário de pesquisa' },
     { etapa: 'varrendo', label: 'Varrendo bases judiciais' },
     { etapa: 'organizando', label: 'Organizando informações (transição)' },
     { etapa: 'nao-encontrado', label: 'Nenhum processo localizado' },
@@ -2613,20 +2531,21 @@ function ScanRow({ item }: { item: ScanItem }) {
       ? Math.max(...emAndamento.map(f => (f.startedAt ? Date.now() - f.startedAt : 0)))
       : Math.max(0, ...subfontes.map(f => f.elapsedMs ?? 0));
   const elapsedLabel = `${(elapsedMs / 1000).toFixed(1)}s`;
+  const custo = subfontes.reduce((soma, f) => soma + (f.custo ?? 0), 0);
+  const fonteComErro = statusGeral === 'error' ? [item.infosimples, item.datajud].find(f => f?.erro) : undefined;
+  const erro = fonteComErro?.erro;
 
   return (
     <div
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
         padding: '7px 10px',
         background: 'rgba(10,10,10,0.6)',
-        border: `1px solid ${BORDER}`,
+        border: `1px solid ${statusGeral === 'error' ? 'rgba(212,166,95,0.35)' : BORDER}`,
         borderRadius: 4,
         animation: 'bf-fadein 0.35s ease both'
       }}
     >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <span style={{ width: 7, height: 7, borderRadius: '50%', background: corPonto, flex: 'none' }} />
       <span
         style={{
@@ -2674,52 +2593,21 @@ function ScanRow({ item }: { item: ScanItem }) {
         <span style={{ minWidth: 32, textAlign: 'right' }}>
           {elapsedLabel}
         </span>
+        {custo > 0 && (
+          <>
+            <span style={{ opacity: 0.35 }}>·</span>
+            <span style={{ color: TEXT }}>{formatarReais(custo)}</span>
+          </>
+        )}
       </div>
     </div>
-  );
-}
-
-/* ── Passo 4 · linha de revisão com botão "editar" ────────────────────── */
-function ReviewRow({ label, value, onEdit }: { label: string; value: string; onEdit: () => void }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        padding: '10px 14px',
-        borderRadius: 4,
-        border: `1px solid ${INPUT_BORDER}`,
-        background: 'rgba(255,255,255,0.04)'
-      }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 10.5, letterSpacing: 1, color: MUTED, textTransform: 'uppercase' }}>{label}</div>
-        <div style={{ fontSize: 13, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
-      </div>
-      <button
-        type="button"
-        onClick={onEdit}
-        style={{ background: 'transparent', border: 'none', color: BLUE_LIGHT, fontSize: 11.5, cursor: 'pointer', flexShrink: 0 }}
-      >
-        editar
-      </button>
+    {erro && (
+        <div title={fonteComErro?.erroTecnico} style={{ marginTop: 5, paddingLeft: 17, fontSize: 11, color: WARN, lineHeight: 1.45, textAlign: 'left' }}>
+          {erro}
+        </div>
+      )}
     </div>
   );
-}
-
-function channelChipStyle(active: boolean): React.CSSProperties {
-  return {
-    padding: '8px 16px',
-    borderRadius: 20,
-    border: `1px solid ${active ? '#c4a86f' : INPUT_BORDER}`,
-    background: active ? 'rgba(196,168,111,0.2)' : 'transparent',
-    color: active ? '#f5e3a8' : MUTED,
-    fontSize: 12.5,
-    fontWeight: 600,
-    cursor: 'pointer'
-  };
 }
 
 /* ── Estilos reutilizados ─────────────────────────────────────────────── */
@@ -2738,7 +2626,7 @@ const inputStyle: React.CSSProperties = {
 const primaryButtonStyle: React.CSSProperties = {
   background: 'linear-gradient(135deg, #c4a86f 0%, #ab8e5c 100%)',
   color: '#181818',
-  border: '1px solid rgba(245,227,168,0.4)',
+  border: 'none',
   padding: '13px 28px',
   fontFamily: 'inherit',
   fontSize: 12.5,
@@ -2750,82 +2638,362 @@ const primaryButtonStyle: React.CSSProperties = {
   boxShadow: '0 4px 16px rgba(171,142,92,0.35)'
 };
 
-function ToasterCard({ toaster, onDismiss }: { toaster: ToasterEvent; onDismiss: () => void }) {
-  const config =
-    toaster.status === 'found'
-      ? { color: MOSS_GREEN, icon: <CheckCircle2 size={15} style={{ color: MOSS_GREEN, flexShrink: 0 }} /> }
-      : toaster.status === 'error'
-      ? { color: WARN, icon: <AlertTriangle size={15} style={{ color: WARN, flexShrink: 0 }} /> }
-      : toaster.status === 'not-found'
-      ? { color: RUBY_RED, icon: <XCircle size={15} style={{ color: RUBY_RED, flexShrink: 0 }} /> }
-      : toaster.status === 'cancelled'
-      ? { color: MUTED, icon: <XCircle size={15} style={{ color: MUTED, flexShrink: 0 }} /> }
-      : { color: BLUE, icon: <Info size={15} style={{ color: BLUE, flexShrink: 0 }} /> };
-
+/** "1:42 de até 5:00" — tempo decorrido da varredura atual, com dica para encerrar quando passa de 2 minutos. */
+function CronometroVarredura({ inicio }: { inicio: number | null }) {
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setAgora(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  if (!inicio) return null;
+  const decorrido = Math.min(LIMITE_VARREDURA_S, Math.max(0, Math.floor((agora - inicio) / 1000)));
+  const mmss = (t: number) => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   return (
-    <div
+    <span
+      title={decorrido > 120 ? 'Tribunais lentos ainda respondendo. Você pode encerrar e ver o que já foi encontrado.' : undefined}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: decorrido > 120 ? WARN : MUTED }}
+    >
+      <Timer size={14} />
+      <span>
+        <strong style={{ color: TEXT, fontVariantNumeric: 'tabular-nums' }}>{mmss(decorrido)}</strong> de até {mmss(LIMITE_VARREDURA_S)}
+      </span>
+    </span>
+  );
+}
+
+/* ── Peças do formulário de pesquisa (tela única) ────────────────────── */
+const rotuloCampoStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  fontSize: 13,
+  fontWeight: 500,
+  color: 'rgba(245,246,250,0.82)',
+  marginBottom: 7
+};
+
+const tituloBlocoStyle: React.CSSProperties = { margin: '0 0 10px', fontSize: 14.5, fontWeight: 600, color: TEXT };
+
+const painelStyle: React.CSSProperties = {
+  border: `1px solid ${INPUT_BORDER}`,
+  borderRadius: 10,
+  padding: '14px 16px',
+  background: 'rgba(255,255,255,0.02)'
+};
+
+const linkAcaoStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  alignSelf: 'flex-start',
+  background: 'transparent',
+  border: 'none',
+  padding: 0,
+  color: BLUE_LIGHT,
+  fontSize: 12.5,
+  fontWeight: 600,
+  cursor: 'pointer',
+  fontFamily: 'inherit'
+};
+
+/** Cartão de escolha do modo de busca ("Por pessoa ou empresa" / "Por número do processo"). */
+function OpcaoBusca({
+  ativa,
+  onClick,
+  icone,
+  titulo,
+  subtitulo,
+  desabilitada
+}: {
+  ativa: boolean;
+  onClick: () => void;
+  icone: React.ReactNode;
+  titulo: string;
+  subtitulo: string;
+  desabilitada?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={ativa}
+      aria-disabled={desabilitada}
+      onClick={onClick}
       style={{
-        background: '#1c1c1c',
-        border: `1px solid ${config.color}`,
-        borderLeft: `3.5px solid ${config.color}`,
-        borderRadius: 8,
-        padding: '10px 12px',
         display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-        position: 'relative',
-        animation: 'bf-fadein 0.25s ease both',
-        boxShadow: '0 4px 14px rgba(0,0,0,0.25)'
+        alignItems: 'center',
+        gap: 12,
+        padding: '14px 14px',
+        borderRadius: 10,
+        border: `1px solid ${ativa ? 'rgba(196,168,111,0.6)' : INPUT_BORDER}`,
+        background: ativa ? 'rgba(196,168,111,0.10)' : 'transparent',
+        color: TEXT,
+        textAlign: 'left',
+        cursor: desabilitada ? 'not-allowed' : 'pointer',
+        opacity: desabilitada ? 0.55 : 1,
+        fontFamily: 'inherit',
+        transition: 'border-color 0.2s ease, background 0.2s ease'
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          {config.icon}
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: config.color,
-              letterSpacing: -0.1,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
-            }}
-          >
-            {toaster.title}
-          </span>
+      <span
+        aria-hidden
+        style={{
+          flexShrink: 0,
+          width: 30,
+          height: 30,
+          borderRadius: 8,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: ativa ? 'rgba(196,168,111,0.22)' : 'rgba(255,255,255,0.06)',
+          color: ativa ? BLUE_LIGHT : MUTED
+        }}
+      >
+        {icone}
+      </span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>{titulo}</span>
+        <span style={{ display: 'block', marginTop: 2, fontSize: 12, color: MUTED }}>{subtitulo}</span>
+      </span>
+    </button>
+  );
+}
+
+/** Selo de fonte no resumo de "Onde vamos procurar" (verde = gratuito). */
+function Selo({ verde, children }: { verde?: boolean; children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        fontSize: 12,
+        padding: '4px 10px',
+        borderRadius: 999,
+        border: `1px solid ${verde ? 'rgba(143,185,154,0.45)' : INPUT_BORDER}`,
+        color: verde ? '#8fb99a' : 'rgba(245,246,250,0.85)',
+        background: verde ? 'rgba(143,185,154,0.08)' : 'transparent',
+        whiteSpace: 'nowrap'
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+const seloOpcionalStyle: React.CSSProperties = {
+  fontSize: 10.5,
+  fontWeight: 500,
+  color: MUTED,
+  border: `1px solid ${BORDER}`,
+  borderRadius: 10,
+  padding: '0 7px',
+  lineHeight: '16px'
+};
+
+function iconeCampoStyle(comErro: boolean): React.CSSProperties {
+  return {
+    position: 'absolute',
+    left: 14,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    display: 'flex',
+    color: comErro ? DANGER : MUTED,
+    pointerEvents: 'none'
+  };
+}
+
+const botaoIconeStyle: React.CSSProperties = {
+  flexShrink: 0,
+  width: 48,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'transparent',
+  border: `1px solid ${INPUT_BORDER}`,
+  borderRadius: 8,
+  color: TEXT,
+  cursor: 'pointer'
+};
+
+/**
+ * Campo de texto do formulário: rótulo (com selo "opcional" e dica), ícone à esquerda, ícone de status à
+ * direita (verde quando válido, vermelho com erro) e texto de apoio embaixo, que vira a mensagem de erro.
+ */
+function CampoTexto({
+  id,
+  rotulo,
+  opcional,
+  ajuda,
+  travado,
+  icone,
+  monoespacado,
+  valor,
+  onChange,
+  placeholder,
+  maxLength,
+  inputMode,
+  disabled,
+  autoFocus,
+  ok,
+  erro,
+  dica,
+  acao
+}: {
+  id: string;
+  rotulo: string;
+  opcional?: boolean;
+  ajuda?: string;
+  travado?: boolean;
+  icone?: React.ReactNode;
+  /** Fonte monoespaçada (números longos como o CNJ). */
+  monoespacado?: boolean;
+  valor: string;
+  onChange: (valor: string) => void;
+  placeholder?: string;
+  maxLength?: number;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  disabled?: boolean;
+  autoFocus?: boolean;
+  ok?: boolean;
+  erro?: string | null;
+  dica?: string;
+  acao?: React.ReactNode;
+}) {
+  const estado = erro ? 'erro' : ok ? 'ok' : undefined;
+  const textoApoio = erro || dica;
+  return (
+    <div style={{ minWidth: 0 }}>
+      <label htmlFor={id} style={rotuloCampoStyle}>
+        {rotulo}
+        {opcional && <span style={seloOpcionalStyle}>opcional</span>}
+        {ajuda && (
+          <Tooltip label={ajuda} withArrow multiline w={260}>
+            <span style={{ display: 'inline-flex', color: MUTED, cursor: 'help' }}>{travado ? <Lock size={13} /> : <Info size={13} />}</span>
+          </Tooltip>
+        )}
+      </label>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          {icone && (
+            <span aria-hidden style={iconeCampoStyle(!!erro)}>
+              {icone}
+            </span>
+          )}
+          <input
+            id={id}
+            type="text"
+            className={`bf-input${icone ? '' : ' bf-input-sem-icone'}`}
+            style={monoespacado ? { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 14 } : undefined}
+            data-estado={estado}
+            aria-invalid={!!erro}
+            aria-describedby={textoApoio ? `${id}-apoio` : undefined}
+            value={valor}
+            onChange={e => onChange(e.target.value)}
+            placeholder={placeholder}
+            maxLength={maxLength}
+            inputMode={inputMode}
+            disabled={disabled}
+            autoFocus={autoFocus}
+            autoComplete="off"
+          />
+          {estado && (
+            <span aria-hidden style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
+              {erro ? <AlertCircle size={16} color={DANGER} /> : <CheckCircle2 size={16} color="#8fb99a" />}
+            </span>
+          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <span style={{ fontSize: 10, color: MUTED, opacity: 0.7 }}>
-            {toaster.timestamp}
-          </span>
-          <button
-            type="button"
-            onClick={onDismiss}
-            aria-label="Remover notificação"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: MUTED,
-              padding: 0,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: 0.6,
-              transition: 'opacity 0.15s ease'
-            }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '0.6')}
-          >
-            <X size={13} />
-          </button>
-        </div>
+        {acao}
       </div>
-      <p style={{ margin: 0, fontSize: 12, color: TEXT, lineHeight: 1.4, paddingLeft: 21, wordBreak: 'break-word' }}>
-        {toaster.message}
-      </p>
+      {textoApoio && (
+        <span id={`${id}-apoio`} style={{ display: 'block', marginTop: 6, fontSize: 11.5, lineHeight: 1.45, color: erro ? DANGER : MUTED }}>
+          {textoApoio}
+        </span>
+      )}
     </div>
   );
 }
 
+const TRANSICAO_SUAVE = { duration: 0.32, ease: [0.22, 0.8, 0.24, 1] as const };
+
+/** Entrada do formulário: as seções sobem em sequência. */
+const formEntradaVariants: Variants = {
+  oculto: {},
+  visivel: { transition: { staggerChildren: 0.06, delayChildren: 0.04 } }
+};
+const secaoEntradaVariants: Variants = {
+  oculto: { opacity: 0, y: 12 },
+  visivel: { opacity: 1, y: 0, transition: TRANSICAO_SUAVE }
+};
+
+/** Fade + leve subida quando um bloco aparece ou troca de conteúdo (chave diferente). */
+const trocaSuave = {
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0 },
+  transition: TRANSICAO_SUAVE
+};
+
+/**
+ * Abre/fecha um bloco animando a altura. O overflow só fica oculto durante a animação, para não cortar
+ * o anel de foco dos campos depois de aberto.
+ */
+function Revelar({ aberto, id, style, children }: { aberto: boolean; id?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+  return (
+    <AnimatePresence initial={false}>
+      {aberto && (
+        <motion.div
+          key="conteudo"
+          id={id}
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }}
+          exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
+          transition={TRANSICAO_SUAVE}
+          style={{ overflow: 'hidden', ...style }}
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** Acompanha a altura do conteúdo e anima as mudanças (troca de texto/selos dentro de um painel). */
+function AlturaSuave({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [altura, setAltura] = useState<number | 'auto'>('auto');
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([entrada]) => setAltura(entrada.contentRect.height));
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <motion.div initial={false} animate={{ height: altura }} transition={TRANSICAO_SUAVE} style={{ overflow: 'hidden' }}>
+      <div ref={ref}>{children}</div>
+    </motion.div>
+  );
+}
+
+/** Opção liga/desliga com título e explicação, clicável na linha inteira. */
+function LinhaSwitch({ titulo, descricao, checked, onChange }: { titulo: string; descricao: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 14,
+        padding: '12px 14px',
+        borderRadius: 8,
+        border: `1px solid ${checked ? 'rgba(196,168,111,0.45)' : INPUT_BORDER}`,
+        background: checked ? 'rgba(196,168,111,0.07)' : 'rgba(255,255,255,0.03)',
+        cursor: 'pointer',
+        transition: 'border-color 0.2s ease, background 0.2s ease'
+      }}
+    >
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 13.5, color: TEXT, fontWeight: 600 }}>{titulo}</span>
+        <span style={{ display: 'block', marginTop: 2, fontSize: 12, color: MUTED, lineHeight: 1.45 }}>{descricao}</span>
+      </span>
+      <Switch checked={checked} onChange={e => onChange(e.currentTarget.checked)} color={BLUE} styles={{ track: { cursor: 'pointer' } }} />
+    </label>
+  );
+}

@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from 'crypto';
 import { getAdminClient, getUserId, trackEvento } from '@/lib/track';
 import { requireUser } from '@/lib/requireUser';
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
+import { consultarInfosimples } from '@/lib/infosimplesClient';
 import { extractDdd, prioritizeByTribunalOrDdd, tribunalByDdd, tribunalByUf } from '@/lib/ddd';
 import { invalidateProcessosCache } from '@/lib/redis';
 import { consultarDataJud } from '@/lib/datajud';
@@ -17,10 +18,76 @@ import { desfechoInfosimples } from '@/lib/infosimplesResposta';
 import { isValidCnpj, isValidCpf } from '@/lib/format';
 import { classifyTag } from '@/lib/classify';
 import { custoTotal } from '@/lib/infosimplesPricing';
-import { criarRegistroConsulta, limparRegistroConsulta } from '@/lib/consultaAbort';
+import { consultaEncerrada, criarRegistroConsulta, limparRegistroConsulta } from '@/lib/consultaAbort';
 import { precoDaRespostaInfosimples, registrarHistoricoConsulta } from '@/lib/historicoConsultas';
 import { buscarProcessoPorNumero } from '@/lib/motorConsulta';
+import { MAX_CPFS_LEMIT_POR_BUSCA, consultarLemitPorCpf, cpfsNoObjeto, type ResultadoLemit } from '@/lib/lemit';
+import { decidirPrioridade, ufDoEnderecoLemit, ufsDaRegiaoFiscal, type SinaisUf } from '@/lib/planoVarredura';
+import { registrarFontesConsulta, type RegistroFonte } from '@/lib/registroFontes';
 import type { LegalProcess, Movement } from '@/lib/mockProcesses';
+
+// Robôs da Infosimples levam até 4min por tribunal (lib/infosimplesClient.ts); a varredura precisa caber aqui.
+export const maxDuration = 300;
+// Prazo total das consultas da Infosimples numa varredura (todas as ondas), com folga para DataJud, Lemit e o 'done'.
+const PRAZO_VARREDURA_MS = 265_000;
+
+/** "12345678901" -> "***.456.789-**" (só para rótulos de tela e log). */
+function mascararCpf(cpf: string): string {
+  return `***.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-**`;
+}
+
+/**
+ * Lemit automática numa busca: consulta o CPF pesquisado e cada CPF novo que aparecer nos processos (até
+ * MAX_CPFS_LEMIT_POR_BUSCA descobertos), sem repetir CPF. Cada chamada vira um evento de progresso com o custo.
+ */
+function criarDisparadorLemit(emit: (obj: unknown) => void, habilitada: boolean, onRegistro?: (r: RegistroFonte) => void) {
+  const consultados = new Set<string>();
+  const pendentes: Promise<void>[] = [];
+  let descobertos = 0;
+  let custo = 0;
+
+  /** Devolve a promessa do resultado (null quando a chamada não é feita: desligada, repetida ou acima do teto). */
+  const consultar = (cpf: string, descoberto: boolean): Promise<ResultadoLemit> | null => {
+    if (!habilitada || consultados.has(cpf)) return null;
+    if (descoberto && descobertos >= MAX_CPFS_LEMIT_POR_BUSCA) return null;
+    consultados.add(cpf);
+    if (descoberto) descobertos++;
+    const label = `Lemit · CPF ${mascararCpf(cpf)}`;
+    emit({ type: 'progress', label, fonte: 'lemit', status: 'loading' });
+    const inicio = Date.now();
+    const promessa = consultarLemitPorCpf(cpf).then(r => {
+        custo += r.custo;
+        onRegistro?.({
+          fonte: 'lemit',
+          servico: cpf.length === 14 ? 'empresa' : 'pessoa',
+          achou: r.status === 'ok',
+          custo: r.custo,
+          duracaoMs: Date.now() - inicio,
+          ...(r.status === 'erro' || r.status === 'nao_configurada' ? { erroOrigem: 'lemit', erroCategoria: r.erro } : {})
+        });
+        console.log(`[api/processos] ${label}: ${r.status} (R$ ${r.custo.toFixed(2)})`);
+        emit({
+          type: 'progress',
+          label,
+          fonte: 'lemit',
+          found: r.status === 'ok',
+          custo: r.custo,
+          descoberto,
+          resumo: r.resumo,
+          ...(r.status === 'erro' || r.status === 'nao_configurada' ? { erro: r.erro, pendente: r.status === 'nao_configurada' } : {})
+        });
+        return r;
+      });
+    pendentes.push(promessa.then(() => {}));
+    return promessa;
+  };
+
+  return {
+    consultar,
+    aguardar: () => Promise.allSettled(pendentes),
+    custo: () => custo
+  };
+}
 
 function convertBrDateToIso(dateStr?: string): string {
   if (!dateStr) return new Date().toISOString().split('T')[0];
@@ -31,49 +98,6 @@ function convertBrDateToIso(dateStr?: string): string {
     return `${y.padStart(4, '20')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
   return dateStr;
-}
-
-async function fetchInfosimples(
-  service: string,
-  token: string,
-  params: Record<string, string | undefined>,
-  signal: AbortSignal
-) {
-  const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), 20000);
-  const onSignalAbort = () => timeoutController.abort();
-  signal.addEventListener('abort', onSignalAbort);
-
-  try {
-    const form = new URLSearchParams();
-    form.append('token', token);
-    for (const [key, value] of Object.entries(params)) {
-      if (value) form.append(key, value);
-    }
-
-    const res = await fetch(`https://api.infosimples.com/api/v2/consultas/${service}`, {
-      method: 'POST',
-      body: form,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      signal: timeoutController.signal
-    });
-
-    clearTimeout(timeoutId);
-    signal.removeEventListener('abort', onSignalAbort);
-
-    // A Infosimples descreve a falha no próprio envelope ({ code, code_message }), às vezes com HTTP de
-    // erro: devolve o corpo sempre que ele vier, para a tela mostrar o motivo em vez de "sem processos".
-    const body = await res.json().catch(() => null);
-    if (body && typeof body.code === 'number') return body;
-    return res.ok ? body : { code: res.status, code_message: `HTTP ${res.status}` };
-  } catch (err) {
-    clearTimeout(timeoutId);
-    signal.removeEventListener('abort', onSignalAbort);
-    if ((err as { name?: string })?.name !== 'AbortError') {
-      console.error(`[api/processos] Erro ao consultar ${service}:`, err);
-    }
-    return { code: 504, code_message: 'Tempo limite esgotado para esta fonte' };
-  }
 }
 
 /** Campo que alguns serviços devolvem como texto e outros como objeto ({ nome, ... }) — ex.: orgao_julgador do TJRJ eproc. */
@@ -461,6 +485,7 @@ export async function POST(request: Request) {
       datajudSelecionados,
       somenteAutor,
       economizarPorDdd,
+      usarLemit,
       avisarMovimentacao,
       canalAviso,
       resumoLinguagemSimples
@@ -522,10 +547,19 @@ export async function POST(request: Request) {
 
       if (!usarDataJudCheck && !temInfosimplesCheck) {
         return NextResponse.json(
-          { error: `Nenhuma fonte habilitada para ${targetLabel}. Marque o DataJud ou a Infosimples no Passo 2.` },
+          { error: `Nenhuma fonte habilitada para ${targetLabel}. Marque o DataJud ou a Infosimples em "Onde procurar".` },
           { status: 400 }
         );
       }
+
+      let persistirDepois: (() => Promise<void>) | null = null;
+      after(async () => {
+        try {
+          await persistirDepois?.();
+        } catch (e) {
+          console.error('[api/processos] falha ao gravar após a resposta (busca por número):', e);
+        }
+      });
 
       const stream = new ReadableStream({
         async start(controller) {
@@ -550,42 +584,51 @@ export async function POST(request: Request) {
 
           const allProcesses: LegalProcess[] = resultado.processo ? [resultado.processo] : [];
           const descartadosPorPolo = resultado.descartadoPorPolo ? [resultado.descartadoPorPolo] : [];
-          const { custoEstimado, custoCobrado } = resultado;
+
+          // Lemit automática: CPF informado no Passo 1 e CPFs que aparecerem no processo encontrado.
+          const lemit = criarDisparadorLemit(emit, usarLemit !== false);
+          if (cleanDocumento.length === 11 && isValidCpf(cleanDocumento)) lemit.consultar(cleanDocumento, false);
+          for (const cpfAchado of cpfsNoObjeto(resultado.processo, isValidCpf)) lemit.consultar(cpfAchado, true);
+          await lemit.aguardar();
+
+          const { custoEstimado } = resultado;
+          const custoCobrado = resultado.custoCobrado + lemit.custo();
           const formattedNumber = cnjInfo?.numeroFormatado || cleanProcessNumber;
 
-          const userId = await getUserId(request);
-          await trackEvento(request, userId, {
-            tipo: 'consulta',
-            assunto: allProcesses[0]?.tipo,
-            classe: allProcesses[0]?.tipo,
-            tribunal: targetLabel,
-            dados: {
-              totalProcessos: allProcesses.length,
-              modo: 'numero',
-              numeroProcesso: cleanProcessNumber,
-              fontes: resultado.fontes,
-              processos: allProcesses.map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
-            }
-          });
-          await registrarHistoricoConsulta(userId, {
-            tipoBusca: 'numero',
-            termo: formattedNumber,
-            nomeParte: fullName,
-            tribunais: [targetLabel],
-            totalProcessos: allProcesses.length,
-            custoEstimado,
-            custoCobrado
-          });
-
-          if (userId && allProcesses.length > 0) {
-            await salvarProcessos(userId, cpfParaPerfil, fullName, allProcesses);
-            await sincronizarMonitoramento(userId, allProcesses);
-            await salvarPreferencias(userId, [targetLabel], {
-              avisarMovimentacao,
-              canalAviso,
-              resumoLinguagemSimples
-            });
-          }
+          // Gravações (histórico, perfil, monitoramento) rodam em after(): o 'done' sai antes delas, sem esperar o banco.
+          persistirDepois = async () => {
+            const userId = await getUserId(request);
+            await Promise.all([
+              trackEvento(request, userId, {
+                tipo: 'consulta',
+                assunto: allProcesses[0]?.tipo,
+                classe: allProcesses[0]?.tipo,
+                tribunal: targetLabel,
+                dados: {
+                  totalProcessos: allProcesses.length,
+                  modo: 'numero',
+                  numeroProcesso: cleanProcessNumber,
+                  fontes: resultado.fontes,
+                  processos: allProcesses.map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
+                }
+              }),
+              registrarHistoricoConsulta(userId, {
+                tipoBusca: 'numero',
+                termo: formattedNumber,
+                nomeParte: fullName,
+                tribunais: [targetLabel],
+                totalProcessos: allProcesses.length,
+                custoEstimado,
+                custoCobrado
+              }),
+              (async () => {
+                if (!userId || allProcesses.length === 0) return;
+                await salvarProcessos(userId, cpfParaPerfil, fullName, allProcesses);
+                await sincronizarMonitoramento(userId, allProcesses);
+                await salvarPreferencias(userId, [targetLabel], { avisarMovimentacao, canalAviso, resumoLinguagemSimples });
+              })()
+            ]);
+          };
 
           if (allProcesses.length === 0) {
             emit({
@@ -595,6 +638,7 @@ export async function POST(request: Request) {
               processes: [],
               tribunaisConsultados: [targetLabel],
               custoEstimado,
+              custoCobrado,
               descartadosPorPolo
             });
           } else {
@@ -605,6 +649,7 @@ export async function POST(request: Request) {
               processes: allProcesses,
               tribunaisConsultados: [targetLabel],
               custoEstimado,
+              custoCobrado,
               descartadosPorPolo
             });
           }
@@ -647,20 +692,10 @@ export async function POST(request: Request) {
 
     if (targets.length === 0) {
       return NextResponse.json(
-        { error: 'Nenhuma fonte habilitada aceita este tipo de busca. Revise as fontes no Passo 2.' },
+        { error: 'Nenhuma fonte habilitada aceita este tipo de busca. Revise as fontes em "Onde procurar".' },
         { status: 400 }
       );
     }
-
-    // Toggle "economizar busca por DDD / Estado" (Passo 4): com o tribunal prioritário identificado entre os
-    // alvos, separa-o numa 1ª onda — só dispara o restante (2ª onda) se nada for achado ali.
-    const tribunalPrioritario = forcedTj || (ddd ? tribunalByDdd(ddd) : null);
-    const alvosPrioritarios = tribunalPrioritario
-      ? targets.filter(t => t.label === tribunalPrioritario || t.label.startsWith(`${tribunalPrioritario} (`))
-      : [];
-    const dividirPorDdd = !!(economizarPorDdd && alvosPrioritarios.length > 0);
-    const targetsPrimeiraOnda = dividirPorDdd ? alvosPrioritarios : targets;
-    const targetsSegundaOnda = dividirPorDdd ? targets.filter(t => !alvosPrioritarios.includes(t)) : [];
 
     const custoEstimado = custoTotal(targets.map(t => t.service));
     let custoCobrado = 0;
@@ -678,10 +713,21 @@ export async function POST(request: Request) {
     const consultaId = randomUUID();
     const abortControllers = criarRegistroConsulta(consultaId);
 
+    let persistirDepois: (() => Promise<void>) | null = null;
+    after(async () => {
+      try {
+        await persistirDepois?.();
+      } catch (e) {
+        console.error('[api/processos] falha ao gravar após a resposta:', e);
+      }
+    });
+
     const stream = new ReadableStream({
       async start(controller) {
         const emit = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
         emit({ type: 'started', consultaId });
+        // Uma linha por chamada a fonte (ap_consulta_fontes), gravada em after() junto com o histórico.
+        const registros: RegistroFonte[] = [];
 
         // Enriquecimento DataJud de um processo: dispara assim que a Infosimples o encontra, em
         // paralelo com os demais tribunais ainda em varredura (não espera a Infosimples terminar).
@@ -695,16 +741,21 @@ export async function POST(request: Request) {
           // para o botão "cancelar" do card poder abortar cada sub-fonte separadamente.
           const abortController = new AbortController();
           abortControllers.set(dataJudLabel, abortController);
+          const inicioDataJud = Date.now();
           const enriquecido = await consultarDataJud(tribunalLabel, numeroDigits, datajudPermitidos, abortController.signal);
           const cancelado = abortController.signal.aborted;
           abortControllers.delete(dataJudLabel);
+          const registrarDataJud = (achou: boolean, erroCategoria?: string) =>
+            registros.push({ fonte: 'datajud', servico: tribunalLabel, tribunal: target.label, achou, custo: 0, duracaoMs: Date.now() - inicioDataJud, erroCategoria });
 
           if (cancelado) {
+            registrarDataJud(false, 'Cancelada');
             emit({ type: 'progress', label: dataJudLabel, fonte: 'datajud', found: false, cancelado: true });
             return;
           }
 
           if (!enriquecido) {
+            registrarDataJud(false);
             emit({ type: 'progress', label: dataJudLabel, fonte: 'datajud', found: false });
             return;
           }
@@ -739,31 +790,85 @@ export async function POST(request: Request) {
             p.enriquecidoDataJud = true;
             p.origem = 'ambos';
           }
+          registrarDataJud(mudou);
           emit({ type: 'progress', label: dataJudLabel, fonte: 'datajud', found: mudou });
         };
 
         const enriquecimentoPromises: Promise<void>[] = [];
 
-        const consultarTarget = async (target: (typeof targets)[number]) => {
+        // Lemit automática: dispara já para o CPF pesquisado (em paralelo com os tribunais) e, durante a
+        // varredura, para cada CPF novo que aparecer nos processos (busca por nome/CNPJ ou outras partes).
+        const lemit = criarDisparadorLemit(emit, usarLemit !== false, r => registros.push(r));
+        const promessaLemitPesquisado = tipoBusca === 'cpf' ? lemit.consultar(cleanDocumento, false) : null;
+
+        // Plano da 1ª onda (regras fixas de lib/planoVarredura.ts: manual > endereço na Lemit > DDD > região
+        // fiscal do CPF). Com a economia ligada e sem estado manual, espera a Lemit do CPF pesquisado (até ~20s):
+        // o endereço dela é o sinal mais forte. Sem economia, nada espera — todos os tribunais saem juntos.
+        const lemitDoPesquisado = economizarPorDdd && !forcedTj && promessaLemitPesquisado ? await promessaLemitPesquisado : null;
+        const sinais: SinaisUf = {
+          manualUf: forcedTj ? selectedState : null,
+          lemitUf: lemitDoPesquisado?.status === 'ok' ? ufDoEnderecoLemit(lemitDoPesquisado.dados) : null,
+          dddTj: ddd ? tribunalByDdd(ddd) : null,
+          regiaoFiscalUfs: tipoBusca === 'cpf' ? ufsDaRegiaoFiscal(cleanDocumento) : []
+        };
+        const doTribunal = (tj: string) => (t: (typeof targets)[number]) => t.label === tj || t.label.startsWith(`${tj} (`);
+        const prioridade = decidirPrioridade(sinais, tj => targets.some(doTribunal(tj)));
+        const alvosPrioritarios = targets.filter(t => prioridade.tribunais.some(tj => doTribunal(tj)(t)));
+        const dividirEmOndas = !!(economizarPorDdd && alvosPrioritarios.length > 0 && alvosPrioritarios.length < targets.length);
+        const targetsPrimeiraOnda = dividirEmOndas ? alvosPrioritarios : targets;
+        const targetsSegundaOnda = dividirEmOndas ? targets.filter(t => !alvosPrioritarios.includes(t)) : [];
+        emit({
+          type: 'plano',
+          primeiraOnda: targetsPrimeiraOnda.map(t => t.label),
+          segundaOnda: targetsSegundaOnda.map(t => t.label),
+          origem: dividirEmOndas ? prioridade.origem : null,
+          motivo: economizarPorDdd ? prioridade.motivo : 'Economia por estado desligada: todos os tribunais consultados em paralelo.'
+        });
+        console.log(`[api/processos] Plano: ${prioridade.motivo} Sinais: ${JSON.stringify(sinais)}`);
+
+        const inicioVarredura = Date.now();
+
+        const consultarTarget = async (target: (typeof targets)[number], onda: 1 | 2) => {
+          // "Encerrar e ver resultados": nenhuma fonte nova começa depois do pedido do usuário.
+          if (consultaEncerrada(consultaId)) {
+            emit({ type: 'progress', label: target.label, fonte: 'infosimples', found: false, cancelado: true, custo: 0 });
+            return;
+          }
           tribunaisConsultados.push(target.label);
+          // Cada fonte tem todo o tempo que ainda resta do prazo da varredura (a 2ª onda herda o que sobrou da 1ª).
+          const restanteSegundos = Math.floor((PRAZO_VARREDURA_MS - (Date.now() - inicioVarredura)) / 1000) - 10;
+          if (restanteSegundos < 15) {
+            registros.push({ fonte: 'infosimples', servico: target.service, tribunal: target.label, onda, achou: false, custo: 0, erroOrigem: 'prosec', erroCategoria: 'Prazo da varredura esgotado' });
+            emit({ type: 'progress', label: target.label, fonte: 'infosimples', found: false, erro: `Prazo da varredura esgotado: a 1ª onda consumiu quase todo o limite de ${PRAZO_VARREDURA_MS / 1000}s da busca, e não sobrou tempo para esta fonte; a Infosimples não foi chamada nem cobrou.`, custo: 0 });
+            return;
+          }
           const abortController = new AbortController();
           abortControllers.set(target.label, abortController);
           emit({ type: 'progress', label: target.label, fonte: 'infosimples', status: 'loading' });
-          const result = await fetchInfosimples(target.service, token, { ...target.fixos, [target.campo]: target.valor }, abortController.signal);
-          custoCobrado += precoDaRespostaInfosimples(result);
+          const result = await consultarInfosimples(
+            target.service,
+            token,
+            { ...target.fixos, [target.campo]: target.valor },
+            abortController.signal,
+            { cacheNegativo: true, timeoutSegundos: restanteSegundos }
+          );
+          const custoDaFonte = precoDaRespostaInfosimples(result);
+          custoCobrado += custoDaFonte;
           const cancelado = abortController.signal.aborted;
           abortControllers.delete(target.label);
 
           if (cancelado) {
-            emit({ type: 'progress', label: target.label, fonte: 'infosimples', found: false, cancelado: true });
+            registros.push({ fonte: 'infosimples', servico: target.service, tribunal: target.label, onda, achou: false, custo: custoDaFonte, duracaoMs: result?._duracaoMs, erroOrigem: 'prosec', erroCategoria: 'Cancelada' });
+            emit({ type: 'progress', label: target.label, fonte: 'infosimples', found: false, cancelado: true, custo: custoDaFonte });
             return;
           }
 
           let foundInThisTribunal = false;
+          let novosNesteTribunal = 0;
           const desfecho = desfechoInfosimples(result);
           console.log(
             result
-              ? `[api/processos] ${target.label} (${target.campo}): code ${result.code} - "${result.code_message}" (data_count: ${result.data_count})${desfecho.erro ? ' [ERRO]' : ''}`
+              ? `[api/processos] ${target.label} (${target.campo}): code ${result.code} - "${result.code_message}" (data_count: ${result.data_count})${desfecho.erroTecnico ? ` [ERRO] ${desfecho.erroTecnico}` : ''}`
               : `[api/processos] ${target.label} (${target.campo}): sem resposta da Infosimples [ERRO]`
           );
 
@@ -775,14 +880,34 @@ export async function POST(request: Request) {
               if (!num || seenProcessos.has(num)) return;
               seenProcessos.add(num);
               foundInThisTribunal = true;
+              novosNesteTribunal++;
 
               const processo = montarLegalProcessDaInfosimples(p, target.label, fullName);
               processo.origem = 'infosimples';
               allProcesses.push(processo);
+              // Resultado parcial para a tela, já respeitando o filtro "somente autor".
+              if (!somenteAutor || pesquisadoEhAutor(fullName, processo.autor)) {
+                emit({ type: 'processo', processo: { numero: processo.numero, tribunal: processo.tribunal, tipo: processo.tipo, autor: processo.autor } });
+              }
               // Dispara o DataJud já aqui, em paralelo com os outros tribunais ainda rodando.
               enriquecimentoPromises.push(enriquecerComDataJud(processo, target));
+              for (const cpfAchado of cpfsNoObjeto(p, isValidCpf)) lemit.consultar(cpfAchado, true);
             });
           }
+
+          registros.push({
+            fonte: 'infosimples',
+            servico: target.service,
+            tribunal: target.label,
+            onda,
+            achou: foundInThisTribunal,
+            qtdProcessos: novosNesteTribunal,
+            custo: custoDaFonte,
+            duracaoMs: result?._duracaoMs,
+            codigo: result?.code,
+            erroOrigem: desfecho.erro ? desfecho.origem : undefined,
+            erroCategoria: desfecho.erro ? desfecho.categoria : undefined
+          });
 
           // "erro" só quando a fonte falhou; fonte que respondeu "nada encontrado" segue como found:false.
           emit({
@@ -790,22 +915,26 @@ export async function POST(request: Request) {
             label: target.label,
             fonte: 'infosimples',
             found: foundInThisTribunal,
-            ...(desfecho.erro && !foundInThisTribunal ? { erro: desfecho.erro, codigo: desfecho.codigo } : {})
+            custo: custoDaFonte,
+            ...(desfecho.erro && !foundInThisTribunal ? { erro: desfecho.erro, erroTecnico: desfecho.erroTecnico, codigo: desfecho.codigo } : {})
           });
         };
 
+        // 1ª onda: tribunal(is) prioritário(s) do plano, ou todos. A 2ª onda (demais tribunais) só roda se a 1ª
+        // não achou nada e o usuário não encerrou — economiza chamadas pagas quando o processo está onde se esperava.
+        // Se não rodar, os tribunais vão no 'done' para a tela oferecer "continuar buscando".
+        await Promise.allSettled(targetsPrimeiraOnda.map(t => consultarTarget(t, 1)));
+        let tribunaisNaoConsultados: string[] = [];
         if (targetsSegundaOnda.length > 0) {
-          // Toggle "economizar busca por DDD": 1ª onda só com o(s) tribunal(is) do estado do DDD
-          // informado. Só dispara a 2ª onda (demais tribunais selecionados) se nada foi achado ali —
-          // economiza chamadas pagas da Infosimples quando o processo está no tribunal esperado.
-          await Promise.allSettled(targetsPrimeiraOnda.map(consultarTarget));
-          if (allProcesses.length === 0) {
-            await Promise.allSettled(targetsSegundaOnda.map(consultarTarget));
+          if (allProcesses.length === 0 && !consultaEncerrada(consultaId)) {
+            await Promise.allSettled(targetsSegundaOnda.map(t => consultarTarget(t, 2)));
+          } else {
+            tribunaisNaoConsultados = targetsSegundaOnda.map(t => t.label);
           }
-        } else {
-          await Promise.allSettled(targetsPrimeiraOnda.map(consultarTarget));
         }
         await Promise.allSettled(enriquecimentoPromises);
+        await lemit.aguardar();
+        custoCobrado += lemit.custo();
 
         const porNumero = cleanProcessNumber
           ? allProcesses.filter(p => p.numero.replace(/\D/g, '').includes(cleanProcessNumber))
@@ -819,42 +948,55 @@ export async function POST(request: Request) {
           ? porNumero.filter(p => !pesquisadoEhAutor(fullName, p.autor)).map(p => ({ numero: p.numero, tribunal: p.tribunal, autor: p.autor }))
           : [];
 
-        const userId = await getUserId(request);
-        await trackEvento(request, userId, {
-          tipo: 'consulta',
-          assunto: filteredProcesses[0]?.tipo,
-          classe: filteredProcesses[0]?.tipo,
-          tribunal: tribunaisConsultados.join(', '),
-          dados: {
-            totalProcessos: filteredProcesses.length,
-            modo: tipoBusca,
-            estado: selectedState || null,
-            processos: filteredProcesses.slice(0, 20).map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
-          }
-        });
-        await registrarHistoricoConsulta(userId, {
-          tipoBusca,
-          termo: valorBusca,
-          nomeParte: fullName,
-          tribunais: tribunaisConsultados,
-          totalProcessos: filteredProcesses.length,
-          custoEstimado,
-          custoCobrado
-        });
-
-        if (userId) {
-          await salvarProcessos(userId, cpfParaPerfil, fullName, filteredProcesses);
-          if (filteredProcesses.length > 0) await sincronizarMonitoramento(userId, filteredProcesses);
-          await salvarPreferencias(userId, tribunaisSelecionados, {
-            avisarMovimentacao,
-            canalAviso,
-            resumoLinguagemSimples
-          });
-        }
+        // Gravações (histórico, perfil, monitoramento) rodam em after(): o 'done' sai antes delas, sem esperar o banco.
+        persistirDepois = async () => {
+          const userId = await getUserId(request);
+          await Promise.all([
+            trackEvento(request, userId, {
+              tipo: 'consulta',
+              assunto: filteredProcesses[0]?.tipo,
+              classe: filteredProcesses[0]?.tipo,
+              tribunal: tribunaisConsultados.join(', '),
+              dados: {
+                totalProcessos: filteredProcesses.length,
+                modo: tipoBusca,
+                estado: selectedState || null,
+                processos: filteredProcesses.slice(0, 20).map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
+              }
+            }),
+            registrarHistoricoConsulta(userId, {
+              tipoBusca,
+              termo: valorBusca,
+              nomeParte: fullName,
+              tribunais: tribunaisConsultados,
+              totalProcessos: filteredProcesses.length,
+              custoEstimado,
+              custoCobrado
+            }),
+            registrarFontesConsulta(consultaId, userId, tipoBusca, sinais, dividirEmOndas ? prioridade.origem : null, registros),
+            (async () => {
+              if (!userId) return;
+              await salvarProcessos(userId, cpfParaPerfil, fullName, filteredProcesses);
+              if (filteredProcesses.length > 0) await sincronizarMonitoramento(userId, filteredProcesses);
+              await salvarPreferencias(userId, tribunaisSelecionados, { avisarMovimentacao, canalAviso, resumoLinguagemSimples });
+            })()
+          ]);
+        };
 
         if (filteredProcesses.length === 0) {
           console.log(`[api/processos] Nenhum processo localizado nos tribunais consultados (${tribunaisConsultados.join(', ')}) para a busca por ${tipoBusca}.`);
-          emit({ type: 'done', notFound: true, totalProcessos: 0, processes: [], tribunaisConsultados, custoEstimado, descartadosPorPolo });
+          emit({
+            type: 'done',
+            notFound: true,
+            totalProcessos: 0,
+            processes: [],
+            tribunaisConsultados,
+            tribunaisNaoConsultados,
+            encerradaPeloUsuario: consultaEncerrada(consultaId),
+            custoEstimado,
+            custoCobrado,
+            descartadosPorPolo
+          });
         } else {
           console.log(`[api/processos] Sucesso: ${filteredProcesses.length} processo(s) consolidado(s) de ${tribunaisConsultados.join(', ')}. Custo estimado: R$ ${custoEstimado.toFixed(2)}`);
           emit({
@@ -863,7 +1005,10 @@ export async function POST(request: Request) {
             totalProcessos: filteredProcesses.length,
             processes: filteredProcesses,
             tribunaisConsultados,
+            tribunaisNaoConsultados,
+            encerradaPeloUsuario: consultaEncerrada(consultaId),
             custoEstimado,
+            custoCobrado,
             descartadosPorPolo
           });
         }

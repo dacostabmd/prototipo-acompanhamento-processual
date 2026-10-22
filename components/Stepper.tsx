@@ -218,6 +218,7 @@ export default function Stepper({
                 type="button"
                 onClick={isLastStep ? handleComplete : handleNext}
                 disabled={!canAdvance}
+                className="bf-btn-ouro"
                 style={{
                   background: canAdvance
                     ? 'linear-gradient(135deg, #c4a86f 0%, #ab8e5c 100%)'

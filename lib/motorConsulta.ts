@@ -2,6 +2,7 @@ import { buscarProcessoDiretoDataJud } from '@/lib/datajud';
 import { FONTES_INFOSIMPLES } from '@/lib/fontesInfosimples';
 import { aliasesDatajudPermitidos } from '@/lib/fontesDatajud';
 import { parseCnj } from '@/lib/cnj';
+import { consultarInfosimples } from '@/lib/infosimplesClient';
 import { desfechoInfosimples } from '@/lib/infosimplesResposta';
 import { classifyTag } from '@/lib/classify';
 import { custoServico } from '@/lib/infosimplesPricing';
@@ -17,49 +18,6 @@ function convertBrDateToIso(dateStr?: string): string {
     return `${y.padStart(4, '20')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
   return dateStr;
-}
-
-async function fetchInfosimples(
-  service: string,
-  token: string,
-  params: Record<string, string | undefined>,
-  signal: AbortSignal
-) {
-  const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), 20000);
-  const onSignalAbort = () => timeoutController.abort();
-  signal.addEventListener('abort', onSignalAbort);
-
-  try {
-    const form = new URLSearchParams();
-    form.append('token', token);
-    for (const [key, value] of Object.entries(params)) {
-      if (value) form.append(key, value);
-    }
-
-    const res = await fetch(`https://api.infosimples.com/api/v2/consultas/${service}`, {
-      method: 'POST',
-      body: form,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      signal: timeoutController.signal
-    });
-
-    clearTimeout(timeoutId);
-    signal.removeEventListener('abort', onSignalAbort);
-
-    // A Infosimples descreve a falha no próprio envelope ({ code, code_message }), às vezes com HTTP de
-    // erro: devolve o corpo sempre que ele vier, para a tela mostrar o motivo em vez de "sem processos".
-    const body = await res.json().catch(() => null);
-    if (body && typeof body.code === 'number') return body;
-    return res.ok ? body : { code: res.status, code_message: `HTTP ${res.status}` };
-  } catch (err) {
-    clearTimeout(timeoutId);
-    signal.removeEventListener('abort', onSignalAbort);
-    if ((err as { name?: string })?.name !== 'AbortError') {
-      console.error(`[motorConsulta] Erro ao consultar ${service}:`, err);
-    }
-    return { code: 504, code_message: 'Tempo limite esgotado para esta fonte' };
-  }
 }
 
 /** Campo que alguns serviços devolvem como texto e outros como objeto ({ nome, ... }) — ex.: orgao_julgador do TJRJ eproc. */
@@ -245,6 +203,8 @@ export interface ProgressoConsultaPorNumero {
   found?: boolean;
   cancelado?: boolean;
   erro?: string;
+  /** Valor cobrado pela Infosimples (soma dos serviços consultados para o tribunal), em R$. */
+  custo?: number;
 }
 
 export interface ResultadoConsultaPorNumero {
@@ -315,7 +275,7 @@ export async function buscarProcessoPorNumero(
       custoCobrado: 0,
       targetLabel,
       fontes: { dataJud: false, infosimples: false },
-      erro: `Nenhuma fonte habilitada para ${targetLabel}. Marque o DataJud ou a Infosimples no Passo 2.`
+      erro: `Nenhuma fonte habilitada para ${targetLabel}. Marque o DataJud ou a Infosimples em "Onde procurar".`
     };
   }
 
@@ -361,7 +321,7 @@ export async function buscarProcessoPorNumero(
     onAbortControllerCreated?.(targetLabel, infosimplesAbort);
     const resultadosPorServico = await Promise.all(
       tribunaisDoCnj.map(async target => {
-        const result = await fetchInfosimples(
+        const result = await consultarInfosimples(
           target.service,
           token,
           { [target.campoNumero]: formattedNumber },
@@ -373,7 +333,7 @@ export async function buscarProcessoPorNumero(
 
         if (result) {
           console.log(
-            `[motorConsulta] (busca por número) ${target.service}: code ${result.code} - "${result.code_message}" (data_count: ${result.data_count})`
+            `[motorConsulta] (busca por número) ${target.service}: code ${result.code} - "${result.code_message}" (data_count: ${result.data_count})${desfecho.erroTecnico ? ` [ERRO] ${desfecho.erroTecnico}` : ''}`
           );
         } else {
           console.log(`[motorConsulta] (busca por número) ${target.service}: sem resposta da Infosimples.`);
@@ -395,7 +355,7 @@ export async function buscarProcessoPorNumero(
 
     onAbortControllerSettled?.(targetLabel);
     if (infosimplesAbort.signal.aborted) {
-      emit({ label: targetLabel, fonte: 'infosimples', found: false, cancelado: true });
+      emit({ label: targetLabel, fonte: 'infosimples', found: false, cancelado: true, custo: custoCobrado });
       return null;
     }
 
@@ -403,7 +363,7 @@ export async function buscarProcessoPorNumero(
     if (comAchado) {
       const processo = montarLegalProcessDaInfosimples(comAchado.achou, comAchado.target.label, fullName);
       processo.origem = 'infosimples';
-      emit({ label: targetLabel, fonte: 'infosimples', found: true });
+      emit({ label: targetLabel, fonte: 'infosimples', found: true, custo: custoCobrado });
       return processo;
     }
 
@@ -412,6 +372,7 @@ export async function buscarProcessoPorNumero(
       label: targetLabel,
       fonte: 'infosimples',
       found: false,
+      custo: custoCobrado,
       ...(errosDosServicos.length === tribunaisDoCnj.length ? { erro: errosDosServicos.join(' | ') } : {})
     });
     return null;

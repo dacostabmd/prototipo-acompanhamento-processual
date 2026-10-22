@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/requireUser';
-import { cancelarTribunal } from '@/lib/consultaAbort';
+import { cancelarTribunal, encerrarConsulta } from '@/lib/consultaAbort';
 
 /**
  * Cancela a chamada de um tribunal específico dentro de uma consulta multi-tribunal em andamento
@@ -12,7 +12,11 @@ export async function POST(request: Request) {
   if (unauthorized) return unauthorized;
 
   try {
-    const { consultaId, label } = await request.json();
+    const { consultaId, label, encerrar } = await request.json();
+    // encerrar: true = "encerrar e ver resultados" (aborta tudo, mas a consulta termina com o que já achou).
+    if (consultaId && encerrar === true) {
+      return NextResponse.json({ cancelado: encerrarConsulta(consultaId) });
+    }
     if (!consultaId || !label) {
       return NextResponse.json({ error: 'consultaId e label são obrigatórios.' }, { status: 400 });
     }

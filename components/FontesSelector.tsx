@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Select, SegmentedControl, Switch, TextInput } from '@mantine/core';
-import { Check, ChevronRight, Info, Plus, Scale, Search, X } from 'lucide-react';
+import { Check, ChevronRight, Database, Fingerprint, Info, Plus, Scale, Search, X } from 'lucide-react';
 import type { CnjInfo } from '@/lib/cnj';
 import { FONTES_DATAJUD, GRUPOS_FONTES, type GrupoFonte } from '@/lib/fontesDatajud';
 import { FONTES_INFOSIMPLES, fontesInfosimplesPara, type FonteInfosimples, type TipoBusca } from '@/lib/fontesInfosimples';
@@ -67,6 +67,8 @@ interface FontesSelectorProps {
   onInfosimplesChange: (ids: string[]) => void;
   datajudSel: string[];
   onDatajudChange: (ids: string[]) => void;
+  lemitAtivo: boolean;
+  onLemitChange: (v: boolean) => void;
 }
 
 export default function FontesSelector(props: FontesSelectorProps) {
@@ -80,7 +82,7 @@ function FontesPorNumero({ detectado, infosimplesSel, onInfosimplesChange, dataj
   const selInfo = new Set(infosimplesSel);
 
   if (!detectado?.valido) {
-    return <p style={{ margin: 0, fontSize: 13, color: MUTED }}>Informe um número CNJ válido no Passo 1 para ver as fontes disponíveis.</p>;
+    return <p style={{ margin: 0, fontSize: 13, color: MUTED }}>Informe um número CNJ válido acima para ver as fontes disponíveis.</p>;
   }
 
   const alternar = (id: string, marcar: boolean) => {
@@ -165,8 +167,17 @@ function passaFiltro(f: Filtro, info: { ufs: string[]; texto: string }, grupo: G
 }
 
 type ModoFontes = 'recomendado' | 'todas' | 'personalizar';
+type Provedor = 'infosimples' | 'lemit' | 'datajud';
 
-function FontesPorDocumento({ tipoBusca, infosimplesSel, onInfosimplesChange, datajudSel, onDatajudChange }: FontesSelectorProps) {
+function FontesPorDocumento({
+  tipoBusca,
+  infosimplesSel,
+  onInfosimplesChange,
+  datajudSel,
+  onDatajudChange,
+  lemitAtivo,
+  onLemitChange
+}: FontesSelectorProps) {
   const [filtro, setFiltro] = React.useState<Filtro>(FILTRO_VAZIO);
   // Modo inicial reflete a seleção já recebida: só assume "recomendado" às cegas se bater com o preset das principais.
   const [modo, setModo] = React.useState<ModoFontes>(() => {
@@ -180,6 +191,7 @@ function FontesPorDocumento({ tipoBusca, infosimplesSel, onInfosimplesChange, da
     return 'personalizar';
   });
   const filtrando = !!(filtro.busca.trim() || filtro.uf || filtro.grupo);
+  const [provedorAtivo, setProvedorAtivo] = React.useState<Provedor>('infosimples');
 
   const compativeis = fontesInfosimplesPara(tipoBusca);
   const ocultas = FONTES_INFOSIMPLES.length - compativeis.length;
@@ -238,15 +250,60 @@ function FontesPorDocumento({ tipoBusca, infosimplesSel, onInfosimplesChange, da
         </div>
       </div>
 
+      {/* APIs: um card por provedor (liga/desliga + resumo); o card em foco abre o painel de tribunais abaixo. */}
+      <div role="tablist" aria-label="APIs de consulta" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+        <CardProvedor
+          icone={<Scale size={16} />}
+          titulo="Infosimples"
+          selo="Paga"
+          resumo={qtdInfo > 0 ? `${qtdInfo} serviço${qtdInfo === 1 ? '' : 's'} · ${formatarReais(custo)}` : 'Desligada'}
+          detalhe={`Busca por ${rotuloTipo} nos portais dos tribunais`}
+          emFoco={provedorAtivo === 'infosimples'}
+          ligado={qtdInfo > 0}
+          onFocar={() => setProvedorAtivo('infosimples')}
+          onAlternar={v => {
+            if (v) trocarModo('recomendado');
+            else {
+              setModo('personalizar');
+              definirCompativeis([]);
+            }
+          }}
+        />
+        <CardProvedor
+          icone={<Fingerprint size={16} />}
+          titulo="Lemit"
+          selo="Automática"
+          resumo={lemitAtivo ? 'Ligada' : 'Desligada'}
+          detalhe="Dados cadastrais do CPF pesquisado e dos CPFs achados nos processos"
+          emFoco={provedorAtivo === 'lemit'}
+          ligado={lemitAtivo}
+          onFocar={() => setProvedorAtivo('lemit')}
+          onAlternar={onLemitChange}
+        />
+        <CardProvedor
+          icone={<Database size={16} />}
+          titulo="DataJud (CNJ)"
+          selo="Grátis"
+          seloCor={GREEN}
+          resumo={datajudSel.length > 0 ? `${datajudSel.length} de ${FONTES_DATAJUD.length} endpoints` : 'Desligado'}
+          detalhe="Complementa os processos encontrados"
+          emFoco={provedorAtivo === 'datajud'}
+          ligado={datajudSel.length > 0}
+          onFocar={() => setProvedorAtivo('datajud')}
+          onAlternar={v => onDatajudChange(v ? IDS_TODOS_DATAJUD : [])}
+        />
+      </div>
+
       {/* Infosimples */}
+      {provedorAtivo === 'infosimples' && (
       <section style={cardStyle(false)}>
         <div style={{ marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
-            <span style={{ fontSize: 14, color: TEXT, fontWeight: 700 }}>Onde procurar?</span>
+            <span style={{ fontSize: 14, color: TEXT, fontWeight: 700 }}>Tribunais · Infosimples</span>
             <span style={{ fontSize: 11, color: BLUE_LIGHT, letterSpacing: 0.5, textTransform: 'uppercase' }}>consulta paga</span>
           </div>
           <div style={{ fontSize: 12, color: MUTED, margin: '2px 0 10px' }}>
-            {qtdInfo} de {compativeis.length} fontes marcadas · {formatarReais(custo)}
+            {qtdInfo} de {compativeis.length} serviços marcados · {formatarReais(custo)}
           </div>
           <SegmentedControl
             fullWidth
@@ -309,11 +366,13 @@ function FontesPorDocumento({ tipoBusca, infosimplesSel, onInfosimplesChange, da
           </>
         )}
       </section>
+      )}
 
       {/* DataJud */}
+      {provedorAtivo === 'datajud' && (
       <section style={cardStyle(false)}>
         <CabecalhoSecao
-          titulo="DataJud (CNJ)"
+          titulo="Tribunais · DataJud (CNJ)"
           selo="gratuito"
           resumo={`${datajudSel.length} de ${FONTES_DATAJUD.length} endpoints marcados para complementar resultados · R$ 0,00`}
         >
@@ -368,6 +427,23 @@ function FontesPorDocumento({ tipoBusca, infosimplesSel, onInfosimplesChange, da
           <p style={{ margin: 0, fontSize: 12, color: MUTED }}>Nenhum endpoint do DataJud corresponde aos filtros.</p>
         )}
       </section>
+      )}
+
+      {/* Lemit */}
+      {provedorAtivo === 'lemit' && (
+        <section style={{ ...cardStyle(false), display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <Fingerprint size={16} style={{ flexShrink: 0, color: BLUE_LIGHT, marginTop: 2 }} />
+          <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5 }}>
+            <strong>Lemit {lemitAtivo ? 'ligada' : 'desligada'}.</strong>
+            <div style={{ color: MUTED, marginTop: 4 }}>
+              Consulta automaticamente o CPF pesquisado (em paralelo com os tribunais) e cada CPF que aparecer nos processos
+              encontrados, até 5 por busca, sem repetir. Traz telefones, e-mails, endereços e a situação do CPF. A Lemit não
+              busca processos. O resultado e o custo de cada consulta aparecem nas notificações da varredura.
+            </div>
+          </div>
+        </section>
+      )}
+
     </div>
   );
 }
@@ -613,6 +689,81 @@ function ChipFonte({
       <span>{rotulo}</span>
       <span style={{ opacity: checked ? 0.75 : 0.6 }}>{preco}</span>
     </button>
+  );
+}
+
+/** Card de uma API: clicar põe o provedor em foco (abre o painel de tribunais); o Switch liga/desliga o provedor inteiro. */
+function CardProvedor({
+  icone,
+  titulo,
+  selo,
+  seloCor,
+  resumo,
+  detalhe,
+  emFoco,
+  ligado,
+  desabilitado,
+  onFocar,
+  onAlternar
+}: {
+  icone: React.ReactNode;
+  titulo: string;
+  selo: string;
+  seloCor?: string;
+  resumo: string;
+  detalhe: string;
+  emFoco: boolean;
+  ligado: boolean;
+  desabilitado?: boolean;
+  onFocar: () => void;
+  onAlternar: (v: boolean) => void;
+}) {
+  return (
+    <div
+      role="tab"
+      tabIndex={0}
+      aria-selected={emFoco}
+      onClick={onFocar}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onFocar();
+        }
+      }}
+      style={{
+        padding: '12px 14px',
+        borderRadius: 4,
+        border: `1px solid ${emFoco ? BLUE : INPUT_BORDER}`,
+        background: emFoco ? 'rgba(196,168,111,0.10)' : 'rgba(255,255,255,0.03)',
+        cursor: 'pointer',
+        opacity: desabilitado && !emFoco ? 0.6 : 1,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        minWidth: 0
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ color: ligado ? BLUE_LIGHT : MUTED, display: 'inline-flex' }}>{icone}</span>
+        <span style={{ fontSize: 13.5, color: TEXT, fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {titulo}
+        </span>
+        <span onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} style={{ display: 'inline-flex' }}>
+          <Switch
+            size="xs"
+            color={BLUE}
+            checked={ligado}
+            disabled={desabilitado}
+            aria-label={`${ligado ? 'Desligar' : 'Ligar'} ${titulo}`}
+            onChange={e => onAlternar(e.currentTarget.checked)}
+            styles={{ track: { cursor: desabilitado ? 'not-allowed' : 'pointer' } }}
+          />
+        </span>
+      </div>
+      <span style={{ fontSize: 10.5, color: seloCor ?? BLUE_LIGHT, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: 600 }}>{selo}</span>
+      <span style={{ fontSize: 12.5, color: TEXT, fontWeight: 600 }}>{resumo}</span>
+      <span style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.4 }}>{detalhe}</span>
+    </div>
   );
 }
 

@@ -24,6 +24,25 @@ export function criarRegistroConsulta(consultaId: string): Map<string, AbortCont
 /** Remove o registro ao final da consulta (sucesso, erro ou todos os tribunais cancelados). */
 export function limparRegistroConsulta(consultaId: string): void {
   registro.delete(consultaId);
+  encerradas.delete(consultaId);
+}
+
+// Consultas que o usuário mandou encerrar ("encerrar e ver resultados"): as fontes em andamento são
+// abortadas e nenhuma fonte nova começa (nem a 2ª onda), mas o stream termina normalmente com o que já achou.
+const globalComEncerradas = globalThis as typeof globalThis & { __prosecConsultasEncerradas?: Set<string> };
+const encerradas = (globalComEncerradas.__prosecConsultasEncerradas ??= new Set<string>());
+
+/** Encerra a consulta: aborta todas as fontes em andamento e impede que outras comecem. */
+export function encerrarConsulta(consultaId: string): boolean {
+  const controllers = registro.get(consultaId);
+  if (!controllers) return false;
+  encerradas.add(consultaId);
+  controllers.forEach(c => c.abort());
+  return true;
+}
+
+export function consultaEncerrada(consultaId: string): boolean {
+  return encerradas.has(consultaId);
 }
 
 /**
