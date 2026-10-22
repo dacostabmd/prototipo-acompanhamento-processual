@@ -16,11 +16,10 @@ import {
 import { parseCnj } from '@/lib/cnj';
 import { desfechoInfosimples } from '@/lib/infosimplesResposta';
 import { isValidCnpj, isValidCpf } from '@/lib/format';
-import { classifyTag } from '@/lib/classify';
 import { custoTotal } from '@/lib/infosimplesPricing';
 import { consultaEncerrada, criarRegistroConsulta, limparRegistroConsulta } from '@/lib/consultaAbort';
 import { precoDaRespostaInfosimples, registrarHistoricoConsulta } from '@/lib/historicoConsultas';
-import { buscarProcessoPorNumero } from '@/lib/motorConsulta';
+import { buscarProcessoPorNumero, candidatosInfosimples, montarLegalProcessDaInfosimples, numeroDoRegistro } from '@/lib/motorConsulta';
 import { MAX_CPFS_LEMIT_POR_BUSCA, consultarLemitPorCpf, cpfsNoObjeto, type ResultadoLemit } from '@/lib/lemit';
 import { decidirPrioridade, ufDoEnderecoLemit, ufsDaRegiaoFiscal, type SinaisUf } from '@/lib/planoVarredura';
 import { registrarFontesConsulta, type RegistroFonte } from '@/lib/registroFontes';
@@ -89,31 +88,6 @@ function criarDisparadorLemit(emit: (obj: unknown) => void, habilitada: boolean,
   };
 }
 
-function convertBrDateToIso(dateStr?: string): string {
-  if (!dateStr) return new Date().toISOString().split('T')[0];
-  const clean = dateStr.trim().split(' ')[0];
-  const parts = clean.split('/');
-  if (parts.length === 3) {
-    const [d, m, y] = parts;
-    return `${y.padStart(4, '20')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-  }
-  return dateStr;
-}
-
-/** Campo que alguns serviços devolvem como texto e outros como objeto ({ nome, ... }) — ex.: orgao_julgador do TJRJ eproc. */
-function textoDoCampo(v: any): string {
-  if (typeof v === 'string') return v.trim();
-  if (v && typeof v === 'object' && typeof v.nome === 'string') return v.nome.trim();
-  return '';
-}
-
-/** "- BANCO VOTORANTIM S A   (59.5****)" (ou [parte, advogado...]) → "BANCO VOTORANTIM S A". */
-function nomeDaParte(entrada: any): string {
-  const bruto = Array.isArray(entrada) ? entrada[0] : entrada;
-  if (typeof bruto !== 'string') return '';
-  return bruto.replace(/^[\s-]+/, '').replace(/\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
-}
-
 /** Minúsculas, sem acentos e com espaços colapsados — para comparar nomes vindos de fontes diferentes. */
 function normalizarNome(v: string): string {
   return v
@@ -133,146 +107,6 @@ function pesquisadoEhAutor(fullName: string | undefined, autor: string | undefin
   const nomePesquisado = normalizarNome(fullName || '');
   if (!nomePesquisado || !autor) return true;
   return normalizarNome(autor).includes(nomePesquisado);
-}
-
-/**
- * Registros de processo dentro de data[0] da Infosimples. Os serviços variam: lista (processos,
- * lista_processos...), detalhe único em "processo" (objeto) ou o próprio data[0] já como detalhe. Atenção:
- * alguns serviços (ex.: TJRJ eproc) mandam a lista VAZIA junto com o detalhe preenchido, então a lista só
- * vale se tiver itens — com `||` o array vazio (truthy) escondia o processo encontrado.
- */
-function extrairProcessosInfosimples(dado: any): any[] {
-  if (!dado) return [];
-  const lista = [dado.processos, dado.lista_processos, dado.processos_lista, dado.lista_processos_encontrados].find(
-    l => Array.isArray(l) && l.length > 0
-  );
-  if (lista) return lista;
-  if (dado.processo && typeof dado.processo === 'object') return [dado.processo];
-  if (dado.processo || dado.numero || dado.numero_processo || dado.classe_acao) return [dado];
-  return [];
-}
-
-/** Converte um registro bruto de processo retornado pela Infosimples para o formato LegalProcess. */
-function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName?: string): LegalProcess {
-  const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').trim();
-  const movs: Movement[] = [];
-  const orgao = textoDoCampo(p.vara) || textoDoCampo(p.foro) || textoDoCampo(p.orgao_julgador);
-  // Partes: reqte/reqdo/autor/reu (lista) ou partes_representantes.{exequente|autor...}/{executado|reu...} (eproc).
-  const partesRep = p.partes_representantes && typeof p.partes_representantes === 'object' ? p.partes_representantes : {};
-  const autor: string =
-    textoDoCampo(p.reqte) || textoDoCampo(p.autor) || nomeDaParte(partesRep.exequente?.[0] ?? partesRep.autor?.[0] ?? partesRep.requerente?.[0]);
-  const reu: string =
-    textoDoCampo(p.reqdo) || textoDoCampo(p.reu) || textoDoCampo(p.exectdo) || nomeDaParte(partesRep.executado?.[0] ?? partesRep.reu?.[0] ?? partesRep.requerido?.[0]);
-
-  const rawMovs =
-    p.ultimas_movimentacoes ||
-    p.eventos ||
-    p.movimento_processo ||
-    p.movimentacoes_processo ||
-    p.movimentacao ||
-    [];
-  if (Array.isArray(rawMovs) && rawMovs.length > 0) {
-    rawMovs.forEach((m: any) => {
-      const fullText = (m.movimento || m.descricao || m.evento || m.movimentacao || '').trim();
-      const dashIdx = fullText.indexOf(' - ');
-      let titulo = dashIdx > 0 && dashIdx < 60 ? fullText.slice(0, dashIdx) : fullText.slice(0, 70);
-      if (titulo.length < fullText.length && !titulo.endsWith('...')) {
-        titulo += '...';
-      }
-      const responsavel = m.responsavel || m.magistrado || textoDoCampo(m.orgao_julgador) || m.orgao;
-      const complemento = m.complemento || m.observacao || m.detalhe;
-      const extras = [
-        responsavel && `Responsável: ${responsavel}`,
-        complemento && complemento !== fullText && complemento
-      ].filter(Boolean);
-      const descricaoCompleta = extras.length > 0 ? `${fullText} — ${extras.join(' · ')}` : fullText;
-      movs.push({
-        data: convertBrDateToIso(m.data || m.data_evento || m.data_hora || m.data_hora_movimentacao),
-        titulo: titulo || 'Movimentação processual',
-        descricao: descricaoCompleta || 'Sem descrição detalhada.',
-        tag: classifyTag(fullText)
-      });
-    });
-  }
-
-  // "julgamentos" (só no TJSP 2º grau): lista de strings "DD/MM/AAAA <texto do julgamento>", não
-  // objetos como os demais formatos — único campo com conteúdo quando o grau não tem movimentações.
-  if (movs.length === 0 && Array.isArray(p.julgamentos) && p.julgamentos.length > 0) {
-    p.julgamentos.forEach((texto: unknown) => {
-      if (typeof texto !== 'string' || !texto.trim()) return;
-      const match = /^(\d{2}\/\d{2}\/\d{4})\s+(.*)$/.exec(texto.trim());
-      const dataBr = match?.[1];
-      const corpo = match?.[2] ?? texto.trim();
-      movs.push({
-        data: convertBrDateToIso(dataBr),
-        titulo: corpo.length > 70 ? `${corpo.slice(0, 70)}...` : corpo,
-        descricao: corpo,
-        tag: classifyTag(corpo)
-      });
-    });
-  }
-
-  if (movs.length === 0) {
-    const classeInfo = p.classe || p.classe_acao || p.assunto;
-    const varaInfo = orgao;
-    const valorInfo = p.valor_acao || p.valor_causa;
-    const partesInfo = [autor, reu].filter(Boolean).join(' x ');
-    const situacaoInfo = p.situacao || p.status || p.fase;
-    const detalhes = [
-      classeInfo && `Classe: ${classeInfo}`,
-      varaInfo && `Órgão: ${varaInfo}`,
-      valorInfo && `Valor da causa: ${valorInfo}`,
-      partesInfo && `Partes: ${partesInfo}`,
-      situacaoInfo && `Situação: ${situacaoInfo}`
-    ].filter(Boolean);
-
-    movs.push({
-      data: convertBrDateToIso(p.distribuicao || p.data_autuacao),
-      titulo: p.ultimo_evento ? (p.ultimo_evento.slice(0, 70) + '...') : 'Processo distribuído',
-      descricao:
-        p.ultimo_evento && detalhes.length > 0
-          ? `${p.ultimo_evento} — ${detalhes.join(' · ')}.`
-          : p.ultimo_evento ||
-            (detalhes.length > 0
-              ? `Processo autuado em ${p.distribuicao || p.data_autuacao || 'data não informada'}. ${detalhes.join(' · ')}.`
-              : `Processo autuado no tribunal: ${p.distribuicao || p.data_autuacao || 'Data não informada'}. O tribunal ainda não disponibilizou o histórico de movimentações para este processo.`),
-      tag: 'informativo'
-    });
-  }
-
-  let parteContraria = 'Não informada';
-  const normUser = (fullName || '').toLowerCase().trim();
-
-  if (autor && reu) {
-    if (normUser && autor.toLowerCase().includes(normUser)) {
-      parteContraria = reu;
-    } else if (normUser && reu.toLowerCase().includes(normUser)) {
-      parteContraria = autor;
-    } else {
-      parteContraria = reu;
-    }
-  } else {
-    parteContraria = reu || autor || 'Não informada';
-  }
-
-  let valorCausa = p.valor_acao || p.valor_causa;
-  if (!valorCausa && p.normalizado_valor_acao) {
-    valorCausa = `R$ ${Number(p.normalizado_valor_acao).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-  }
-
-  return {
-    numero: num,
-    tribunal: `${tribunalLabel} · ${orgao || '1º Grau'}`,
-    tipo: p.classe || p.classe_acao || p.assunto || 'Ação Judicial',
-    parteContraria,
-    valorCausa: valorCausa || 'Não informado',
-    distribuicao: p.distribuicao || p.data_autuacao || 'Não informada',
-    movimentos: movs,
-    assunto: textoDoCampo(p.assunto) || (Array.isArray(p.assuntos) ? p.assuntos.filter((a: unknown) => typeof a === 'string').join(', ') : '') || undefined,
-    varaForo: [textoDoCampo(p.vara) || textoDoCampo(p.orgao_julgador), textoDoCampo(p.foro)].filter(Boolean).join(' - ') || undefined,
-    autor: autor || undefined,
-    reu: reu || undefined
-  };
 }
 
 /** Salva as preferências do stepper (Onde procurar / Avisos). Nunca lança erro. */
@@ -873,12 +707,19 @@ export async function POST(request: Request) {
           );
 
           if (result && result.code === 200 && result.data?.[0]) {
-            const rawList = extrairProcessosInfosimples(result.data[0]);
+            const rawList = candidatosInfosimples(result.data[0]);
+            if (rawList.length === 0 || !rawList.some(p => numeroDoRegistro(p))) {
+              if (result.data_count > 0) {
+                console.warn(`[processos] ${target.service}: resposta com dados, mas nenhum processo reconhecido. Chaves de data[0]: ${Object.keys(result.data[0]).join(', ')}`);
+              }
+            }
 
             rawList.forEach((p: any) => {
-              const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').trim();
-              if (!num || seenProcessos.has(num)) return;
-              seenProcessos.add(num);
+              const num = numeroDoRegistro(p);
+              // dedup pelos dígitos: o mesmo processo pode vir no detalhe da raiz e na lista, formatado diferente
+              const chave = num.replace(/\D/g, '');
+              if (!chave || seenProcessos.has(chave)) return;
+              seenProcessos.add(chave);
               foundInThisTribunal = true;
               novosNesteTribunal++;
 

@@ -38,8 +38,9 @@ export interface DataJudResultado {
 // o endpoint do TJSP (dezenas de milhões de processos) levaram 30-56s mesmo buscando por número
 // específico (match_phrase), em mais de uma tentativa — 5s era curto demais e abortava quase toda
 // consulta a esse tribunal antes de uma resposta real chegar. Como essa consulta roda em paralelo
-// A consulta roda em paralelo sem bloquear a Infosimples. Timeout de 15s evita travar a tela por minutos.
-const TIMEOUT_MS = 15000;
+// A consulta roda em paralelo sem bloquear a Infosimples. 30s: o índice do TJMG passou de 15s em produção
+// (a busca por número ficava sem o DataJud); a Infosimples, que leva mais, já segura a tela por mais tempo.
+const TIMEOUT_MS = 30000;
 
 /**
  * dataAjuizamento do processo vem em dois formatos observados na API: ISO ("2018-10-29T00:00:00Z")

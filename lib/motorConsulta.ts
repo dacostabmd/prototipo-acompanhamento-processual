@@ -55,45 +55,118 @@ function pesquisadoEhAutor(fullName: string | undefined, autor: string | undefin
   return normalizarNome(autor).includes(nomePesquisado);
 }
 
+/** Campos que indicam que o próprio objeto é o detalhe de um processo (e não só um envelope de lista). */
+function ehDetalheDeProcesso(dado: any): boolean {
+  return !!dado && typeof dado === 'object' &&
+    !!(dado.numero_processo || dado.numero || dado.classe_judicial || dado.classe_acao ||
+      dado.movimento_processo || dado.movimentacoes || dado.ultimas_movimentacoes || dado.polo_ativo);
+}
+
+const ehObjeto = (v: any) => !!v && typeof v === 'object' && !Array.isArray(v);
+
 /**
- * Registros de processo dentro de data[0] da Infosimples. Os serviços variam: lista (processos,
- * lista_processos...), detalhe único em "processo" (objeto) ou o próprio data[0] já como detalhe. Atenção:
- * alguns serviços (ex.: TJRJ eproc) mandam a lista VAZIA junto com o detalhe preenchido, então a lista só
- * vale se tiver itens — com `||` o array vazio (truthy) escondia o processo encontrado.
+ * Registros de processo dentro de data[0] da Infosimples, do mais completo ao mais pobre. Cada serviço tem o seu
+ * formato e vários combinam mais de um (levantado na documentação dos 18 serviços em uso):
+ * - detalhe na raiz (TJMG/TRF6 PJe, TJSP 2º grau e colégio recursal), às vezes JUNTO com uma lista_processos;
+ * - detalhe aninhado em processo (TJRJ/TJSC eproc, TRF2, TRF3), primeiro_processo_listado (TRF1, TRF5),
+ *   detalhes_primeiro_processo_lista (TJRJ) ou dados_processo, com polos na raiz (TRF3 consulta pública);
+ * - listas processos, lista_processos, processos_lista, processo_lista, lista_processos_encontrados, que podem vir
+ *   vazias junto com o detalhe ou com itens em texto (só o número, que viram { numero_processo }).
+ * Quem consome deduplica pelo número: o primeiro (mais completo) vence.
  */
-function extrairProcessosInfosimples(dado: any): any[] {
-  if (!dado) return [];
-  const lista = [dado.processos, dado.lista_processos, dado.processos_lista, dado.lista_processos_encontrados].find(
-    l => Array.isArray(l) && l.length > 0
-  );
-  if (lista) return lista;
-  if (dado.processo && typeof dado.processo === 'object') return [dado.processo];
-  if (dado.processo || dado.numero || dado.numero_processo || dado.classe_acao) return [dado];
-  return [];
+export function candidatosInfosimples(dado: any): any[] {
+  if (!ehObjeto(dado)) return [];
+  const listas = [dado.processos, dado.lista_processos, dado.processos_lista, dado.processo_lista, dado.lista_processos_encontrados]
+    .filter(Array.isArray)
+    .flat()
+    .map((item: any) => (typeof item === 'string' ? { numero_processo: item } : item))
+    .filter(ehObjeto);
+  const aninhados = [dado.processo, dado.primeiro_processo_listado, dado.detalhes_primeiro_processo_lista].filter(ehObjeto);
+  return [
+    ...(ehObjeto(dado.dados_processo) ? [{ ...dado, ...dado.dados_processo }] : []),
+    ...(ehDetalheDeProcesso(dado) ? [dado] : []),
+    ...aninhados,
+    ...listas
+  ];
+}
+
+const CNJ_FORMATADO = /\d{7}-?\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4}/;
+
+/**
+ * Número do processo de um registro: os campos conhecidos (processo, numero, numero_processo, numero_cnj) e, sem
+ * eles, o primeiro campo de texto de primeiro nível com cara de número CNJ (20 dígitos).
+ */
+export function numeroDoRegistro(p: any): string {
+  if (!p || typeof p !== 'object') return '';
+  const conhecido = [p.processo, p.numero, p.numero_processo, p.numero_cnj].find(v => typeof v === 'string' && v.trim());
+  if (conhecido) return conhecido.trim();
+  for (const v of Object.values(p)) {
+    if (typeof v !== 'string') continue;
+    const m = CNJ_FORMATADO.exec(v);
+    if (m && m[0].replace(/\D/g, '').length === 20) return m[0];
+  }
+  return '';
+}
+
+/** true quando algum campo de texto de primeiro nível do registro é o número CNJ procurado (comparando só dígitos). */
+function registroTemNumero(registro: any, digitos: string): boolean {
+  if (!registro || typeof registro !== 'object') return false;
+  return Object.values(registro).some(v => typeof v === 'string' && v.replace(/\D/g, '') === digitos);
+}
+
+/** polo_ativo/polo_passivo: lista de { nome, cpf_cnpj, oab } (PJe), { participante, situacao } (TRF3) ou de textos. */
+function nomeDoPolo(polo: any): string {
+  const primeiro = Array.isArray(polo) ? polo[0] : polo;
+  if (typeof primeiro === 'string') return nomeDaParte(primeiro);
+  return textoDoCampo(primeiro) || textoDoCampo(primeiro?.participante) || textoDoCampo(primeiro?.nome_parte);
+}
+
+const TIPO_ATIVO = /apelante|autor|requerente|agravante|recorrente|exequente|impetrante|reclamante|embargante/i;
+const TIPO_PASSIVO = /apelad|r[ée]u\b|requerid|agravad|recorrid|executad|impetrad|reclamad|embargad/i;
+
+/** partes como lista de { nome_parte, tipo_participacao } (TJSP 2º grau): o primeiro nome do polo pedido. */
+function parteDoTipo(partes: any, tipo: RegExp): string {
+  if (!Array.isArray(partes)) return '';
+  const parte = partes.find((x: any) => ehObjeto(x) && tipo.test(String(x.tipo_participacao ?? x.tipo ?? '')));
+  return parte ? textoDoCampo(parte.nome_parte) || textoDoCampo(parte) : '';
 }
 
 /** Converte um registro bruto de processo retornado pela Infosimples para o formato LegalProcess. */
-function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName?: string): LegalProcess {
-  const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').trim();
+export function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName?: string): LegalProcess {
+  const num = numeroDoRegistro(p);
   const movs: Movement[] = [];
-  const orgao = textoDoCampo(p.vara) || textoDoCampo(p.foro) || textoDoCampo(p.orgao_julgador);
-  // Partes: reqte/reqdo/autor/reu (lista) ou partes_representantes.{exequente|autor...}/{executado|reu...} (eproc).
+  const orgao =
+    textoDoCampo(p.vara) || textoDoCampo(p.foro) || textoDoCampo(p.orgao_julgador) || textoDoCampo(p.jurisdicao) ||
+    textoDoCampo(p.juizo) || textoDoCampo(p.nome_juizo);
+  // Partes: reqte/reqdo/autor/reu (lista), partes_representantes.{exequente|autor...}/{executado|reu...} (eproc),
+  // polo_ativo/polo_passivo (PJe, ex.: TJMG; TRF3) ou partes[] com tipo_participacao (TJSP 2º grau).
   const partesRep = p.partes_representantes && typeof p.partes_representantes === 'object' ? p.partes_representantes : {};
   const autor: string =
-    textoDoCampo(p.reqte) || textoDoCampo(p.autor) || nomeDaParte(partesRep.exequente?.[0] ?? partesRep.autor?.[0] ?? partesRep.requerente?.[0]);
+    textoDoCampo(p.reqte) || textoDoCampo(p.autor) || nomeDaParte(partesRep.exequente?.[0] ?? partesRep.autor?.[0] ?? partesRep.requerente?.[0]) ||
+    nomeDoPolo(p.polo_ativo) || parteDoTipo(p.partes, TIPO_ATIVO);
   const reu: string =
-    textoDoCampo(p.reqdo) || textoDoCampo(p.reu) || textoDoCampo(p.exectdo) || nomeDaParte(partesRep.executado?.[0] ?? partesRep.reu?.[0] ?? partesRep.requerido?.[0]);
+    textoDoCampo(p.reqdo) || textoDoCampo(p.reu) || textoDoCampo(p.exectdo) || nomeDaParte(partesRep.executado?.[0] ?? partesRep.reu?.[0] ?? partesRep.requerido?.[0]) ||
+    nomeDoPolo(p.polo_passivo) || parteDoTipo(p.partes, TIPO_PASSIVO);
+  const classe =
+    textoDoCampo(p.classe) || textoDoCampo(p.classe_acao) || textoDoCampo(p.classe_judicial) || textoDoCampo(p.classe_processual);
+  const distribuicao =
+    p.distribuicao || p.data_autuacao || p.data_distribuicao || p.data_hora_distribuicao || p.data_hora_autuacao ||
+    p.datahora_autuacao || p.data_atuacao;
 
   const rawMovs =
     p.ultimas_movimentacoes ||
     p.eventos ||
     p.movimento_processo ||
     p.movimentacoes_processo ||
+    p.movimentacoes ||
     p.movimentacao ||
+    p.fases ||
     [];
   if (Array.isArray(rawMovs) && rawMovs.length > 0) {
-    rawMovs.forEach((m: any) => {
-      const fullText = (m.movimento || m.descricao || m.evento || m.movimentacao || '').trim();
+    rawMovs.forEach((item: any) => {
+      // item em texto ("DD/MM/AAAA descrição") em vez de objeto: formato não documentado por vários serviços
+      const m = typeof item === 'string' ? { descricao: item, data: /\d{2}\/\d{2}\/\d{4}/.exec(item)?.[0] } : item ?? {};
+      const fullText = String(m.movimento || m.descricao || m.evento || m.movimentacao || m.fase || '').trim();
       const dashIdx = fullText.indexOf(' - ');
       let titulo = dashIdx > 0 && dashIdx < 60 ? fullText.slice(0, dashIdx) : fullText.slice(0, 70);
       if (titulo.length < fullText.length && !titulo.endsWith('...')) {
@@ -107,7 +180,7 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
       ].filter(Boolean);
       const descricaoCompleta = extras.length > 0 ? `${fullText} — ${extras.join(' · ')}` : fullText;
       movs.push({
-        data: convertBrDateToIso(m.data || m.data_evento || m.data_hora || m.data_hora_movimentacao),
+        data: convertBrDateToIso(m.data || m.data_evento || m.data_hora || m.data_hora_movimentacao || m.datahora || m.datahora_movimento),
         titulo: titulo || 'Movimentação processual',
         descricao: descricaoCompleta || 'Sem descrição detalhada.',
         tag: classifyTag(fullText)
@@ -133,7 +206,7 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
   }
 
   if (movs.length === 0) {
-    const classeInfo = p.classe || p.classe_acao || p.assunto;
+    const classeInfo = classe || p.assunto;
     const varaInfo = orgao;
     const valorInfo = p.valor_acao || p.valor_causa;
     const partesInfo = [autor, reu].filter(Boolean).join(' x ');
@@ -147,15 +220,15 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
     ].filter(Boolean);
 
     movs.push({
-      data: convertBrDateToIso(p.distribuicao || p.data_autuacao),
+      data: convertBrDateToIso(distribuicao),
       titulo: p.ultimo_evento ? (p.ultimo_evento.slice(0, 70) + '...') : 'Processo distribuído',
       descricao:
         p.ultimo_evento && detalhes.length > 0
           ? `${p.ultimo_evento} — ${detalhes.join(' · ')}.`
           : p.ultimo_evento ||
             (detalhes.length > 0
-              ? `Processo autuado em ${p.distribuicao || p.data_autuacao || 'data não informada'}. ${detalhes.join(' · ')}.`
-              : `Processo autuado no tribunal: ${p.distribuicao || p.data_autuacao || 'Data não informada'}. O tribunal ainda não disponibilizou o histórico de movimentações para este processo.`),
+              ? `Processo autuado em ${distribuicao || 'data não informada'}. ${detalhes.join(' · ')}.`
+              : `Processo autuado no tribunal: ${distribuicao || 'Data não informada'}. O tribunal ainda não disponibilizou o histórico de movimentações para este processo.`),
       tag: 'informativo'
     });
   }
@@ -183,10 +256,10 @@ function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, fullName
   return {
     numero: num,
     tribunal: `${tribunalLabel} · ${orgao || '1º Grau'}`,
-    tipo: p.classe || p.classe_acao || p.assunto || 'Ação Judicial',
+    tipo: classe || textoDoCampo(p.assunto) || 'Ação Judicial',
     parteContraria,
     valorCausa: valorCausa || 'Não informado',
-    distribuicao: p.distribuicao || p.data_autuacao || 'Não informada',
+    distribuicao: distribuicao || 'Não informada',
     movimentos: movs,
     assunto: textoDoCampo(p.assunto) || (Array.isArray(p.assuntos) ? p.assuntos.filter((a: unknown) => typeof a === 'string').join(', ') : '') || undefined,
     varaForo: [textoDoCampo(p.vara) || textoDoCampo(p.orgao_julgador), textoDoCampo(p.foro)].filter(Boolean).join(' - ') || undefined,
@@ -342,12 +415,15 @@ export async function buscarProcessoPorNumero(
         // Resposta de busca por número pode vir como objeto de detalhe único (campo "processo",
         // singular, ou o próprio result.data[0] já sem wrapper) ou como lista (mesmo formato do
         // fluxo por CPF), dependendo do serviço — tenta todos os formatos observados.
-        const rawList: any[] = result?.code === 200 ? extrairProcessosInfosimples(result.data?.[0]) : [];
-
-        const achou = rawList.find((p: any) => {
-          const num = (p.processo || p.numero || p.numero_processo || p.numero_cnj || '').replace(/\D/g, '');
-          return num === cleanProcessNumber;
-        });
+        const candidatos: any[] = result?.code === 200 ? candidatosInfosimples(result.data?.[0]) : [];
+        const achou =
+          candidatos.find(p => registroTemNumero(p, cleanProcessNumber)) ??
+          // a fonte buscou por este número e devolveu um único processo cujo número veio num campo sem
+          // nome conhecido (ou formatado de outro jeito): é ele
+          (result?.data_count === 1 && candidatos.length > 0 && ehDetalheDeProcesso(candidatos[0]) ? candidatos[0] : undefined);
+        if (result?.code === 200 && result.data_count > 0 && !achou) {
+          console.warn(`[motorConsulta] (busca por número) ${target.service}: resposta com dados, mas nenhum registro com o número. Chaves de data[0]: ${Object.keys(result.data?.[0] ?? {}).join(', ')}`);
+        }
 
         return { target, achou, erro: desfecho.erro };
       })
