@@ -43,10 +43,10 @@ function criarSprite(): Superficie {
   s.width = s.height = 64;
   const c = s.getContext('2d') as Contexto;
   const g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
-  g.addColorStop(0, 'rgba(255,246,220,1)');
-  g.addColorStop(0.22, 'rgba(240,210,140,0.95)');
-  g.addColorStop(0.5, 'rgba(226,190,106,0.32)');
-  g.addColorStop(1, 'rgba(226,190,106,0)');
+  g.addColorStop(0, 'rgba(255,250,240,1)');
+  g.addColorStop(0.22, 'rgba(246,231,204,0.95)');
+  g.addColorStop(0.5, 'rgba(232,213,176,0.3)');
+  g.addColorStop(1, 'rgba(232,213,176,0)');
   c.fillStyle = g;
   c.fillRect(0, 0, 64, 64);
   return s;

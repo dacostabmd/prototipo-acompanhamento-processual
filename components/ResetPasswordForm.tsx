@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 
-const TEXT = '#232323';
+const TEXT = '#15161a';
 const MUTED = '#7a7a7a';
 const MIN_SENHA = 8;
 

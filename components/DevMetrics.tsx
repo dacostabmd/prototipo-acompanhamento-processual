@@ -58,7 +58,7 @@ export default function DevMetrics() {
                 height: 10,
                 borderRadius: '50%',
                 background: '#12b886',
-                border: '2px solid rgba(20,20,20,0.9)'
+                border: '2px solid rgba(21, 22, 26,0.9)'
               }}
             />
           )}

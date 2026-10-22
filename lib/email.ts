@@ -48,7 +48,7 @@ export async function enviarAlertaMovimentacao(
 
   const html = `
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto">
-      <h2 style="color:#1a1a1a">Seu processo ${escapeHtml(processo.numeroCnj)} teve uma movimentação</h2>
+      <h2 style="color:#15161a">Seu processo ${escapeHtml(processo.numeroCnj)} teve uma movimentação</h2>
       ${processo.tribunal ? `<p style="color:#555">Tribunal: ${escapeHtml(processo.tribunal)}</p>` : ''}
       <ul style="padding-left:18px">${itensHtml}</ul>
       <p style="color:#888;font-size:12px;margin-top:24px">Este é um alerta automático do monitoramento ativo do seu processo. Para alterar suas preferências de aviso, acesse sua conta.</p>

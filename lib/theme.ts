@@ -1,30 +1,31 @@
 import { createTheme, type MantineColorsTuple } from '@mantine/core';
 
-/** Paleta pré-definida da marca (cinza TechTie: Porcelain → Grey Olive → Charcoal → Gunmetal). Fonte única para Mantine, CSS e Tailwind. */
+/** Paleta TechTie Flow: champagne (acento) sobre grafite. Fonte única para Mantine; os tokens CSS --tt-* em
+    app/globals.css espelham estes valores. */
 export const brand: MantineColorsTuple = [
-  '#f7f7f6',
-  '#ececea',
-  '#d4d4d2',
-  '#bdbdbb',
-  '#a8a8a6',
-  '#999999',
-  '#7a7a7a',
-  '#5f5f5f',
-  '#3d3d3d',
-  '#232323'
+  '#fbf6ec',
+  '#f6ecd9',
+  '#f6e7cc',
+  '#efdfc2',
+  '#e8d5b0',
+  '#cdb68e',
+  '#b39b72',
+  '#8f7b58',
+  '#6b5b40',
+  '#463b29'
 ];
 
 export const navy: MantineColorsTuple = [
-  '#f0f0ef',
-  '#dadada',
-  '#b8b8b7',
-  '#969695',
-  '#7a7a79',
-  '#636362',
-  '#4e4e4d',
-  '#3d3d3d',
-  '#2a2a2a',
-  '#181818'
+  '#f3f1ec',
+  '#d9d9dc',
+  '#b4b6bb',
+  '#9a9da5',
+  '#6b6e76',
+  '#4a4d55',
+  '#3a3e47',
+  '#2c2f35',
+  '#24272c',
+  '#1c1d21'
 ];
 
 export const theme = createTheme({
@@ -32,8 +33,11 @@ export const theme = createTheme({
   headings: { fontFamily: 'var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
   colors: { brand, navy },
   primaryColor: 'brand',
-  primaryShade: 7,
+  primaryShade: 4,
+  // champagne é claro: texto escuro automático em botões/badges preenchidos
+  autoContrast: true,
+  luminanceThreshold: 0.45,
   defaultRadius: 'md',
-  black: '#232323',
+  black: '#15161a',
   cursorType: 'pointer'
 });

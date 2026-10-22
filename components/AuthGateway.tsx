@@ -8,9 +8,9 @@ import { getSupabase } from '@/lib/supabase';
 import { cleanDigits, formatDocumento, isValidCpf, isValidCnpj } from '@/lib/format';
 
 // Cartão de vidro sobre o fundo escuro do login: texto claro e destaques no dourado da marca.
-const BLUE = '#c4a86f';
-const TEXT = '#f5f3ee';
-const MUTED = 'rgba(245,243,238,0.65)';
+const BLUE = '#e8d5b0';
+const TEXT = '#f3f1ec';
+const MUTED = 'rgba(243, 241, 236,0.65)';
 
 type Mode = 'login' | 'signup' | 'forgot';
 type Perfil = 'advogado' | 'broker' | 'cliente';
@@ -22,14 +22,14 @@ const linkButton: CSSProperties = {
   background: 'none',
   border: 'none',
   padding: 0,
-  color: '#e2c287',
+  color: '#e8d5b0',
   textDecoration: 'underline',
   fontWeight: 600,
   cursor: 'pointer',
   fontSize: 13
 };
 
-const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(245,243,238,0.88)', margin: '0 0 8px' };
+const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(243, 241, 236,0.88)', margin: '0 0 8px' };
 
 export default function AuthGateway() {
   const router = useRouter();

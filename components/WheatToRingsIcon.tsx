@@ -17,8 +17,8 @@ export default function WheatToRingsIcon({ size = 22 }: { size?: number }) {
     >
       <defs>
         <linearGradient id="bf-wheat-rings-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#F5E3A8" />
-          <stop offset=".45" stopColor="#C9A24B" />
+          <stop offset="0" stopColor="#f6e7cc" />
+          <stop offset=".45" stopColor="#d9c39b" />
           <stop offset="1" stopColor="#8C6B26" />
         </linearGradient>
       </defs>

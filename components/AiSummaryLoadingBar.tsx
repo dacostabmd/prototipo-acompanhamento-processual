@@ -118,12 +118,12 @@ export default function AiSummaryLoadingBar() {
 
         {/* Contador percentual */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'rgba(254,254,250,0.6)', letterSpacing: 0.5 }}>Progresso:</span>
+          <span style={{ fontSize: 11, color: 'rgba(243, 241, 236,0.6)', letterSpacing: 0.5 }}>Progresso:</span>
           <span
             style={{
               fontSize: 20,
               fontWeight: 700,
-              color: '#fefefa',
+              color: '#f3f1ec',
               fontVariantNumeric: 'tabular-nums'
             }}
           >
@@ -213,7 +213,7 @@ export default function AiSummaryLoadingBar() {
                       height: 22,
                       borderRadius: '50%',
                       background: '#1b6b3e',
-                      color: '#fefefa',
+                      color: '#f3f1ec',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -232,7 +232,7 @@ export default function AiSummaryLoadingBar() {
                       height: 22,
                       borderRadius: '50%',
                       background: 'rgba(255,255,255,0.1)',
-                      color: 'rgba(254,254,250,0.6)',
+                      color: 'rgba(243, 241, 236,0.6)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -260,7 +260,7 @@ export default function AiSummaryLoadingBar() {
                     style={{
                       fontSize: 12.5,
                       fontWeight: isActive || isDone ? 600 : 500,
-                      color: isDone ? '#4fae7a' : isActive ? '#fefefa' : 'rgba(254,254,250,0.65)'
+                      color: isDone ? '#4fae7a' : isActive ? '#f3f1ec' : 'rgba(243, 241, 236,0.65)'
                     }}
                   >
                     {stage.title}
@@ -271,7 +271,7 @@ export default function AiSummaryLoadingBar() {
                       style={{
                         fontSize: 9.5,
                         fontWeight: 600,
-                        color: '#fefefa',
+                        color: '#f3f1ec',
                         background: 'rgba(153, 153, 153, 0.2)',
                         padding: '2px 6px',
                         borderRadius: 3,
@@ -302,7 +302,7 @@ export default function AiSummaryLoadingBar() {
                     margin: 0,
                     fontSize: 11,
                     lineHeight: 1.4,
-                    color: isActive ? 'rgba(254,254,250,0.8)' : 'rgba(254,254,250,0.5)'
+                    color: isActive ? 'rgba(243, 241, 236,0.8)' : 'rgba(243, 241, 236,0.5)'
                   }}
                 >
                   {stage.description}
@@ -325,7 +325,7 @@ export default function AiSummaryLoadingBar() {
           flexWrap: 'wrap',
           gap: 8,
           fontSize: 11,
-          color: 'rgba(254,254,250,0.55)'
+          color: 'rgba(243, 241, 236,0.55)'
         }}
       >
         <span>

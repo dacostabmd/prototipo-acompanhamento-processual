@@ -7,7 +7,7 @@ import type { CaseData, LegalProcess } from '@/lib/mockProcesses';
 import { Bell, BellRing, Download, Maximize2, RefreshCw, Search, Send, X } from 'lucide-react';
 import AiSummaryLoadingBar from './AiSummaryLoadingBar';
 
-const GOLD = '#d6b26e';
+const GOLD = '#e8d5b0';
 const GOLD_SOFT = 'rgba(214,178,110,0.12)';
 const ORANGE = '#e0a052';
 const BLUE = '#7aa7d9';
@@ -825,8 +825,8 @@ const CSS = `
 .prv-mov:first-of-type { border-top: none; }
 .prv-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid ${BORDER}; color: ${TEXT}; padding: 9px 14px; font-size: 12.5px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: border-color .2s, background .2s; }
 .prv-btn:hover { border-color: ${GOLD}; }
-.prv-btn-gold { background: ${GOLD}; border-color: ${GOLD}; color: #1a1a1a; }
-.prv-btn-gold:hover { background: #e2c287; }
+.prv-btn-gold { background: ${GOLD}; border-color: ${GOLD}; color: #15161a; }
+.prv-btn-gold:hover { background: #e8d5b0; }
 .prv-btn-ativo { border-color: ${GOLD}; background: ${GOLD_SOFT}; color: ${GOLD}; }
 .prv-link { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; padding: 0; color: ${GOLD}; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .prv-link:disabled { cursor: not-allowed; opacity: .6; }
@@ -841,7 +841,7 @@ const CSS = `
 .prv-input:focus { border-color: ${GOLD}; }
 .prv-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .prv-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 12px; }
-.prv-modal { background: #232323; border: 1px solid ${BORDER}; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+.prv-modal { background: #15161a; border: 1px solid ${BORDER}; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
 .prv-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 18px; border-bottom: 1px solid ${BORDER}; font-size: 13px; font-weight: 700; color: ${TEXT}; flex-shrink: 0; }
 @media (max-width: 900px) {
   .prv-split { grid-template-columns: 1fr; }

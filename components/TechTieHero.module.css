@@ -1,12 +1,12 @@
 /* Coluna esquerda do login (components/TechTieHero.tsx). Linha do tempo:
-   0,15s–1,3s contorno do T desenhado → 0,9s–2,2s facetas voam e encaixam → 2,2s contorno esmaece
-   → 2,4s+ reflexo periódico e leve flutuação. Texto entra a partir de 1,6s. */
+   0,1s–1,3s marca sobe, cresce e sai do desfoque → 0,75s onda champagne → 1,4s+ flutuação, 1,6s+ reflexo
+   periódico. Texto entra a partir de 1s. */
 
 .fundo {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: radial-gradient(ellipse 85% 60% at 50% 32%, #2a2113 0%, #15110c 55%, #0b0907 100%);
+  background: radial-gradient(ellipse 85% 60% at 50% 32%, #2c2f35 0%, #1c1d21 55%, #15161a 100%);
 }
 
 .brilho {
@@ -18,8 +18,8 @@
   transform: translate(-50%, -50%);
   border-radius: 50%;
   /* sem filter: blur — o gradiente já é suave, e um filtro animado é recalculado pela GPU a cada quadro */
-  background: radial-gradient(circle, rgba(201, 162, 75, 0.28) 0%, rgba(201, 162, 75, 0.08) 45%, transparent 70%);
-  animation: pulsar 6s ease-in-out 2.2s infinite both;
+  background: radial-gradient(circle, rgba(232, 213, 176, 0.28) 0%, rgba(232, 213, 176, 0.08) 45%, transparent 70%);
+  animation: pulsar 6s ease-in-out 1.2s infinite both;
 }
 
 /* Campo de partículas (components/ParticulasOuro.tsx): um único canvas atrás do conteúdo do palco. */
@@ -44,66 +44,69 @@
   padding: clamp(28px, 4vw, 64px);
 }
 
-/* A flutuação fica no contêiner HTML (e não num <g> do SVG): o T montado, com as sombras, é rasterizado uma
-   vez e a GPU só o desloca. */
+/* A flutuação fica no contêiner (e a entrada num filho): a marca, com as sombras, é rasterizada uma vez e a GPU
+   só a desloca. */
 .marcaWrap {
   position: relative;
-  animation: flutuar 7s ease-in-out 2.6s infinite;
+  display: grid;
+  place-items: center;
+  animation: flutuar 7s ease-in-out 1.4s infinite;
+}
+
+/* backwards (e não forwards): terminada a entrada, a animação deixa de valer. Com forwards o filtro (blur) seguia
+   ativo no compositor e, com a flutuação, a GPU recompunha marca + sombras a cada quadro (~2x o custo). */
+.marcaEntrada {
+  position: relative;
+  animation: revelar 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
 }
 
 .marca {
-  display: block; /* sem o vão de linha do inline: a máscara do reflexo precisa da mesma caixa do SVG */
-  height: clamp(150px, 27vh, 250px);
+  display: block; /* sem o vão de linha do inline: a máscara do reflexo precisa da mesma caixa da imagem */
+  height: clamp(170px, 30vh, 280px);
   width: auto;
-  overflow: visible;
-  filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 22px rgba(201, 162, 75, 0.22));
+  filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 26px rgba(232, 213, 176, 0.18));
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
-/* Reflexo: faixa HTML recortada pela silhueta do T (mask-image inline), animada só com transform. */
+/* Onda champagne que se expande uma vez quando a marca termina de chegar. */
+.anel {
+  position: absolute;
+  width: 70%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(232, 213, 176, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  animation: onda 1.6s cubic-bezier(0.22, 1, 0.36, 1) 0.75s backwards; /* termina invisível, igual ao estado base */
+}
+
+/* Reflexo: faixa recortada pela silhueta do próprio PNG (canal alfa), animada só com transform. */
 .reflexoMascara {
   position: absolute;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-}
-
-.contorno {
-  fill: none;
-  stroke: #f5e3a8;
-  stroke-width: 0.7;
-  stroke-linejoin: round;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: desenhar 1.1s cubic-bezier(0.65, 0, 0.35, 1) var(--d) forwards, esmaecer 0.8s ease 2.2s forwards;
-}
-
-.faceta {
-  transform-box: fill-box;
-  transform-origin: center;
-  opacity: 0;
-  animation: encaixar 1s cubic-bezier(0.22, 1, 0.36, 1) var(--d) forwards;
+  -webkit-mask: url('/techtie-mark-512.png') center / 100% 100% no-repeat;
+  mask: url('/techtie-mark-512.png') center / 100% 100% no-repeat;
 }
 
 .reflexo {
   position: absolute;
   top: -25%;
   left: 0;
-  width: 30%;
+  width: 26%;
   height: 150%;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 250, 240, 0.55) 50%, rgba(255, 255, 255, 0) 100%);
   /* inclinada e bem fora da caixa nos dois extremos, para não aparecer parada sobre as pontas das asas */
   transform: translateX(-350%) rotate(18deg);
-  animation: refletir 7s ease-in-out 2.4s infinite;
+  animation: refletir 7s ease-in-out 1.6s infinite;
 }
 
 .copy {
   max-width: 540px;
   text-align: center;
-  color: #f5f3ee;
+  color: #f3f1ec;
 }
 
 .eyebrow {
@@ -112,9 +115,9 @@
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #c9a24b;
+  color: #d9c39b;
   opacity: 0;
-  animation: entrar 0.7s ease 1.6s forwards;
+  animation: entrar 0.7s ease 1s forwards;
 }
 
 .titulo {
@@ -125,16 +128,16 @@
   letter-spacing: -0.5px;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
   opacity: 0;
-  animation: entrar 0.7s ease 1.75s forwards;
+  animation: entrar 0.7s ease 1.15s forwards;
 }
 
 .lead {
   margin: 0;
   font-size: clamp(13px, 1.1vw, 15px);
   line-height: 1.7;
-  color: rgba(245, 243, 238, 0.78);
+  color: rgba(243, 241, 236, 0.78);
   opacity: 0;
-  animation: entrar 0.7s ease 1.9s forwards;
+  animation: entrar 0.7s ease 1.3s forwards;
 }
 
 .diferenciais {
@@ -153,9 +156,9 @@
   gap: 12px;
   font-size: 13.5px;
   line-height: 1.5;
-  color: rgba(245, 243, 238, 0.86);
+  color: rgba(243, 241, 236, 0.86);
   opacity: 0;
-  animation: entrar 0.6s ease calc(2.1s + var(--i) * 0.12s) forwards;
+  animation: entrar 0.6s ease calc(1.45s + var(--i) * 0.12s) forwards;
 }
 
 .icone {
@@ -167,31 +170,39 @@
   height: 28px;
   margin-top: -3px;
   border-radius: 8px;
-  color: #e2be6a;
-  background: rgba(201, 162, 75, 0.12);
-  border: 1px solid rgba(201, 162, 75, 0.28);
+  color: #e8d5b0;
+  background: rgba(232, 213, 176, 0.12);
+  border: 1px solid rgba(232, 213, 176, 0.28);
 }
 
-@keyframes desenhar {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes esmaecer {
-  to {
-    stroke-opacity: 0.18;
-  }
-}
-
-@keyframes encaixar {
+/* blur só na entrada (uma vez); depois o filtro some e a marca fica estática na GPU */
+@keyframes revelar {
   from {
     opacity: 0;
-    transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(0.85);
+    transform: translateY(18px) scale(0.84);
+    filter: blur(14px);
+  }
+  60% {
+    filter: blur(0);
   }
   to {
     opacity: 1;
     transform: none;
+    filter: none;
+  }
+}
+
+@keyframes onda {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  25% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
   }
 }
 
@@ -242,7 +253,7 @@
    recentrado na metade esquerda, atrás do T. */
 @media (min-width: 861px) {
   .fundo {
-    background: radial-gradient(ellipse 60% 70% at 25% 32%, #2a2113 0%, #15110c 55%, #0b0907 100%);
+    background: radial-gradient(ellipse 60% 70% at 25% 32%, #2c2f35 0%, #1c1d21 55%, #15161a 100%);
   }
   .brilho {
     left: 25%;
@@ -262,7 +273,7 @@
     padding: 28px 20px 32px;
   }
   .marca {
-    height: clamp(88px, 13vh, 120px);
+    height: clamp(96px, 14vh, 130px);
   }
   .eyebrow {
     margin-bottom: 8px;
@@ -282,30 +293,26 @@
   }
 }
 
-/* Sem animação para quem pediu menos movimento: T já montado e texto visível. */
+/* Sem animação para quem pediu menos movimento: marca e texto já visíveis. */
 @media (prefers-reduced-motion: reduce) {
   .brilho,
-  .contorno,
-  .faceta,
   .marcaWrap,
+  .marcaEntrada,
   .eyebrow,
   .titulo,
   .lead,
   .diferencial {
     animation: none !important;
   }
-  .faceta,
+  .marcaEntrada,
   .eyebrow,
   .titulo,
   .lead,
   .diferencial {
     opacity: 1;
   }
-  .contorno {
-    stroke-dashoffset: 0;
-    stroke-opacity: 0.18;
-  }
   /* as partículas (canvas) viram um quadro estático no próprio componente */
+  .anel,
   .reflexoMascara {
     display: none;
   }

@@ -138,7 +138,11 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
 
         <div className="bf-side-foot">
           <div className="bf-side-logo">
-            <img src="/techtie-logo-horizontal-gold.svg" alt="Techtie" />
+            <img src="/techtie-mark-512.png" alt="Techtie" width={32} height={32} />
+            <span className="bf-side-wordmark" aria-hidden>
+              <strong>TECHTIE</strong>
+              <small>Processos</small>
+            </span>
           </div>
 
           <Tooltip label="Sair" position="right" offset={14} withArrow disabled={expanded || mobileOpened}>

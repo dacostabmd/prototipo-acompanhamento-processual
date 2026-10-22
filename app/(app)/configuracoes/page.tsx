@@ -172,7 +172,7 @@ export default function ConfiguracoesPage() {
             onClick={handleSalvar}
             disabled={salvando}
             className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/90 via-amber-400 to-amber-500/90 px-5 py-2.5 text-sm font-semibold !text-neutral-950 shadow-md shadow-amber-950/20 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-            style={{ color: '#0e0e0e', textDecoration: 'none' }}
+            style={{ color: '#15161a', textDecoration: 'none' }}
           >
             {salvando ? (
               <>
