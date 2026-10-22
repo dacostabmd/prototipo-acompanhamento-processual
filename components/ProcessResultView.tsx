@@ -768,14 +768,33 @@ function TextoLimitado({ prefixo, texto }: { prefixo: string; texto: string }) {
   );
 }
 
+/** Título sem as reticências de corte ("Em tendo a ..."), para comparar com o início do teor. */
+const semReticencias = (t: string) => t.replace(/\s*(\.\.\.|…)\s*$/, '').trim();
+
 function MovimentoLinha({ data, titulo, descricao }: { data: string; titulo: string; descricao: string }) {
+  // O teor do tribunal costuma ser longo e repetir o título: fica recolhido e só abre a pedido.
+  const [teorAberto, setTeorAberto] = useState(false);
+  const temTeor = !!descricao && descricao !== titulo && descricao.trim() !== semReticencias(titulo);
   return (
     <div className="prv-mov">
       <span style={{ fontSize: 11.5, color: MUTED, whiteSpace: 'nowrap' }}>{formatDateLabel(data)}</span>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, color: TEXT, fontWeight: 600, lineHeight: 1.45 }}>{titulo}</div>
-        {descricao && descricao !== titulo && (
-          <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2, lineHeight: 1.45 }}>No tribunal: &ldquo;{descricao}&rdquo;</div>
+        {temTeor && (
+          <>
+            {teorAberto && (
+              <div style={{ fontSize: 11.5, color: MUTED, marginTop: 4, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{descricao}</div>
+            )}
+            <button
+              type="button"
+              className="prv-link prv-no-print"
+              style={{ fontSize: 11.5, marginTop: 4 }}
+              onClick={() => setTeorAberto(v => !v)}
+              aria-expanded={teorAberto}
+            >
+              {teorAberto ? 'Ocultar teor' : 'Ver teor completo'}
+            </button>
+          </>
         )}
       </div>
     </div>

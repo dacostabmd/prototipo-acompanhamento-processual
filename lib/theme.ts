@@ -1,6 +1,6 @@
 import { createTheme, type MantineColorsTuple } from '@mantine/core';
 
-/** Paleta pré-definida da marca (cinza Blindagem: Porcelain → Grey Olive → Charcoal → Gunmetal). Fonte única para Mantine, CSS e Tailwind. */
+/** Paleta pré-definida da marca (cinza TechTie: Porcelain → Grey Olive → Charcoal → Gunmetal). Fonte única para Mantine, CSS e Tailwind. */
 export const brand: MantineColorsTuple = [
   '#f7f7f6',
   '#ececea',

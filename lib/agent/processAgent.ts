@@ -44,7 +44,7 @@ export interface ExecuteAgentOptions {
 
 /**
  * Cria e executa o Agente ReAct LangChain especializado no acompanhamento processual
- * e na defesa patrimonial jurídica da Blindagem Financeira.
+ * e na defesa patrimonial jurídica da TechTie.
  */
 export async function executeProcessAgent({
   messages,
@@ -96,7 +96,7 @@ export async function executeProcessAgent({
   }
 
   const systemPrompt =
-    `Você é o Agente Jurídico Estratégico com Inteligência Artificial da Blindagem Financeira, desenvolvido com LangChain e ferramentas especializadas em andamento processual, defesas em execuções de dívidas e proteção contra penhoras/bloqueios judiciais.\n\n` +
+    `Você é o Agente Jurídico Estratégico com Inteligência Artificial da TechTie, desenvolvido com LangChain e ferramentas especializadas em andamento processual, defesas em execuções de dívidas e proteção contra penhoras/bloqueios judiciais.\n\n` +
     `DIRETRIZES DE ATENDIMENTO E FORMATAÇÃO (OBRIGATÓRIO):\n` +
     `- ${toneInstruction}\n` +
     `- FORMATAÇÃO VISUAL IMPECÁVEL: NUNCA gere um bloco único de texto denso. Separe SEMPRE suas explicações em parágrafos curtos com quebras de linha duplas entre eles.\n` +

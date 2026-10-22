@@ -3,13 +3,14 @@
 import { useState, useEffect, type CSSProperties, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedControl } from '@mantine/core';
-import GhostFibers from './GhostFibers';
+import TechTieHero from './TechTieHero';
 import { getSupabase } from '@/lib/supabase';
 import { cleanDigits, formatDocumento, isValidCpf, isValidCnpj } from '@/lib/format';
 
-const BLUE = '#5f5f5f';
-const TEXT = '#232323';
-const MUTED = '#7a7a7a';
+// Cartão de vidro sobre o fundo escuro do login: texto claro e destaques no dourado da marca.
+const BLUE = '#c4a86f';
+const TEXT = '#f5f3ee';
+const MUTED = 'rgba(245,243,238,0.65)';
 
 type Mode = 'login' | 'signup' | 'forgot';
 type Perfil = 'advogado' | 'broker' | 'cliente';
@@ -21,14 +22,14 @@ const linkButton: CSSProperties = {
   background: 'none',
   border: 'none',
   padding: 0,
-  color: '#5f5f5f',
+  color: '#e2c287',
   textDecoration: 'underline',
   fontWeight: 600,
   cursor: 'pointer',
   fontSize: 13
 };
 
-const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', margin: '0 0 8px' };
+const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(245,243,238,0.88)', margin: '0 0 8px' };
 
 export default function AuthGateway() {
   const router = useRouter();
@@ -218,55 +219,12 @@ export default function AuthGateway() {
 
   return (
     <main className="bf-auth">
-      {/* COLUNA ESQUERDA — efeito de fundo, logo e copy */}
+      {/* T da TechTie animado e copy (o fundo dele cobre a tela inteira) */}
       <section className="bf-auth-left">
-        <GhostFibers
-          contained
-          lineColor="#2e2612"
-          glowColor="#4a3a16"
-          backdropColor="#0e0e0e"
-          blueBoost={0}
-          brightness={1}
-          glowIntensity={0.9}
-        />
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 2,
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            padding: 'clamp(24px, 4vw, 64px)',
-            gap: 28
-          }}
-        >
-          <div style={{ maxWidth: 560 }}>
-            <h1
-              style={{
-                fontSize: 'clamp(22px, 2.3vw, 32px)',
-                fontWeight: 600,
-                color: '#F5F3EE',
-                lineHeight: 1.25,
-                letterSpacing: -0.5,
-                margin: '0 0 14px',
-                textShadow: '0 2px 10px rgba(0,0,0,0.6)'
-              }}
-            >
-              Acompanhamento processual com inteligência artificial, em linguagem jurídica clara.
-            </h1>
-            <p style={{ fontSize: 'clamp(13px, 1.1vw, 15px)', color: '#F5F3EE', lineHeight: 1.7, margin: 0, textShadow: '0 1px 8px rgba(4,11,32,0.85)' }}>
-              Consulte processos por CPF ou número CNJ, receba resumos técnicos de cada andamento, entenda prazos, partes
-              e riscos e acompanhe a movimentação dos seus processos judiciais em um só lugar. Uma alternativa mais
-              inteligente ao JusBrasil, criada pela Blindagem Financeira para proteger o seu patrimônio.
-            </p>
-          </div>
-        </div>
+        <TechTieHero />
       </section>
 
-      {/* COLUNA DIREITA — gateway de login */}
+      {/* Gateway de login em cartão de vidro */}
       <section className="bf-auth-right">
         <div className="bf-auth-card">
           <h2 style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.6, color: TEXT, margin: '0 0 8px' }}>
@@ -297,16 +255,16 @@ export default function AuthGateway() {
                 />
               </div>
               {error && (
-                <div role="alert" style={{ background: '#fef2f2', color: '#b42318', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
+                <div role="alert" style={{ background: 'rgba(180,82,95,0.18)', color: '#f3b4bd', border: '1px solid rgba(180,82,95,0.4)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
                   {error}
                 </div>
               )}
               {info && (
-                <div style={{ background: '#ecfdf3', color: '#067647', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
+                <div style={{ background: 'rgba(143,185,154,0.15)', color: '#b9dcc3', border: '1px solid rgba(143,185,154,0.4)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
                   {info}
                 </div>
               )}
-              <button type="submit" disabled={loading} className="bf-btn-primary">
+              <button type="submit" disabled={loading} className="bf-btn-primary bf-btn-ouro">
                 {loading ? 'Aguarde…' : 'Enviar link de redefinição'}
               </button>
             </form>
@@ -346,10 +304,10 @@ export default function AuthGateway() {
             Continuar com Google
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '20px 0', color: '#94a3b8', fontSize: 13 }}>
-            <span style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '20px 0', color: MUTED, fontSize: 13 }}>
+            <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.14)' }} />
             ou com e-mail e senha
-            <span style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+            <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.14)' }} />
           </div>
 
           <form onSubmit={handleSubmit} noValidate style={{ display: 'grid', gap: 16 }}>
@@ -410,12 +368,12 @@ export default function AuthGateway() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginTop: -4 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#475569', cursor: 'pointer', userSelect: 'none' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: MUTED, cursor: 'pointer', userSelect: 'none' }}>
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={e => setRememberMe(e.target.checked)}
-                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#2455b8' }}
+                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: BLUE }}
                 />
                 <span>Lembrar meu e-mail neste navegador</span>
               </label>
@@ -427,17 +385,17 @@ export default function AuthGateway() {
             </div>
 
             {error && (
-              <div role="alert" style={{ background: '#fef2f2', color: '#b42318', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
+              <div role="alert" style={{ background: 'rgba(180,82,95,0.18)', color: '#f3b4bd', border: '1px solid rgba(180,82,95,0.4)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
                 {error}
               </div>
             )}
             {info && (
-              <div style={{ background: '#ecfdf3', color: '#067647', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
+              <div style={{ background: 'rgba(143,185,154,0.15)', color: '#b9dcc3', border: '1px solid rgba(143,185,154,0.4)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
                 {info}
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="bf-btn-primary">
+            <button type="submit" disabled={loading} className="bf-btn-primary bf-btn-ouro">
               {loading ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
             </button>
           </form>
@@ -449,7 +407,7 @@ export default function AuthGateway() {
             <button
               type="button"
               onClick={() => trocarModo(mode === 'login' ? 'signup' : 'login')}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#ffffff', textDecoration: 'underline', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}
+              style={{ background: 'none', border: 'none', padding: 0, color: TEXT, textDecoration: 'underline', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}
             >
               {mode === 'login' ? 'Criar conta' : mode === 'signup' ? 'Fazer login' : 'Voltar para o login'}
             </button>

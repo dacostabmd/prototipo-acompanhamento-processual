@@ -400,7 +400,8 @@ select.bf-input option {
     grid-template-columns: 1fr;
   }
   .bf-auth-left {
-    min-height: 60vh;
+    /* altura do próprio conteúdo (TechTieHero já é compacto no mobile): o login aparece sem rolar muito */
+    min-height: auto;
   }
 }
 
@@ -486,6 +487,65 @@ select.bf-input option {
 .bf-btn-primary:disabled {
   opacity: 0.7;
   cursor: wait;
+}
+
+/* ── Login (AuthGateway): fundo único escuro em toda a tela, sem divisão entre colunas. O fundo do
+   TechTieHero (.fundo, absolute inset 0) passa a se ancorar no <main> inteiro, e o cartão vira vidro.
+   Tudo escopado em .bf-auth: a tela de redefinição de senha reaproveita .bf-auth-card no tema claro. */
+.bf-auth {
+  position: relative;
+  overflow: hidden;
+  background: #0b0907;
+}
+.bf-auth .bf-auth-left {
+  position: static;
+  background: transparent;
+  overflow: visible;
+}
+.bf-auth .bf-auth-right {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+}
+.bf-auth .bf-auth-card {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: #f5f3ee;
+}
+.bf-auth .bf-auth-card .bf-input {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f5f3ee;
+}
+.bf-auth .bf-auth-card .bf-input::placeholder {
+  color: rgba(245, 243, 238, 0.4);
+}
+.bf-auth .bf-auth-card .bf-input:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.bf-auth .bf-auth-card .bf-input:focus {
+  border-color: #c4a86f;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 4px rgba(196, 168, 111, 0.18);
+}
+.bf-auth .bf-btn-google {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f5f3ee;
+}
+.bf-auth .bf-btn-google:hover {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.bf-auth .bf-btn-primary {
+  color: #181818;
+  background: linear-gradient(135deg, #c4a86f 0%, #ab8e5c 100%);
+  border: 1px solid rgba(245, 227, 168, 0.4);
+  box-shadow: 0 10px 24px -8px rgba(171, 142, 92, 0.55);
+  transition: transform 0.1s, box-shadow 0.15s, color 0.35s ease, border-color 0.35s ease;
 }
 
 

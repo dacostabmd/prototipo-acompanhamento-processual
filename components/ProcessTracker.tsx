@@ -880,7 +880,7 @@ export default function ProcessTracker({
         {
           role: 'assistant',
           content:
-            'Olá! Sou o assistente jurídico da Blindagem Financeira. Pode me contar o que está acontecendo? Se tiver número de processo ou documentos, pode compartilhar aqui também.'
+            'Olá! Sou o assistente jurídico da TechTie. Pode me contar o que está acontecendo? Se tiver número de processo ou documentos, pode compartilhar aqui também.'
         }
       ]);
     }
@@ -2035,7 +2035,7 @@ export default function ProcessTracker({
             >
               <div>
                 <div style={{ fontSize: 15, letterSpacing: 1, fontWeight: 600 }}>ASSESSORIA JURÍDICA ESTRATÉGICA</div>
-                <div style={{ fontSize: 11, color: BLUE_LIGHT, marginTop: 4 }}>Blindagem Financeira & Defesa Patrimonial</div>
+                <div style={{ fontSize: 11, color: BLUE_LIGHT, marginTop: 4 }}>TechTie & Defesa Patrimonial</div>
               </div>
               <button
                 onClick={() => setInfoModalOpen(false)}
@@ -2054,7 +2054,7 @@ export default function ProcessTracker({
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px', display: 'flex', flexDirection: 'column', gap: 20 }}>
               <h3 style={{ margin: 0, fontSize: 18, color: TEXT, fontWeight: 600 }}>
-                Como a Blindagem Financeira atua em processos e cobranças?
+                Como a TechTie atua em processos e cobranças?
               </h3>
               <p style={{ margin: 0, fontSize: 14, color: TEXT, lineHeight: 1.8 }}>
                 Mesmo quando um processo ainda não aparece nos registros públicos abertos do tribunal, ordens de penhora, execuções fiscais ou medidas de constrição de bens podem estar em trâmite sigiloso ou em vias de citação.
@@ -2159,7 +2159,7 @@ export default function ProcessTracker({
           >
             <div>
               <div style={{ fontSize: 14.5, letterSpacing: 1, fontWeight: 600 }}>ASSISTENTE JURÍDICO IA</div>
-              <div style={{ fontSize: 11, color: BLUE_LIGHT, marginTop: 3 }}>Blindagem Financeira</div>
+              <div style={{ fontSize: 11, color: BLUE_LIGHT, marginTop: 3 }}>TechTie</div>
             </div>
             <button
               onClick={() => setChatOpen(false)}

@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
 const SYSTEM_PROMPT =
-  'Você é um assistente jurídico sênior da Blindagem Financeira, especializado em defesa patrimonial, ' +
+  'Você é um assistente jurídico sênior da TechTie, especializado em defesa patrimonial, ' +
   'negociação de dívidas e defesas em execuções judiciais. Seu objetivo é redigir um resumo executivo ' +
   'do andamento processual do cliente de forma acolhedora, objetiva, humana e com excelente escaneabilidade visual.\n\n' +
   'DIRETRIZES DE FORMATAÇÃO E CORES (OBRIGATÓRIO):\n' +
@@ -23,17 +23,17 @@ const SYSTEM_PROMPT =
   '4. Estruture a resposta em 2 a 3 parágrafos fluidos, com quebras de linha entre eles.\n' +
   '5. Mantenha um tom profissional e tranquilizador, sem juridiquês complexo sem explicação.\n' +
   '6. Baseie-se estritamente nos dados fornecidos na lista de processos.\n' +
-  '7. NUNCA utilize placeholders ou marcações entre colchetes como "[Seu Nome]", "[Nome do Advogado]" ou "[Seu Cargo]". Se for assinar, utilize exclusivamente "Equipe Blindagem Financeira" ou finalize sem assinatura individual.';
+  '7. NUNCA utilize placeholders ou marcações entre colchetes como "[Seu Nome]", "[Nome do Advogado]" ou "[Seu Cargo]". Se for assinar, utilize exclusivamente "Equipe TechTie" ou finalize sem assinatura individual.';
 
 function sanitizeSummaryText(raw: string): string {
   if (!raw) return '';
   let cleaned = raw
-    .replace(/\[\s*seu nome\s*\]/gi, 'Equipe Blindagem Financeira')
-    .replace(/\[\s*nome(?:\s+do\s+advogado)?\s*\]/gi, 'Equipe Blindagem Financeira')
+    .replace(/\[\s*seu nome\s*\]/gi, 'Equipe TechTie')
+    .replace(/\[\s*nome(?:\s+do\s+advogado)?\s*\]/gi, 'Equipe TechTie')
     .replace(/\[\s*seu cargo\s*\]/gi, '')
-    .replace(/\[.*?nome.*?\]/gi, 'Equipe Blindagem Financeira');
+    .replace(/\[.*?nome.*?\]/gi, 'Equipe TechTie');
 
-  cleaned = cleaned.replace(/Equipe Blindagem Financeira\s*\n\s*Blindagem Financeira/gi, 'Equipe Blindagem Financeira');
+  cleaned = cleaned.replace(/Equipe TechTie\s*\n\s*TechTie/gi, 'Equipe TechTie');
   return cleaned;
 }
 

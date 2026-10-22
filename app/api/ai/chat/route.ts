@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       }
 
       const systemPrompt =
-        `Você é o Assistente Jurídico Estratégico com Inteligência Artificial da Blindagem Financeira, escritório de alta performance especializado em blindagem patrimonial, defesa em execuções de dívidas e proteção contra penhoras/bloqueios judiciais.\n\n` +
+        `Você é o Assistente Jurídico Estratégico com Inteligência Artificial da TechTie, escritório de alta performance especializado em blindagem patrimonial, defesa em execuções de dívidas e proteção contra penhoras/bloqueios judiciais.\n\n` +
         `DIRETRIZES DE ATENDIMENTO E FORMATAÇÃO (OBRIGATÓRIO):\n` +
         `- ${toneInstruction}\n` +
         `- FORMATAÇÃO VISUAL IMPECÁVEL: NUNCA gere um bloco único de texto denso. Separe SEMPRE suas explicações em parágrafos curtos com quebras de linha duplas entre eles.\n` +

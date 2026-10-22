@@ -27,9 +27,9 @@ export const metadata: Metadata = {
     siteName: 'TechTie',
     title: 'TechTie | Acompanhamento de Processos',
     description: DESCRIPTION,
-    images: [{ url: '/blindagem-logo.png', width: 224, height: 74 }]
+    images: [{ url: '/techtie-og.png', width: 1200, height: 630, alt: 'TechTie' }]
   },
-  twitter: { card: 'summary', title: 'TechTie', description: DESCRIPTION },
+  twitter: { card: 'summary_large_image', title: 'TechTie', description: DESCRIPTION, images: ['/techtie-og.png'] },
   icons: { icon: '/favicon.svg' }
 };
 
@@ -44,7 +44,7 @@ const jsonLd = {
   '@type': 'Organization',
   name: 'TechTie',
   url: SITE_URL,
-  logo: `${SITE_URL}/blindagem-logo.png`
+  logo: `${SITE_URL}/techtie-logo-horizontal-gold.svg`
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

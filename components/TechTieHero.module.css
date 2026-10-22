@@ -1,0 +1,312 @@
+/* Coluna esquerda do login (components/TechTieHero.tsx). Linha do tempo:
+   0,15s–1,3s contorno do T desenhado → 0,9s–2,2s facetas voam e encaixam → 2,2s contorno esmaece
+   → 2,4s+ reflexo periódico e leve flutuação. Texto entra a partir de 1,6s. */
+
+.fundo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse 85% 60% at 50% 32%, #2a2113 0%, #15110c 55%, #0b0907 100%);
+}
+
+.brilho {
+  position: absolute;
+  left: 50%;
+  top: 26%;
+  width: min(520px, 90%);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  /* sem filter: blur — o gradiente já é suave, e um filtro animado é recalculado pela GPU a cada quadro */
+  background: radial-gradient(circle, rgba(201, 162, 75, 0.28) 0%, rgba(201, 162, 75, 0.08) 45%, transparent 70%);
+  animation: pulsar 6s ease-in-out 2.2s infinite both;
+}
+
+/* Campo de partículas (components/ParticulasOuro.tsx): um único canvas atrás do conteúdo do palco. */
+.particulas {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.palco {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(20px, 3.5vh, 36px);
+  padding: clamp(28px, 4vw, 64px);
+}
+
+/* A flutuação fica no contêiner HTML (e não num <g> do SVG): o T montado, com as sombras, é rasterizado uma
+   vez e a GPU só o desloca. */
+.marcaWrap {
+  position: relative;
+  animation: flutuar 7s ease-in-out 2.6s infinite;
+}
+
+.marca {
+  display: block; /* sem o vão de linha do inline: a máscara do reflexo precisa da mesma caixa do SVG */
+  height: clamp(150px, 27vh, 250px);
+  width: auto;
+  overflow: visible;
+  filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 22px rgba(201, 162, 75, 0.22));
+}
+
+/* Reflexo: faixa HTML recortada pela silhueta do T (mask-image inline), animada só com transform. */
+.reflexoMascara {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.contorno {
+  fill: none;
+  stroke: #f5e3a8;
+  stroke-width: 0.7;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: desenhar 1.1s cubic-bezier(0.65, 0, 0.35, 1) var(--d) forwards, esmaecer 0.8s ease 2.2s forwards;
+}
+
+.faceta {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: encaixar 1s cubic-bezier(0.22, 1, 0.36, 1) var(--d) forwards;
+}
+
+.reflexo {
+  position: absolute;
+  top: -25%;
+  left: 0;
+  width: 30%;
+  height: 150%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 100%);
+  /* inclinada e bem fora da caixa nos dois extremos, para não aparecer parada sobre as pontas das asas */
+  transform: translateX(-350%) rotate(18deg);
+  animation: refletir 7s ease-in-out 2.4s infinite;
+}
+
+.copy {
+  max-width: 540px;
+  text-align: center;
+  color: #f5f3ee;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #c9a24b;
+  opacity: 0;
+  animation: entrar 0.7s ease 1.6s forwards;
+}
+
+.titulo {
+  margin: 0 0 14px;
+  font-size: clamp(22px, 2.3vw, 32px);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  animation: entrar 0.7s ease 1.75s forwards;
+}
+
+.lead {
+  margin: 0;
+  font-size: clamp(13px, 1.1vw, 15px);
+  line-height: 1.7;
+  color: rgba(245, 243, 238, 0.78);
+  opacity: 0;
+  animation: entrar 0.7s ease 1.9s forwards;
+}
+
+.diferenciais {
+  list-style: none;
+  margin: 24px auto 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  max-width: 460px;
+  text-align: left;
+}
+
+.diferencial {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: rgba(245, 243, 238, 0.86);
+  opacity: 0;
+  animation: entrar 0.6s ease calc(2.1s + var(--i) * 0.12s) forwards;
+}
+
+.icone {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: -3px;
+  border-radius: 8px;
+  color: #e2be6a;
+  background: rgba(201, 162, 75, 0.12);
+  border: 1px solid rgba(201, 162, 75, 0.28);
+}
+
+@keyframes desenhar {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes esmaecer {
+  to {
+    stroke-opacity: 0.18;
+  }
+}
+
+@keyframes encaixar {
+  from {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes flutuar {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes refletir {
+  0% {
+    transform: translateX(-350%) rotate(18deg);
+  }
+  30%,
+  100% {
+    transform: translateX(600%) rotate(18deg);
+  }
+}
+
+@keyframes pulsar {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+}
+
+@keyframes entrar {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Desktop: o fundo cobre a tela inteira do login (ver .bf-auth em app/globals.css), então o brilho é
+   recentrado na metade esquerda, atrás do T. */
+@media (min-width: 861px) {
+  .fundo {
+    background: radial-gradient(ellipse 60% 70% at 25% 32%, #2a2113 0%, #15110c 55%, #0b0907 100%);
+  }
+  .brilho {
+    left: 25%;
+  }
+}
+
+/* Mobile: a coluna fica acima do formulário; bloco compacto e sem a lista, para o login não ficar longe. */
+@media (max-width: 860px) {
+  /* o fundo cobre a página inteira: em % o halo caía atrás do título e encostava no cartão de vidro (cujo
+     backdrop-filter seria recalculado a cada pulso); em px ele fica atrás do T */
+  .brilho {
+    top: 92px;
+    width: min(300px, 80%);
+  }
+  .palco {
+    gap: 14px;
+    padding: 28px 20px 32px;
+  }
+  .marca {
+    height: clamp(88px, 13vh, 120px);
+  }
+  .eyebrow {
+    margin-bottom: 8px;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+  }
+  .titulo {
+    margin-bottom: 8px;
+    font-size: 21px;
+  }
+  .lead {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .diferenciais {
+    display: none;
+  }
+}
+
+/* Sem animação para quem pediu menos movimento: T já montado e texto visível. */
+@media (prefers-reduced-motion: reduce) {
+  .brilho,
+  .contorno,
+  .faceta,
+  .marcaWrap,
+  .eyebrow,
+  .titulo,
+  .lead,
+  .diferencial {
+    animation: none !important;
+  }
+  .faceta,
+  .eyebrow,
+  .titulo,
+  .lead,
+  .diferencial {
+    opacity: 1;
+  }
+  .contorno {
+    stroke-dashoffset: 0;
+    stroke-opacity: 0.18;
+  }
+  /* as partículas (canvas) viram um quadro estático no próprio componente */
+  .reflexoMascara {
+    display: none;
+  }
+}

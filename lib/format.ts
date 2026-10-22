@@ -85,10 +85,10 @@ export function formatChatMessageHtml(raw: string, isUser: boolean = false): str
 
   // 1. Limpeza de placeholders genéricos
   text = text
-    .replace(/\[\s*seu nome\s*\]/gi, 'Equipe Blindagem Financeira')
-    .replace(/\[\s*nome(?:\s+do\s+advogado)?\s*\]/gi, 'Equipe Blindagem Financeira')
+    .replace(/\[\s*seu nome\s*\]/gi, 'Equipe TechTie')
+    .replace(/\[\s*nome(?:\s+do\s+advogado)?\s*\]/gi, 'Equipe TechTie')
     .replace(/\[\s*seu cargo\s*\]/gi, '')
-    .replace(/\[.*?nome.*?\]/gi, 'Equipe Blindagem Financeira');
+    .replace(/\[.*?nome.*?\]/gi, 'Equipe TechTie');
 
   // 2. Garante quebras de linha antes de tópicos numerados, títulos ### ou listas que possam ter vindo coladas em uma única linha
   text = text.replace(/([.:!?])\s+(#{1,6}\s+)/g, '$1\n\n$2');

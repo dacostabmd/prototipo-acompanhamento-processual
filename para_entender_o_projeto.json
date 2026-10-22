@@ -37,7 +37,7 @@
 
   "proposito_e_posicionamento": {
     "proposito": "Transformar dado processual público — que é disperso, bruto e ilegível para leigos — em informação organizada, priorizada por risco e compreensível, para quem precisa decidir e para quem precisa de tranquilidade.",
-    "nome_interno_do_projeto": "Prosec (repositório: 'blindagem-acompanhamento-processos'), operado sob a marca Blindagem Financeira.",
+    "nome_interno_do_projeto": "Prosec (repositório: 'blindagem-acompanhamento-processos'), operado sob a marca TechTie.",
     "dois_publicos_no_mesmo_produto": {
       "advogado": {
         "quem_e": "Advogado autônomo, sócio de banca pequena/média ou equipe de contencioso que acompanha carteira de clientes.",
@@ -118,7 +118,7 @@
       "nome": "Resumo executivo por IA",
       "o_que_faz": "Gera um resumo de 2 a 3 parágrafos do panorama processual em linguagem acessível, com destaque colorido para risco e para itens favoráveis, e negrito nos dados de identificação (número do processo, credor, valor, data).",
       "modelo": "OpenAI gpt-4o-mini como principal, com fallback para Anthropic claude-haiku-4-5.",
-      "guardrails": "Sanitização de placeholders — o texto nunca sai com '[Seu Nome]' ou '[Nome do Advogado]'; assina como 'Equipe Blindagem Financeira' ou sem assinatura.",
+      "guardrails": "Sanitização de placeholders — o texto nunca sai com '[Seu Nome]' ou '[Nome do Advogado]'; assina como 'Equipe TechTie' ou sem assinatura.",
       "valor_para_o_usuario": "Para o advogado, é um texto pronto para colar no WhatsApp do cliente. Para o cliente, é a primeira vez que ele entende o próprio processo."
     },
     {
@@ -734,7 +734,7 @@
 
     "termos_tecnicos_e_de_marca": [
       "Prosec",
-      "Blindagem Financeira acompanhamento processual",
+      "TechTie acompanhamento processual",
       "DataJud CNJ API pública",
       "Tabela Processual Unificada",
       "número CNJ 20 dígitos",
