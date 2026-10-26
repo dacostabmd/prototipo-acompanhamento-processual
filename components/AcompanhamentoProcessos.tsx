@@ -3,11 +3,28 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Switch } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { AnimatePresence, motion } from 'motion/react';
-import { Bell, BellRing, CheckCheck, Clock, Gavel, Mail, MessageCircle, Sparkles, TriangleAlert } from 'lucide-react';
+import {
+  Bell,
+  BellRing,
+  CheckCheck,
+  Clock,
+  Crown,
+  Gavel,
+  Mail,
+  MessageCircle,
+  Send,
+  ShieldAlert,
+  SlidersHorizontal,
+  Sparkles,
+  TriangleAlert,
+  Zap
+} from 'lucide-react';
 import { authFetch } from '@/lib/authFetch';
-import type { ProcessoAcompanhado, RespostaMonitoramento, UrgenciaResumo } from '@/app/api/monitoramento/route';
-import type { Notificacao } from '@/app/api/notificacoes/route';
+import { useSharedProfile } from '@/components/ProfileProvider';
+import { UpgradeProModal } from '@/components/UpgradeProModal';
+import type { ModoSensibilidade, ProcessoAcompanhado, RespostaMonitoramento, UrgenciaResumo, Notificacao } from '@/lib/types/monitoramento';
 
 const fmtData = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '—');
 // Movimentações só têm dia (AAAA-MM-DD, gravado como meia-noite UTC): no fuso local cairia no dia anterior.
@@ -30,10 +47,14 @@ type Canal = 'notificarEmail' | 'notificarWhatsapp';
  */
 export function AcompanhamentoProcessos() {
   const [dados, setDados] = useState<RespostaMonitoramento | null>(null);
+  const { profile } = useSharedProfile();
+  const [modalProAberto, setModalProAberto] = useState(false);
+  const [motivoPro, setMotivoPro] = useState<string | undefined>();
   const [erroCarga, setErroCarga] = useState(false);
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
   const [naoLidas, setNaoLidas] = useState(0);
   const [salvando, setSalvando] = useState<Record<string, boolean>>({});
+  const [testandoWhatsapp, setTestandoWhatsapp] = useState<Record<string, boolean>>({});
   const [erroCanal, setErroCanal] = useState<{ processoId: string; mensagem: string; semTelefone: boolean } | null>(null);
 
   useEffect(() => {
@@ -54,6 +75,13 @@ export function AcompanhamentoProcessos() {
   }, []);
 
   const alternarCanal = useCallback(async (processo: ProcessoAcompanhado, canal: Canal, valor: boolean) => {
+    // Paywall do WhatsApp: exclusivo para assinantes do Plano Pro
+    if (canal === 'notificarWhatsapp' && valor && profile.plano !== 'pro') {
+      setMotivoPro('O acompanhamento e o Agente Jurídico com IA 24h via WhatsApp são exclusivos do Plano Pro.');
+      setModalProAberto(true);
+      return;
+    }
+
     const chave = `${processo.processoId}:${canal}`;
     setErroCanal(null);
     setSalvando(s => ({ ...s, [chave]: true }));
@@ -98,6 +126,84 @@ export function AcompanhamentoProcessos() {
       setNaoLidas(anteriores.filter(n => !n.lida).length);
     }
   }, [notificacoes]);
+
+  const testarEnvioWhatsApp = useCallback(async (processoId: string) => {
+    setTestandoWhatsapp(s => ({ ...s, [processoId]: true }));
+    try {
+      const res = await authFetch('/api/whatsapp/testar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ processoId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Falha ao enviar mensagem de teste');
+      }
+      notifications.show({
+        title: 'Alerta enviado!',
+        message: 'Resumo com IA gerado pelo Agente e enviado ao seu WhatsApp.',
+        color: 'green',
+        autoClose: 5000
+      });
+    } catch (err: unknown) {
+      notifications.show({
+        title: 'Não foi possível enviar',
+        message: err instanceof Error ? err.message : 'Verifique se o celular com DDD está salvo no seu perfil.',
+        color: 'red',
+        autoClose: 6000
+      });
+    } finally {
+      setTestandoWhatsapp(s => ({ ...s, [processoId]: false }));
+    }
+  }, []);
+
+  const alterarSensibilidade = useCallback(async (processo: ProcessoAcompanhado, novaSensibilidade: ModoSensibilidade) => {
+    if (processo.sensibilidade === novaSensibilidade) return;
+    const anterior = processo.sensibilidade;
+    setDados(d =>
+      d
+        ? {
+            ...d,
+            processos: d.processos.map(p => (p.processoId === processo.processoId ? { ...p, sensibilidade: novaSensibilidade } : p))
+          }
+        : null
+    );
+
+    try {
+      const res = await authFetch('/api/monitoramento', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ processoId: processo.processoId, sensibilidade: novaSensibilidade })
+      });
+      if (!res.ok) throw new Error();
+      notifications.show({
+        title: 'Filtro de alertas atualizado',
+        message:
+          novaSensibilidade === 'smart_digest'
+            ? 'Smart Digest ativado: urgências na hora e rotina consolidada na sexta-feira.'
+            : novaSensibilidade === 'todas'
+            ? 'Notificação imediata para todas as movimentações.'
+            : 'Apenas urgências críticas e riscos patrimoniais serão notificados.',
+        color: 'brand',
+        autoClose: 4000
+      });
+    } catch {
+      setDados(d =>
+        d
+          ? {
+              ...d,
+              processos: d.processos.map(p => (p.processoId === processo.processoId ? { ...p, sensibilidade: anterior } : p))
+            }
+          : null
+      );
+      notifications.show({
+        title: 'Falha ao atualizar',
+        message: 'Não foi possível salvar o filtro agora. Tente novamente.',
+        color: 'red',
+        autoClose: 4000
+      });
+    }
+  }, []);
 
   if (!dados) {
     return (
@@ -148,13 +254,38 @@ export function AcompanhamentoProcessos() {
       )}
 
       <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-sm backdrop-blur-md">
-        <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-white">
-          <Sparkles size={18} strokeWidth={1.8} className="text-[#e8d5b0]" />
-          Acompanhamento
-        </h2>
-        <p className="mt-1 text-xs text-white/50">
-          Conferimos seus processos todas as noites. Quando algo muda, você recebe um resumo em linguagem simples pelos canais que escolher.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-white">
+              <Sparkles size={18} strokeWidth={1.8} className="text-[#e8d5b0]" />
+              Acompanhamento
+            </h2>
+            <p className="mt-1 text-xs text-white/50">
+              Conferimos seus processos todas as noites. Quando algo muda, você recebe um resumo em linguagem simples pelos canais que escolher.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {profile.plano === 'pro' ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e8d5b0]/40 bg-[#e8d5b0]/10 px-3 py-1 text-xs font-semibold text-[#f6e7cc]">
+                <Crown size={13} className="text-[#e8d5b0]" />
+                Plano Pro Ativo
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMotivoPro(undefined);
+                  setModalProAberto(true);
+                }}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#e8d5b0]/40 bg-[#e8d5b0]/15 px-3 py-1 text-xs font-semibold text-[#f6e7cc] transition-all hover:bg-[#e8d5b0]/25"
+              >
+                <Crown size={13} />
+                <span>Upgrade Pro</span>
+              </button>
+            )}
+          </div>
+        </div>
 
         {!dados.telefoneValido && dados.processos.length > 0 && (
           <p className="mt-3 flex items-start gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/60 sm:inline-flex">
@@ -251,7 +382,85 @@ export function AcompanhamentoProcessos() {
                     }
                     styles={{ track: { cursor: 'pointer' }, label: { cursor: 'pointer' } }}
                   />
+                  {p.notificarWhatsapp && (
+                    <button
+                      type="button"
+                      disabled={testandoWhatsapp[p.processoId]}
+                      onClick={() => testarEnvioWhatsApp(p.processoId)}
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[#e8d5b0]/30 bg-[#e8d5b0]/10 px-2.5 py-1 text-xs font-medium text-[#f6e7cc] transition-colors hover:bg-[#e8d5b0]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Send size={12} className={testandoWhatsapp[p.processoId] ? 'animate-pulse' : ''} />
+                      {testandoWhatsapp[p.processoId] ? 'Enviando...' : 'Testar WhatsApp'}
+                    </button>
+                  )}
                 </div>
+
+                {(p.notificarEmail || p.notificarWhatsapp) && (
+                  <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-white/80">
+                        <SlidersHorizontal size={13} className="text-[#e8d5b0]" />
+                        Frequência de alertas
+                      </span>
+                      <span className="text-[11px] text-white/40">
+                        {p.sensibilidade === 'smart_digest'
+                          ? 'Anti-spam inteligente'
+                          : p.sensibilidade === 'todas'
+                          ? 'Instantâneo'
+                          : 'Apenas crítico'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => alterarSensibilidade(p, 'smart_digest')}
+                        className={`inline-flex flex-col items-center justify-center gap-0.5 rounded-lg border py-1.5 px-2 text-center transition-all ${
+                          p.sensibilidade === 'smart_digest'
+                            ? 'border-[#e8d5b0]/60 bg-[#e8d5b0]/15 text-[#f6e7cc] shadow-sm'
+                            : 'border-white/5 bg-white/[0.02] text-white/50 hover:border-white/15 hover:text-white/80'
+                        }`}
+                      >
+                        <div className="inline-flex items-center gap-1 text-[11px] font-medium">
+                          <Sparkles size={11} className={p.sensibilidade === 'smart_digest' ? 'text-[#e8d5b0]' : 'text-white/40'} />
+                          Smart Digest
+                        </div>
+                        <span className="text-[10px] text-white/40">Recomendado</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => alterarSensibilidade(p, 'todas')}
+                        className={`inline-flex flex-col items-center justify-center gap-0.5 rounded-lg border py-1.5 px-2 text-center transition-all ${
+                          p.sensibilidade === 'todas'
+                            ? 'border-[#e8d5b0]/60 bg-[#e8d5b0]/15 text-[#f6e7cc] shadow-sm'
+                            : 'border-white/5 bg-white/[0.02] text-white/50 hover:border-white/15 hover:text-white/80'
+                        }`}
+                      >
+                        <div className="inline-flex items-center gap-1 text-[11px] font-medium">
+                          <Zap size={11} className={p.sensibilidade === 'todas' ? 'text-[#e8d5b0]' : 'text-white/40'} />
+                          Todas
+                        </div>
+                        <span className="text-[10px] text-white/40">Sem filtro</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => alterarSensibilidade(p, 'urgentes_apenas')}
+                        className={`inline-flex flex-col items-center justify-center gap-0.5 rounded-lg border py-1.5 px-2 text-center transition-all ${
+                          p.sensibilidade === 'urgentes_apenas'
+                            ? 'border-[#e8d5b0]/60 bg-[#e8d5b0]/15 text-[#f6e7cc] shadow-sm'
+                            : 'border-white/5 bg-white/[0.02] text-white/50 hover:border-white/15 hover:text-white/80'
+                        }`}
+                      >
+                        <div className="inline-flex items-center gap-1 text-[11px] font-medium">
+                          <ShieldAlert size={11} className={p.sensibilidade === 'urgentes_apenas' ? 'text-[#e8d5b0]' : 'text-white/40'} />
+                          Urgências
+                        </div>
+                        <span className="text-[10px] text-white/40">Apenas risco</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <AnimatePresence>
                   {erroCanal?.processoId === p.processoId && (
                     <motion.p
@@ -274,6 +483,12 @@ export function AcompanhamentoProcessos() {
           ))}
         </div>
       </section>
+
+      <UpgradeProModal
+        opened={modalProAberto}
+        onClose={() => setModalProAberto(false)}
+        motivo={motivoPro}
+      />
     </>
   );
 }

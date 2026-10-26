@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/reconsulta",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/digest-semanal",
+      "schedule": "0 18 * * 5"
+    },
+    {
+      "path": "/api/cron/varredura-cpf",
+      "schedule": "0 12 * * *"
     }
   ]
 }

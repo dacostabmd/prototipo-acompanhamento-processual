@@ -2,38 +2,15 @@ import { NextResponse } from 'next/server';
 import { getAdminClient, getUserId } from '@/lib/track';
 import { requireUser } from '@/lib/requireUser';
 import { normalizarTelefoneBr } from '@/lib/whatsapp';
+import type { ModoSensibilidade, ProcessoAcompanhado, RespostaMonitoramento, UrgenciaResumo } from '@/lib/types/monitoramento';
 
-export type UrgenciaResumo = 'baixa' | 'media' | 'alta';
-
-export interface ProcessoAcompanhado {
-  processoId: string;
-  numeroCnj: string;
-  tribunal: string | null;
-  classe: string | null;
-  ultimaMovimentacaoEm: string | null;
-  ultimaConsultaEm: string | null;
-  proximaConsultaEm: string | null;
-  notificarEmail: boolean;
-  notificarWhatsapp: boolean;
-  resumo: {
-    resumo: string;
-    significado: string;
-    proximoPasso: string | null;
-    urgencia: UrgenciaResumo | null;
-    criadoEm: string;
-  } | null;
-}
-
-export interface RespostaMonitoramento {
-  processos: ProcessoAcompanhado[];
-  /** Telefone do perfil serve para WhatsApp (ap_perfis.telefone com DDD). */
-  telefoneValido: boolean;
-}
+export type { ModoSensibilidade, ProcessoAcompanhado, RespostaMonitoramento, UrgenciaResumo };
 
 interface LinhaMonitoramento {
   processo_id: string;
   notificar_email: boolean | null;
   notificar_whatsapp: boolean | null;
+  tags?: string[] | null;
   ap_processos: {
     numero_cnj: string;
     tribunal: string | null;
@@ -57,7 +34,7 @@ export async function GET(request: Request) {
     db
       .from('ap_processos_monitorados')
       .select(
-        'processo_id, notificar_email, notificar_whatsapp, ap_processos(numero_cnj, tribunal, classe_processual, ultima_movimentacao_em, ultima_consulta_em, proxima_consulta_em)'
+        'processo_id, notificar_email, notificar_whatsapp, tags, ap_processos(numero_cnj, tribunal, classe_processual, ultima_movimentacao_em, ultima_consulta_em, proxima_consulta_em)'
       )
       .eq('user_id', userId)
       .order('created_at', { ascending: false }),
@@ -96,6 +73,10 @@ export async function GET(request: Request) {
 
   const processos: ProcessoAcompanhado[] = linhas.map(l => {
     const p = l.ap_processos!;
+    const tagSensibilidade = (l.tags ?? []).find(t => t.startsWith('sensibilidade:'))?.replace('sensibilidade:', '');
+    const sensibilidade: ModoSensibilidade =
+      tagSensibilidade === 'todas' || tagSensibilidade === 'urgentes_apenas' ? tagSensibilidade : 'smart_digest';
+
     return {
       processoId: l.processo_id,
       numeroCnj: p.numero_cnj,
@@ -106,6 +87,7 @@ export async function GET(request: Request) {
       proximaConsultaEm: p.proxima_consulta_em,
       notificarEmail: l.notificar_email ?? true,
       notificarWhatsapp: l.notificar_whatsapp ?? false,
+      sensibilidade,
       resumo: ultimoResumo.get(l.processo_id) ?? null
     };
   });
@@ -117,7 +99,7 @@ export async function GET(request: Request) {
 }
 
 /**
- * Liga/desliga os canais de aviso de um processo: { processoId, notificarEmail?, notificarWhatsapp? }.
+ * Liga/desliga canais e define sensibilidade: { processoId, notificarEmail?, notificarWhatsapp?, sensibilidade? }.
  * WhatsApp exige telefone válido no perfil (o worker de alertas não teria para onde enviar).
  */
 export async function PATCH(request: Request) {
@@ -129,14 +111,25 @@ export async function PATCH(request: Request) {
   if (!userId || !db) return NextResponse.json({ error: 'Indisponível no modo demonstração.' }, { status: 503 });
 
   const body = (await request.json().catch(() => null)) as
-    | { processoId?: unknown; notificarEmail?: unknown; notificarWhatsapp?: unknown }
+    | { processoId?: unknown; notificarEmail?: unknown; notificarWhatsapp?: unknown; sensibilidade?: unknown }
     | null;
   const processoId = typeof body?.processoId === 'string' ? body.processoId : '';
-  const campos: { notificar_email?: boolean; notificar_whatsapp?: boolean } = {};
+  const campos: Record<string, unknown> = {};
+
   if (typeof body?.notificarEmail === 'boolean') campos.notificar_email = body.notificarEmail;
   if (typeof body?.notificarWhatsapp === 'boolean') campos.notificar_whatsapp = body.notificarWhatsapp;
-  if (!processoId || Object.keys(campos).length === 0) {
-    return NextResponse.json({ error: 'Informe o processo e o canal a alterar.' }, { status: 400 });
+
+  let novaSensibilidade: ModoSensibilidade | null = null;
+  if (
+    body?.sensibilidade === 'smart_digest' ||
+    body?.sensibilidade === 'todas' ||
+    body?.sensibilidade === 'urgentes_apenas'
+  ) {
+    novaSensibilidade = body.sensibilidade;
+  }
+
+  if (!processoId || (Object.keys(campos).length === 0 && !novaSensibilidade)) {
+    return NextResponse.json({ error: 'Informe o processo e o canal ou sensibilidade a alterar.' }, { status: 400 });
   }
 
   if (campos.notificar_whatsapp) {
@@ -149,19 +142,42 @@ export async function PATCH(request: Request) {
     }
   }
 
+  // Se alterou a sensibilidade, atualiza na coluna tags (garante compatibilidade imediata com qualquer DB)
+  if (novaSensibilidade) {
+    const { data: registroAtual } = await db
+      .from('ap_processos_monitorados')
+      .select('tags')
+      .eq('user_id', userId)
+      .eq('processo_id', processoId)
+      .maybeSingle();
+
+    const tagsAtuais: string[] = Array.isArray(registroAtual?.tags) ? registroAtual.tags : [];
+    const tagsLimpos = tagsAtuais.filter((t: string) => !t.startsWith('sensibilidade:'));
+    tagsLimpos.push(`sensibilidade:${novaSensibilidade}`);
+    campos.tags = tagsLimpos;
+  }
+
   const { data, error } = await db
     .from('ap_processos_monitorados')
     .update(campos)
     .eq('user_id', userId)
     .eq('processo_id', processoId)
-    .select('notificar_email, notificar_whatsapp')
+    .select('notificar_email, notificar_whatsapp, tags')
     .maybeSingle();
 
   if (error) {
-    console.error('[api/monitoramento] erro ao atualizar canais:', error.message);
+    console.error('[api/monitoramento] erro ao atualizar monitoramento:', error.message);
     return NextResponse.json({ error: 'Não foi possível salvar a preferência.' }, { status: 500 });
   }
   if (!data) return NextResponse.json({ error: 'Processo não encontrado no seu acompanhamento.' }, { status: 404 });
 
-  return NextResponse.json({ notificarEmail: data.notificar_email ?? true, notificarWhatsapp: data.notificar_whatsapp ?? false });
+  const tagSensibilidade = (data.tags ?? []).find((t: string) => t.startsWith('sensibilidade:'))?.replace('sensibilidade:', '');
+  const sensibilidadeEfetiva: ModoSensibilidade =
+    tagSensibilidade === 'todas' || tagSensibilidade === 'urgentes_apenas' ? tagSensibilidade : 'smart_digest';
+
+  return NextResponse.json({
+    notificarEmail: data.notificar_email ?? true,
+    notificarWhatsapp: data.notificar_whatsapp ?? false,
+    sensibilidade: sensibilidadeEfetiva
+  });
 }

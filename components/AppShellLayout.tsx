@@ -34,8 +34,29 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(true);
   const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure(false);
+  const [naoLidas, setNaoLidas] = useState(0);
   const { profile } = useSharedProfile();
   const navItems = NAV_ITEMS.filter(item => !item.roles || item.roles.includes(profile.role));
+
+  useEffect(() => {
+    let ativo = true;
+    const carregarNaoLidas = () => {
+      authFetch('/api/notificacoes')
+        .then(res => (res.ok ? res.json() : null))
+        .then(d => {
+          if (ativo && typeof d?.naoLidas === 'number') {
+            setNaoLidas(d.naoLidas);
+          }
+        })
+        .catch(() => {});
+    };
+    carregarNaoLidas();
+    const interval = setInterval(carregarNaoLidas, 45_000);
+    return () => {
+      ativo = false;
+      clearInterval(interval);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     try {
@@ -109,8 +130,10 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
           {navItems.map(item => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             const Icon = item.icon;
+            const temNaoLidas = item.href === '/processos' && naoLidas > 0;
+            const labelTooltip = temNaoLidas ? `${item.label} (${naoLidas} novidade${naoLidas > 1 ? 's' : ''})` : item.label;
             return (
-              <Tooltip key={item.href} label={item.label} position="right" offset={14} withArrow disabled={expanded || mobileOpened}>
+              <Tooltip key={item.href} label={labelTooltip} position="right" offset={14} withArrow disabled={expanded || mobileOpened}>
                 <UnstyledButton
                   component={Link}
                   href={item.href}
@@ -126,10 +149,20 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
                       transition={{ type: 'spring', stiffness: 420, damping: 36 }}
                     />
                   )}
-                  <span className="bf-nav-icon">
+                  <span className="bf-nav-icon relative">
                     <Icon size={ICON} strokeWidth={1.8} />
+                    {temNaoLidas && !expanded && (
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-400 ring-2 ring-[#15161a]" />
+                    )}
                   </span>
-                  <span className="bf-nav-label">{item.label}</span>
+                  <span className="bf-nav-label flex items-center justify-between gap-2">
+                    <span>{item.label}</span>
+                    {temNaoLidas && expanded && (
+                      <span className="inline-flex items-center justify-center rounded-full border border-red-400/40 bg-red-400/20 px-1.5 py-0.2 text-[10px] font-semibold text-red-200">
+                        {naoLidas > 99 ? '99+' : naoLidas}
+                      </span>
+                    )}
+                  </span>
                 </UnstyledButton>
               </Tooltip>
             );

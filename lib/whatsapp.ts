@@ -117,3 +117,130 @@ export async function enviarAlertaWhatsApp(
     clearTimeout(timer);
   }
 }
+
+/**
+ * Envia uma mensagem de texto simples pelo WhatsApp dentro da janela de 24h
+ * (ou em resposta direta à mensagem do usuário).
+ */
+export async function enviarTextoWhatsApp(
+  telefone: string,
+  texto: string
+): Promise<ResultadoEnvioWhatsApp> {
+  const token = process.env.WHATSAPP_CLOUD_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneNumberId) {
+    console.log('[whatsapp] WHATSAPP_CLOUD_TOKEN ou WHATSAPP_PHONE_NUMBER_ID não configurados — no-op envio de texto.');
+    return { enviado: false, naoConfigurado: true, erro: 'WhatsApp Cloud API não configurada' };
+  }
+
+  const destino = normalizarTelefoneBr(telefone);
+  if (!destino) return { enviado: false, definitivo: true, erro: 'Telefone inválido para WhatsApp' };
+
+  const versao = process.env.WHATSAPP_GRAPH_VERSION || 'v23.0';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`https://graph.facebook.com/${versao}/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: destino,
+        type: 'text',
+        text: { preview_url: false, body: texto }
+      }),
+      signal: controller.signal
+    });
+
+    const corpo = (await res.json().catch(() => null)) as
+      | { messages?: { id?: string }[]; error?: { message?: string; code?: number } }
+      | null;
+
+    if (res.ok && corpo?.messages?.[0]?.id) {
+      return { enviado: true, mensagemId: corpo.messages[0].id };
+    }
+
+    const erro = corpo?.error;
+    const mensagem = `${erro?.message || `HTTP ${res.status}`}${erro?.code ? ` (código ${erro.code})` : ''}`;
+    console.error('[whatsapp] falha ao enviar texto livre:', destino, mensagem);
+    return { enviado: false, erro: mensagem };
+  } catch (e) {
+    const mensagem = e instanceof Error ? e.message : 'erro desconhecido';
+    console.error('[whatsapp] exceção ao enviar texto livre:', destino, mensagem);
+    return { enviado: false, erro: mensagem };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Envia uma mensagem com botões interativos de resposta rápida no WhatsApp.
+ * A Meta aceita no máximo 3 botões e títulos de até 20 caracteres por botão.
+ */
+export async function enviarInterativoWhatsApp(
+  telefone: string,
+  textoCorpo: string,
+  botoes: { id: string; title: string }[]
+): Promise<ResultadoEnvioWhatsApp> {
+  const token = process.env.WHATSAPP_CLOUD_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneNumberId) {
+    return { enviado: false, naoConfigurado: true, erro: 'WhatsApp Cloud API não configurada' };
+  }
+
+  const destino = normalizarTelefoneBr(telefone);
+  if (!destino) return { enviado: false, definitivo: true, erro: 'Telefone inválido para WhatsApp' };
+
+  const versao = process.env.WHATSAPP_GRAPH_VERSION || 'v23.0';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  try {
+    const botoesFormatados = botoes.slice(0, 3).map((b, idx) => ({
+      type: 'reply',
+      reply: {
+        id: b.id || `btn_${idx}`,
+        title: b.title.slice(0, 20)
+      }
+    }));
+
+    const res = await fetch(`https://graph.facebook.com/${versao}/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: destino,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: { text: textoCorpo },
+          action: { buttons: botoesFormatados }
+        }
+      }),
+      signal: controller.signal
+    });
+
+    const corpo = (await res.json().catch(() => null)) as
+      | { messages?: { id?: string }[]; error?: { message?: string; code?: number } }
+      | null;
+
+    if (res.ok && corpo?.messages?.[0]?.id) {
+      return { enviado: true, mensagemId: corpo.messages[0].id };
+    }
+
+    const erro = corpo?.error;
+    const mensagem = `${erro?.message || `HTTP ${res.status}`}${erro?.code ? ` (código ${erro.code})` : ''}`;
+    console.error('[whatsapp] falha ao enviar mensagem interativa:', destino, mensagem);
+    return { enviado: false, erro: mensagem };
+  } catch (e) {
+    const mensagem = e instanceof Error ? e.message : 'erro desconhecido';
+    console.error('[whatsapp] exceção ao enviar mensagem interativa:', destino, mensagem);
+    return { enviado: false, erro: mensagem };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+

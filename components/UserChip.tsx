@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Avatar, Text } from '@mantine/core';
+import { Crown } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
+import { useSharedProfile } from './ProfileProvider';
 
 const formatFirstName = (raw: string) => {
   if (!raw) return 'Usuário';
@@ -14,6 +16,7 @@ const formatFirstName = (raw: string) => {
 
 export default function UserChip() {
   const [fullName, setFullName] = useState('');
+  const { profile } = useSharedProfile();
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -54,17 +57,39 @@ export default function UserChip() {
         radius="xl"
         size={36}
       />
-      <Text
-        className="bf-user-name"
-        size="sm"
-        fw={600}
-        style={{
-          color: '#ffffff',
-          fontWeight: 600
-        }}
-      >
-        {firstName}
-      </Text>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Text
+          className="bf-user-name"
+          size="sm"
+          fw={600}
+          style={{
+            color: '#ffffff',
+            fontWeight: 600
+          }}
+        >
+          {firstName}
+        </Text>
+        {profile.plano === 'pro' && (
+          <span
+            title="Assinante Pro"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
+              borderRadius: 9999,
+              border: '1px solid rgba(232, 213, 176, 0.4)',
+              background: 'rgba(232, 213, 176, 0.15)',
+              padding: '1px 6px',
+              fontSize: '10px',
+              fontWeight: 700,
+              color: '#f6e7cc'
+            }}
+          >
+            <Crown size={10} style={{ color: '#e8d5b0' }} />
+            PRO
+          </span>
+        )}
+      </div>
     </div>
   );
 }

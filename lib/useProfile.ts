@@ -10,9 +10,10 @@ export interface Profile {
   nome: string;
   documento: string;
   documentoTipo: 'cpf' | 'cnpj' | '';
+  plano: 'free' | 'pro';
 }
 
-const EMPTY_PROFILE: Profile = { role: 'advogado', nome: '', documento: '', documentoTipo: '' };
+const EMPTY_PROFILE: Profile = { role: 'advogado', nome: '', documento: '', documentoTipo: '', plano: 'free' };
 
 function readDemoProfile(): Profile {
   try {
@@ -20,7 +21,8 @@ function readDemoProfile(): Profile {
     const role = (localStorage.getItem('bf-demo-role') as ProfileRole) || 'advogado';
     const documento = localStorage.getItem('bf-demo-documento') ?? '';
     const documentoTipo = (localStorage.getItem('bf-demo-documento-tipo') as 'cpf' | 'cnpj' | '') || '';
-    return { role, nome: demo.includes('@') ? demo.split('@')[0] : '', documento, documentoTipo };
+    const plano = (localStorage.getItem('bf-demo-plano') as 'free' | 'pro') || 'free';
+    return { role, nome: demo.includes('@') ? demo.split('@')[0] : '', documento, documentoTipo, plano };
   } catch {
     return EMPTY_PROFILE;
   }
@@ -68,12 +70,13 @@ export function useProfileQuery(): { profile: Profile; loading: boolean; refresh
         }
       } catch {}
 
-      const { data: perfil } = await supabase.from('ap_perfis').select('nome,role,documento,documento_tipo').eq('id', u.id).maybeSingle();
+      const { data: perfil } = await supabase.from('ap_perfis').select('nome,role,documento,documento_tipo,plano').eq('id', u.id).maybeSingle();
       setProfile({
         role: (perfil?.role as ProfileRole) || 'advogado',
         nome: perfil?.nome ?? u.user_metadata?.full_name ?? u.user_metadata?.name ?? '',
         documento: perfil?.documento ?? '',
-        documentoTipo: (perfil?.documento_tipo as 'cpf' | 'cnpj' | '') || ''
+        documentoTipo: (perfil?.documento_tipo as 'cpf' | 'cnpj' | '') || '',
+        plano: (perfil?.plano as 'free' | 'pro') || 'free'
       });
     } catch {
       setProfile(readDemoProfile());

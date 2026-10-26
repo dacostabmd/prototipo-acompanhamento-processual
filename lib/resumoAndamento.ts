@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Movement } from '@/lib/mockProcesses';
+import { getLangfuseClient } from '@/lib/langfuse';
 
 export type UrgenciaAndamento = 'baixa' | 'media' | 'alta';
 
@@ -125,7 +126,10 @@ export async function gerarResumoAndamento(
         'gpt-4o-mini',
         completion.usage?.total_tokens
       );
-      if (resumo) return resumo;
+      if (resumo) {
+        await registrarTraceLangfuse(processo, resumo, promptUser);
+        return resumo;
+      }
       console.error('[resumoAndamento] resposta da OpenAI sem os campos esperados:', processo.numeroCnj);
     } catch (e) {
       console.error('[resumoAndamento] falha na OpenAI:', processo.numeroCnj, e instanceof Error ? e.message : e);
@@ -150,7 +154,10 @@ export async function gerarResumoAndamento(
         'claude-haiku-4-5',
         response.usage ? response.usage.input_tokens + response.usage.output_tokens : undefined
       );
-      if (resumo) return resumo;
+      if (resumo) {
+        await registrarTraceLangfuse(processo, resumo, promptUser);
+        return resumo;
+      }
       console.error('[resumoAndamento] resposta da Anthropic sem os campos esperados:', processo.numeroCnj);
     } catch (e) {
       console.error('[resumoAndamento] falha na Anthropic:', processo.numeroCnj, e instanceof Error ? e.message : e);
@@ -161,4 +168,41 @@ export async function gerarResumoAndamento(
     console.log('[resumoAndamento] OPENAI_API_KEY/ANTHROPIC_API_KEY não configuradas — alerta segue sem resumo:', processo.numeroCnj);
   }
   return null;
+}
+
+async function registrarTraceLangfuse(
+  processo: DadosProcessoResumo,
+  resumo: ResumoAndamento,
+  promptUser: string
+): Promise<void> {
+  const client = getLangfuseClient();
+  if (!client) return;
+
+  try {
+    const trace = client.trace({
+      name: 'resumo_andamento_cron',
+      sessionId: `resumo_${processo.numeroCnj}`,
+      tags: ['cron-resumo', resumo.urgencia, processo.tribunal || 'geral'],
+      metadata: {
+        numeroCnj: processo.numeroCnj,
+        tribunal: processo.tribunal,
+        classe: processo.classe,
+        urgencia: resumo.urgencia,
+        modelo: resumo.modelo,
+        totalTokens: resumo.totalTokens
+      }
+    });
+
+    trace.generation({
+      name: 'geracao_resumo_llm',
+      model: resumo.modelo,
+      input: promptUser,
+      output: JSON.stringify(resumo),
+      usage: resumo.totalTokens ? { total: resumo.totalTokens } : undefined
+    });
+
+    await client.flushAsync().catch(() => null);
+  } catch (err) {
+    console.warn('[langfuse] Falha ao registrar trace do resumo:', err);
+  }
 }

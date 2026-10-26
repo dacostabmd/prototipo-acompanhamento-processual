@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { cleanDigits } from '@/lib/format';
 import { parseCnj, formatProcessNumber } from '@/lib/cnj';
 import { consultarDataJud } from '@/lib/datajud';
+import { buscarTrechosProcessuais } from '@/lib/ragDocumentos';
 
 /**
  * 1. Ferramenta para buscar e enriquecer dados de processo judicial no DataJud (CNJ).
@@ -236,6 +237,47 @@ export const calcularPrazoProcessualTool = tool(
       'Informa os prazos legais em dias úteis do Código de Processo Civil (CPC) para contestações, recursos, embargos e pagamento voluntário.',
     schema: z.object({
       tipoAto: z.string().describe('O tipo de ato ou manifestação processual (ex: contestação, apelação, pagamento art. 523, embargos à execução)')
+    })
+  }
+);
+
+/**
+ * 5. Ferramenta de RAG para busca semântica em petições, sentenças, decisões e autos processuais.
+ */
+export const buscarTrechosDocumentosProcessoTool = tool(
+  async ({ numeroProcesso, termoOuPergunta }) => {
+    try {
+      const digits = cleanDigits(numeroProcesso);
+      const cnjFormatado = digits.length === 20 ? formatProcessNumber(digits) : numeroProcesso;
+      const trechos = await buscarTrechosProcessuais({
+        numeroCnj: digits.length === 20 ? digits : numeroProcesso,
+        query: termoOuPergunta,
+        limite: 3
+      });
+
+      if (trechos.length === 0) {
+        return `Nenhum trecho de documento ou decisão encontrado especificamente para a busca "${termoOuPergunta}" no processo ${cnjFormatado}.`;
+      }
+
+      const formatados = trechos
+        .map(
+          (t, i) =>
+            `[Trecho ${i + 1} - ${t.tipoDocumento.toUpperCase()} - ${t.titulo}]\n${t.conteudoTexto}`
+        )
+        .join('\n\n---\n\n');
+
+      return `Trechos localizados nos autos do processo ${cnjFormatado} sobre "${termoOuPergunta}":\n\n${formatados}`;
+    } catch (err) {
+      return `Erro ao consultar documentos do processo: ${(err as Error).message}`;
+    }
+  },
+  {
+    name: 'buscar_trechos_documentos_processo',
+    description:
+      'Realiza busca semântica (RAG) na íntegra de petições, sentenças, decisões judiciais e intimações indexadas do processo para responder a dúvidas sobre valores, cláusulas, liminares e determinações do juiz.',
+    schema: z.object({
+      numeroProcesso: z.string().describe('Número CNJ do processo (com ou sem pontuação)'),
+      termoOuPergunta: z.string().describe('O termo, pergunta ou assunto a ser pesquisado nos autos (ex: valor da condenação, tutela de urgência deferida, gratuidade da justiça)')
     })
   }
 );

@@ -7,6 +7,7 @@ import { motion } from 'motion/react';
 import { authFetch } from '@/lib/authFetch';
 import { useSharedProfile } from '@/components/ProfileProvider';
 import { AcompanhamentoProcessos } from '@/components/AcompanhamentoProcessos';
+import { MonitoramentoCpfSection } from '@/components/MonitoramentoCpfSection';
 import type { ConsultaHistorico } from '@/lib/historicoConsultas';
 
 interface Processo {
@@ -111,6 +112,8 @@ export default function Processos() {
       </p>
 
       <AcompanhamentoProcessos />
+
+      <MonitoramentoCpfSection />
 
       <h2 className="mt-10 text-lg font-semibold text-white">Processos pesquisados</h2>
       <div className="mt-3 overflow-x-auto rounded-3xl border border-white/10 bg-white/5 shadow-sm backdrop-blur-md">

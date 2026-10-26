@@ -4,6 +4,7 @@ import type { ResumoAndamento } from '@/lib/resumoAndamento';
 import { enviarAlertaMovimentacao } from '@/lib/email';
 import { enviarAlertaWhatsApp } from '@/lib/whatsapp';
 import { gerarTokenDescadastro, urlPaginaDescadastro, urlUmCliqueDescadastro } from '@/lib/descadastro';
+import { avaliarPrioridadeSmartDigest } from '@/lib/smartDigest';
 
 /**
  * Fila de alertas de andamento (ap_alertas_pendentes). O cron de reconsulta ENFILEIRA (1 linha por
@@ -52,14 +53,13 @@ interface AlertaFila {
 
 /**
  * Enfileira o alerta para todos os usuários que monitoram o processo, nos canais que cada um ligou
- * (ap_processos_monitorados), e grava a notificação do app (ap_notificacoes) para todos eles, com ou
- * sem canal externo. Alertas anteriores ainda não enviados do mesmo usuário/processo/canal viram
- * 'ignorado' (o novo já contém a novidade mais recente). Devolve quantos alertas entraram na fila.
+ * (ap_processos_monitorados), respeitando a sensibilidade escolhida (Smart Digest, Todas ou Urgências),
+ * e grava a notificação do app (ap_notificacoes) para todos eles.
  */
 export async function enfileirarAlertas(db: SupabaseClient, processoId: string, conteudo: ConteudoAlerta): Promise<number> {
   const { data: monitoramentos, error } = await db
     .from('ap_processos_monitorados')
-    .select('user_id, notificar_email, notificar_whatsapp')
+    .select('user_id, notificar_email, notificar_whatsapp, tags')
     .eq('processo_id', processoId);
   if (error) {
     console.error('[filaAlertas] falha ao ler monitoramentos:', error.message);
@@ -72,11 +72,42 @@ export async function enfileirarAlertas(db: SupabaseClient, processoId: string, 
     ? `${conteudo.resumo.resumo} Próximo passo: ${conteudo.resumo.proximoPasso}`
     : conteudo.movimentos.map(m => m.titulo).slice(0, 3).join('; ');
 
+  // Avaliação inteligente de relevância anti-spam
+  const avaliacao = avaliarPrioridadeSmartDigest(conteudo.movimentos, conteudo.resumo);
+
   for (const m of monitoramentos ?? []) {
     const userId = m.user_id as string;
+    const tagSensibilidade = (m.tags as string[] | null)?.find(t => t.startsWith('sensibilidade:'))?.replace('sensibilidade:', '');
+    const sensibilidade = (tagSensibilidade === 'todas' || tagSensibilidade === 'urgentes_apenas') ? tagSensibilidade : 'smart_digest';
+
+    // Grava no feed interno do app
     notificacoes.push({ user_id: userId, processo_id: processoId, titulo: `Seu processo ${conteudo.numeroCnj} teve uma movimentação`, mensagem: mensagemApp });
-    if (m.notificar_email) linhas.push({ processo_id: processoId, user_id: userId, canal: 'email', status: 'pendente', conteudo });
-    if (m.notificar_whatsapp) linhas.push({ processo_id: processoId, user_id: userId, canal: 'whatsapp', status: 'pendente', conteudo });
+
+    // Regra de sensibilidade para WhatsApp (Anti-spam)
+    let enviarWhatsapp = false;
+    if (m.notificar_whatsapp) {
+      if (sensibilidade === 'todas') {
+        enviarWhatsapp = true;
+      } else if (sensibilidade === 'urgentes_apenas') {
+        enviarWhatsapp = avaliacao.urgencia === 'alta';
+      } else {
+        // smart_digest (padrão): urgências e liminares imediatas; rotina semanal
+        enviarWhatsapp = avaliacao.prioridade === 'imediata';
+      }
+    }
+
+    // Regra para e-mail
+    let enviarEmail = false;
+    if (m.notificar_email) {
+      if (sensibilidade === 'urgentes_apenas') {
+        enviarEmail = avaliacao.urgencia === 'alta';
+      } else {
+        enviarEmail = true;
+      }
+    }
+
+    if (enviarEmail) linhas.push({ processo_id: processoId, user_id: userId, canal: 'email', status: 'pendente', conteudo });
+    if (enviarWhatsapp) linhas.push({ processo_id: processoId, user_id: userId, canal: 'whatsapp', status: 'pendente', conteudo });
   }
 
   if (notificacoes.length > 0) {
