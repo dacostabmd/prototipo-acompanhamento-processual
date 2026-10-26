@@ -4,7 +4,7 @@ import { LayoutDashboard, Search, Sparkles, Zap } from 'lucide-react';
 import ParticulasOuro from './ParticulasOuro';
 import styles from './TechTieHero.module.css';
 
-const MARCA = '/techtie-mark-512.png';
+const MARCA = '/jusconsulta-mark.png';
 
 const DIFERENCIAIS = [
   { icon: Search, texto: 'Busca unificada em tribunais estaduais, federais e na base nacional do CNJ.' },

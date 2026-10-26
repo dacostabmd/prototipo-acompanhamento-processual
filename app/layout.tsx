@@ -1,14 +1,21 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter_Tight, Outfit } from 'next/font/google';
 import { ColorSchemeScript } from '@mantine/core';
 import '@mantine/core/styles.css';
 import './globals.css';
 import Providers from '@/components/Providers';
 
-const inter = Inter({
+// Briefing JusConsulta: Outfit em títulos/logotipo, Inter Tight em interface e texto corrido
+const interTight = Inter_Tight({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
-  variable: '--font-inter',
+  weight: ['400', '500', '600'],
+  variable: '--font-inter-tight',
+  display: 'swap'
+});
+const outfit = Outfit({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-outfit',
   display: 'swap'
 });
 
@@ -30,13 +37,13 @@ export const metadata: Metadata = {
     images: [{ url: '/techtie-og.png', width: 1200, height: 630, alt: 'JusConsulta' }]
   },
   twitter: { card: 'summary_large_image', title: 'JusConsulta', description: DESCRIPTION, images: ['/techtie-og.png'] },
-  icons: { icon: '/favicon.svg' }
+  icons: { icon: '/jusconsulta-mark.png', apple: '/jusconsulta-mark.png' }
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#1c1d21'
+  themeColor: '#0B1730'
 };
 
 const jsonLd = {
@@ -44,17 +51,17 @@ const jsonLd = {
   '@type': 'Organization',
   name: 'JusConsulta',
   url: SITE_URL,
-  logo: `${SITE_URL}/techtie-logo-horizontal-gold.svg`
+  logo: `${SITE_URL}/jusconsulta-mark.png`
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={inter.variable} suppressHydrationWarning>
+    <html lang="pt-BR" className={`${interTight.variable} ${outfit.variable}`} suppressHydrationWarning>
       <head>
         <ColorSchemeScript defaultColorScheme="light" />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </head>
-      <body className={inter.className} style={{ fontFamily: 'var(--font-inter), Inter, sans-serif' }}>
+      <body className={interTight.className} style={{ fontFamily: 'var(--font-inter-tight), "Inter Tight", sans-serif' }}>
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -2,15 +2,17 @@
 
 import { authFetch } from '@/lib/authFetch';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, TextInput } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { formatChatMessageHtml, formatDateLabel } from '@/lib/format';
 import type { CaseData, LegalProcess } from '@/lib/mockProcesses';
-import { Bell, BellRing, Download, Maximize2, RefreshCw, Search, Send, X } from 'lucide-react';
+import { Bell, BellRing, Download, Maximize2, MessageCircle, RefreshCw, Search, Send, Smartphone, X } from 'lucide-react';
 import AiSummaryLoadingBar from './AiSummaryLoadingBar';
 
-const GOLD = '#e8d5b0';
+const GOLD = '#1E7CF2';
 const GOLD_SOFT = 'rgba(214,178,110,0.12)';
 const ORANGE = '#e0a052';
-const BLUE = '#7aa7d9';
+const BLUE = '#3FA0FF';
 const TEXT = '#ffffff';
 const MUTED = 'rgba(229,231,235,0.7)';
 const BORDER = 'rgba(255,255,255,0.12)';
@@ -156,6 +158,7 @@ interface ProcessResultViewProps {
 export default function ProcessResultView({
   fullName,
   cpf,
+  phone,
   caseData,
   tribunaisConsultados,
   fontes = [],
@@ -166,12 +169,33 @@ export default function ProcessResultView({
   aiModel = 'claude-haiku-4-5',
   chatTone = 'Acolhedor'
 }: ProcessResultViewProps) {
-  const [monitorados, setMonitorados] = useState<Set<string>>(new Set());
+  const [monitorados, setMonitorados] = useState<Map<string, { id: string; whatsapp: boolean; email: boolean }>>(new Map());
+  const [salvandoMonitoramento, setSalvandoMonitoramento] = useState(false);
+  const [modalTelefoneAberto, setModalTelefoneAberto] = useState(false);
+  const [telefoneInput, setTelefoneInput] = useState(phone || '');
+  const [telefoneSalvo, setTelefoneSalvo] = useState(false);
+  const [testandoWhatsapp, setTestandoWhatsapp] = useState(false);
   const [processoSelecionadoIdx, setProcessoSelecionadoIdx] = useState(0);
   const [movimentacoesAbertas, setMovimentacoesAbertas] = useState(false);
   const [buscaFeitaEm] = useState(() =>
     new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   );
+
+  useEffect(() => {
+    authFetch('/api/monitoramento')
+      .then(res => (res.ok ? res.json() : null))
+      .then(d => {
+        if (d?.processos) {
+          const map = new Map<string, { id: string; whatsapp: boolean; email: boolean }>();
+          for (const p of d.processos) {
+            map.set(p.numeroCnj, { id: p.processoId, whatsapp: p.notificarWhatsapp, email: p.notificarEmail });
+          }
+          setMonitorados(map);
+          setTelefoneSalvo(Boolean(d.telefoneValido));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -324,6 +348,141 @@ export default function ProcessResultView({
   const reu = separarAdvogado(selP?.reu || selP?.parteContraria);
   const glossario = selP ? GLOSSARIO.filter(g => g.regex.test(textoDoProcesso(selP))).slice(0, 5) : [];
   const monitorado = selP ? monitorados.has(selP.numero) : false;
+
+  const executarAtivacao = async (comWhatsapp: boolean, tel?: string) => {
+    if (!selP) return;
+    setSalvandoMonitoramento(true);
+    try {
+      const res = await authFetch('/api/monitoramento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          numeroCnj: selP.numero,
+          tribunal: selP.tribunal,
+          classe: selP.tipo,
+          assunto: selP.assunto,
+          parteAutora: autor.pessoas.join(', '),
+          parteRe: reu.pessoas.join(', '),
+          valorCausa: selP.valorCausa,
+          notificarWhatsapp: comWhatsapp,
+          notificarEmail: true,
+          telefone: tel,
+          movimentos: selP.movimentos,
+          resumoIa: aiSummary
+            ? {
+                resumo: aiSummary.slice(0, 350),
+                significado: sel.fase !== undefined && FASES[sel.fase] ? FASES[sel.fase].desc : 'Em andamento',
+                proximoPasso: proximoPasso(sel.fase, sel.status),
+                urgencia: 'media'
+              }
+            : undefined
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (data.codigo === 'sem_telefone') {
+          setModalTelefoneAberto(true);
+          return;
+        }
+        throw new Error(data.error || 'Falha ao ativar acompanhamento.');
+      }
+
+      if (tel) setTelefoneSalvo(true);
+      setMonitorados(prev => {
+        const m = new Map(prev);
+        m.set(selP.numero, {
+          id: data.processoId,
+          whatsapp: Boolean(data.notificarWhatsapp),
+          email: Boolean(data.notificarEmail)
+        });
+        return m;
+      });
+
+      notifications.show({
+        title: 'Acompanhamento ativado!',
+        message: comWhatsapp
+          ? 'Você receberá atualizações traduzidas por IA no seu WhatsApp.'
+          : 'Acompanhamento ativado com sucesso para este processo.',
+        color: 'green',
+        autoClose: 5000
+      });
+    } catch (err: unknown) {
+      notifications.show({
+        title: 'Erro ao ativar acompanhamento',
+        message: err instanceof Error ? err.message : 'Não foi possível salvar.',
+        color: 'red'
+      });
+    } finally {
+      setSalvandoMonitoramento(false);
+    }
+  };
+
+  const toggleMonitoramento = async (ativarWhatsApp: boolean = true) => {
+    if (!selP) return;
+    const jaMonitorado = monitorados.has(selP.numero);
+
+    if (jaMonitorado) {
+      setSalvandoMonitoramento(true);
+      try {
+        const res = await authFetch('/api/monitoramento', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numeroCnj: selP.numero })
+        });
+        if (res.ok) {
+          setMonitorados(prev => {
+            const m = new Map(prev);
+            m.delete(selP.numero);
+            return m;
+          });
+          notifications.show({
+            title: 'Acompanhamento desativado',
+            message: `O processo ${selP.numero} não será mais acompanhado.`,
+            color: 'gray'
+          });
+        }
+      } finally {
+        setSalvandoMonitoramento(false);
+      }
+      return;
+    }
+
+    if (ativarWhatsApp && !telefoneSalvo && !phone) {
+      setModalTelefoneAberto(true);
+      return;
+    }
+
+    await executarAtivacao(ativarWhatsApp, phone || undefined);
+  };
+
+  const testarEnvioWhatsApp = async (procId: string) => {
+    setTestandoWhatsapp(true);
+    try {
+      const res = await authFetch('/api/whatsapp/testar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ processoId: procId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Falha no envio de teste');
+      notifications.show({
+        title: 'Alerta enviado!',
+        message: 'Resumo com IA gerado pelo Agente e enviado ao seu WhatsApp.',
+        color: 'green',
+        autoClose: 5000
+      });
+    } catch (err: unknown) {
+      notifications.show({
+        title: 'Falha ao enviar',
+        message: err instanceof Error ? err.message : 'Verifique se o celular está salvo no perfil.',
+        color: 'red'
+      });
+    } finally {
+      setTestandoWhatsapp(false);
+    }
+  };
 
   return (
     <div className="prv-root" style={{ width: '100%', maxWidth: 1200, margin: '0 auto 48px', animation: 'bf-fadein 0.6s ease both', textAlign: 'left' }}>
@@ -483,19 +642,141 @@ export default function ProcessResultView({
                 </div>
                 <button
                   type="button"
-                  className={`prv-btn bf-btn-sec prv-no-print${monitorado ? ' prv-btn-ativo' : ''}`}
-                  onClick={() =>
-                    setMonitorados(prev => {
-                      const novo = new Set(prev);
-                      if (novo.has(selP.numero)) novo.delete(selP.numero);
-                      else novo.add(selP.numero);
-                      return novo;
-                    })
-                  }
+                  disabled={salvandoMonitoramento}
+                  className={`prv-btn prv-no-print ${monitorado ? 'bf-btn-sec prv-btn-ativo' : 'prv-btn-gold bf-btn-ouro'}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    borderColor: monitorado ? 'rgba(37, 211, 102, 0.4)' : undefined,
+                    color: monitorado ? '#25d366' : undefined
+                  }}
+                  onClick={() => toggleMonitoramento(true)}
                 >
-                  {monitorado ? <BellRing size={14} /> : <Bell size={14} />}
-                  {monitorado ? 'Avisaremos quando andar' : 'Avisar quando andar'}
+                  {monitorado ? <BellRing size={14} /> : <MessageCircle size={14} />}
+                  <span>
+                    {salvandoMonitoramento
+                      ? 'Salvando...'
+                      : monitorado
+                      ? 'Acompanhamento Ativo'
+                      : 'Acompanhar no WhatsApp'}
+                  </span>
                 </button>
+              </div>
+
+              {/* Card de Acompanhamento WhatsApp e Copiloto IA */}
+              <div
+                style={{
+                  marginTop: 14,
+                  borderRadius: 16,
+                  padding: 14,
+                  background: monitorado
+                    ? 'linear-gradient(135deg, rgba(37, 211, 102, 0.1) 0%, rgba(20, 20, 22, 0.6) 100%)'
+                    : 'linear-gradient(135deg, rgba(37, 211, 102, 0.06) 0%, rgba(30, 124, 242, 0.05) 100%)',
+                  border: monitorado ? '1px solid rgba(37, 211, 102, 0.35)' : '1px solid rgba(255, 255, 255, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 260 }}>
+                  <div
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 10,
+                      background: 'rgba(37, 211, 102, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#25d366',
+                      flexShrink: 0
+                    }}
+                  >
+                    <MessageCircle size={20} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>
+                        Acompanhamento via WhatsApp
+                      </span>
+                      {monitorado ? (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 600,
+                            background: 'rgba(37, 211, 102, 0.2)',
+                            color: '#25d366',
+                            padding: '1.5px 7px',
+                            borderRadius: 10
+                          }}
+                        >
+                          Ativo
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 600,
+                            background: 'rgba(232, 213, 176, 0.15)',
+                            color: '#f6e7cc',
+                            padding: '1.5px 7px',
+                            borderRadius: 10
+                          }}
+                        >
+                          Copiloto 24h
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>
+                      {monitorado
+                        ? 'Você receberá alertas e resumos por IA no seu WhatsApp sempre que houver novidades.'
+                        : 'Receba avisos instantâneos com tradução por IA a cada andamento deste processo.'}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  {monitorado ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={testandoWhatsapp}
+                        onClick={() => {
+                          const dadosProc = monitorados.get(selP.numero);
+                          if (dadosProc?.id) testarEnvioWhatsApp(dadosProc.id);
+                        }}
+                        className="prv-btn bf-btn-sec"
+                        style={{ fontSize: 11.5, padding: '6px 11px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      >
+                        <Send size={12} className={testandoWhatsapp ? 'animate-pulse' : ''} />
+                        <span>{testandoWhatsapp ? 'Enviando...' : 'Testar WhatsApp'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={salvandoMonitoramento}
+                        onClick={() => toggleMonitoramento(false)}
+                        className="prv-btn bf-btn-sec"
+                        style={{ fontSize: 11.5, padding: '6px 9px', color: 'rgba(255,255,255,0.45)' }}
+                      >
+                        Desativar
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={salvandoMonitoramento}
+                      onClick={() => toggleMonitoramento(true)}
+                      className="prv-btn prv-btn-gold bf-btn-ouro"
+                      style={{ fontSize: 12, padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <MessageCircle size={14} />
+                      <span>{salvandoMonitoramento ? 'Ativando...' : 'Ativar no WhatsApp'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               <p style={{ margin: '14px 0', fontSize: 14, lineHeight: 1.7, color: TEXT }}>
@@ -660,6 +941,75 @@ export default function ProcessResultView({
           </div>
         </div>
       )}
+
+      <Modal
+        opened={modalTelefoneAberto}
+        onClose={() => setModalTelefoneAberto(false)}
+        title={
+          <span style={{ fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <MessageCircle size={18} className="text-[#25d366]" />
+            Ativar Acompanhamento no WhatsApp
+          </span>
+        }
+        centered
+        radius="lg"
+        styles={{
+          content: {
+            backgroundColor: '#15161a',
+            border: '1px solid rgba(255,255,255,0.15)',
+            color: '#fff'
+          },
+          header: {
+            backgroundColor: '#15161a',
+            borderBottom: '1px solid rgba(255,255,255,0.08)'
+          }
+        }}
+      >
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5, margin: '8px 0 16px' }}>
+          Informe seu número de celular com DDD. Nosso Copiloto Jurídico enviará resumos automáticos a cada movimentação relevante do processo.
+        </p>
+        <TextInput
+          label="Número do WhatsApp (com DDD)"
+          placeholder="Ex: 11 99999-9999"
+          value={telefoneInput}
+          onChange={e => setTelefoneInput(e.currentTarget.value)}
+          styles={{
+            input: {
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              color: '#fff',
+              borderColor: 'rgba(255, 255, 255, 0.15)'
+            },
+            label: {
+              color: 'rgba(255, 255, 255, 0.8)',
+              fontSize: 12,
+              marginBottom: 4
+            }
+          }}
+        />
+        <div style={{ marginTop: 22, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button
+            type="button"
+            onClick={() => setModalTelefoneAberto(false)}
+            className="prv-btn bf-btn-sec"
+            style={{ fontSize: 12, padding: '7px 12px' }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!telefoneInput.replace(/\D/g, '') || salvandoMonitoramento}
+            onClick={async () => {
+              setModalTelefoneAberto(false);
+              await executarAtivacao(true, telefoneInput);
+            }}
+            className="prv-btn prv-btn-gold bf-btn-ouro"
+            style={{ fontSize: 12, padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Smartphone size={13} />
+            <span>Confirmar e Ativar Alertas</span>
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -825,8 +1175,8 @@ const CSS = `
 .prv-mov:first-of-type { border-top: none; }
 .prv-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid ${BORDER}; color: ${TEXT}; padding: 9px 14px; font-size: 12.5px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: border-color .2s, background .2s; }
 .prv-btn:hover { border-color: ${GOLD}; }
-.prv-btn-gold { background: ${GOLD}; border-color: ${GOLD}; color: #15161a; }
-.prv-btn-gold:hover { background: #e8d5b0; }
+.prv-btn-gold { background: ${GOLD}; border-color: ${GOLD}; color: #FFFFFF; }
+.prv-btn-gold:hover { background: #1E7CF2; }
 .prv-btn-ativo { border-color: ${GOLD}; background: ${GOLD_SOFT}; color: ${GOLD}; }
 .prv-link { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; padding: 0; color: ${GOLD}; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .prv-link:disabled { cursor: not-allowed; opacity: .6; }
@@ -841,7 +1191,7 @@ const CSS = `
 .prv-input:focus { border-color: ${GOLD}; }
 .prv-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .prv-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 12px; }
-.prv-modal { background: #15161a; border: 1px solid ${BORDER}; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+.prv-modal { background: #060F28; border: 1px solid ${BORDER}; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
 .prv-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 18px; border-bottom: 1px solid ${BORDER}; font-size: 13px; font-weight: 700; color: ${TEXT}; flex-shrink: 0; }
 @media (max-width: 900px) {
   .prv-split { grid-template-columns: 1fr; }

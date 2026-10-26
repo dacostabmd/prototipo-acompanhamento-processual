@@ -152,7 +152,7 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
                   <span className="bf-nav-icon relative">
                     <Icon size={ICON} strokeWidth={1.8} />
                     {temNaoLidas && !expanded && (
-                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-400 ring-2 ring-[#15161a]" />
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-400 ring-2 ring-[#060F28]" />
                     )}
                   </span>
                   <span className="bf-nav-label flex items-center justify-between gap-2">
@@ -171,10 +171,10 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
 
         <div className="bf-side-foot">
           <div className="bf-side-logo">
-            <img src="/techtie-mark-512.png" alt="Techtie" width={32} height={32} />
+            <img src="/jusconsulta-mark.png" alt="JusConsulta" width={28} height={31} />
             <span className="bf-side-wordmark" aria-hidden>
-              <strong>TECHTIE</strong>
-              <small>Processos</small>
+              <strong>Jus</strong>
+              <span>Consulta</span>
             </span>
           </div>
 

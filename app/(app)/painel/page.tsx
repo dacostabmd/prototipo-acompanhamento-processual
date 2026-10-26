@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
-import { Search, Gavel } from 'lucide-react';
+import { Search, Gavel, MessageCircle } from 'lucide-react';
 import SpotlightCard from '@/components/SpotlightCard';
 
 export const metadata: Metadata = { title: 'Visão geral' };
 
 const cards = [
   { href: '/consulta', title: 'Consultar processos', text: 'Busque por CPF ou número CNJ e receba o resumo em linguagem jurídica.', icon: Search },
-  { href: '/processos', title: 'Meus processos', text: 'Acompanhe os processos que você monitora e suas últimas movimentações.', icon: Gavel }];
+  { href: '/processos', title: 'Meus processos', text: 'Acompanhe os processos que você monitora e suas últimas movimentações.', icon: Gavel },
+  { href: '/processos', title: 'Copiloto WhatsApp 24h', text: 'Alertas automáticos a cada andamento com IA e consultoria jurídica 24h no WhatsApp.', icon: MessageCircle }
+];
 
 export default function Painel() {
   return (

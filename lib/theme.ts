@@ -1,43 +1,43 @@
 import { createTheme, type MantineColorsTuple } from '@mantine/core';
 
-/** Paleta TechTie Flow: champagne (acento) sobre grafite. Fonte única para Mantine; os tokens CSS --tt-* em
-    app/globals.css espelham estes valores. */
+/** Paleta JusConsulta (briefing de identidade v1.0): azul sobre azul-noite. Fonte única para Mantine; os tokens
+    CSS --tt-* em app/globals.css espelham estes valores. */
 export const brand: MantineColorsTuple = [
-  '#fbf6ec',
-  '#f6ecd9',
-  '#f6e7cc',
-  '#efdfc2',
-  '#e8d5b0',
-  '#cdb68e',
-  '#b39b72',
-  '#8f7b58',
-  '#6b5b40',
-  '#463b29'
+  '#EDF2FA',
+  '#D4E5FC',
+  '#A9CBFA',
+  '#3FA0FF',
+  '#1E7CF2',
+  '#2A5BD7',
+  '#2249B8',
+  '#1B3FA8',
+  '#142F80',
+  '#0B1730'
 ];
 
 export const navy: MantineColorsTuple = [
-  '#f3f1ec',
-  '#d9d9dc',
-  '#b4b6bb',
-  '#9a9da5',
-  '#6b6e76',
-  '#4a4d55',
-  '#3a3e47',
-  '#2c2f35',
-  '#24272c',
-  '#1c1d21'
+  '#F4F7FC',
+  '#C9D6EE',
+  '#A9B9D9',
+  '#8EA0C4',
+  '#4A5878',
+  '#2B3957',
+  '#22345E',
+  '#122552',
+  '#0B1730',
+  '#060F28'
 ];
 
 export const theme = createTheme({
-  fontFamily: 'var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  headings: { fontFamily: 'var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+  fontFamily: 'var(--font-inter-tight), "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  headings: { fontFamily: 'var(--font-outfit), Outfit, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontWeight: '600' },
   colors: { brand, navy },
   primaryColor: 'brand',
   primaryShade: 4,
-  // champagne é claro: texto escuro automático em botões/badges preenchidos
+  // azul elétrico: texto branco em botões/badges preenchidos
   autoContrast: true,
-  luminanceThreshold: 0.45,
+  luminanceThreshold: 0.5,
   defaultRadius: 'md',
-  black: '#15161a',
+  black: '#060F28',
   cursorType: 'pointer'
 });

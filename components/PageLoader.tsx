@@ -33,7 +33,7 @@ export default function PageLoader({ label = 'Carregando…' }: { label?: string
               width: 8,
               height: 8,
               borderRadius: '50%',
-              background: '#e8d5b0',
+              background: '#1E7CF2',
               display: 'inline-block'
             }}
           />

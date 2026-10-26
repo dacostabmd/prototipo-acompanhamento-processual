@@ -4,7 +4,7 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 
 @theme {
-  --font-sans: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: var(--font-inter-tight), 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* Tokens --tt-* (definidos em :root, mais abaixo) expostos como utilitários: bg-tt-surface, text-tt-champagne-300, border-tt-line... */
@@ -27,20 +27,27 @@
 }
 
 :root {
-  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-inter-tight: 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-inter-tight), 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 * {
   box-sizing: border-box;
 }
 
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-outfit), 'Outfit', sans-serif;
+}
+
 html,
 body {
   margin: 0;
-  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: #1c1d21;
-  background: radial-gradient(ellipse 120% 80% at 50% -10%, #24272c 0%, #1c1d21 70%);
+  font-family: var(--font-inter-tight), 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #0B1730;
+  background: radial-gradient(ellipse 120% 80% at 50% -10%, #122552 0%, #0B1730 70%);
   color: #ffffff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -49,12 +56,12 @@ body {
 input,
 textarea,
 select {
-  font-family: var(--font-inter), 'Inter', sans-serif;
+  font-family: var(--font-inter-tight), 'Inter Tight', sans-serif;
 }
 
 @layer base {
   button {
-    font-family: var(--font-inter), 'Inter', sans-serif;
+    font-family: var(--font-inter-tight), 'Inter Tight', sans-serif;
     background-color: transparent;
     background-image: none;
     border: none;
@@ -71,16 +78,16 @@ select {
 }
 
 ::placeholder {
-  font-family: var(--font-inter), 'Inter', sans-serif;
-  color: #9a9da5;
+  font-family: var(--font-inter-tight), 'Inter Tight', sans-serif;
+  color: #C9D6EE;
 }
 
 a {
-  color: #5f5f5f;
+  color: #4A5878;
 }
 
 a:hover {
-  color: #3d3d3d;
+  color: #2B3957;
 }
 
 @keyframes bf-blink {
@@ -134,7 +141,7 @@ a:hover {
 }
 .bf-btn-ouro:not(:disabled):hover,
 .bf-btn-ouro:not(:disabled):focus-visible {
-  color: #8f7b58 !important;
+  color: #1B3FA8 !important;
 }
 @media (prefers-reduced-motion: reduce) {
   .bf-btn-ouro::before {
@@ -154,7 +161,7 @@ a:hover {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #e8d5b0 0%, #cdb68e 100%);
+  background: linear-gradient(135deg, #1E7CF2 0%, #3FA0FF 100%);
   transform: scaleX(0);
   transform-origin: left center;
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -166,7 +173,7 @@ a:hover {
 }
 .bf-btn-sec:not(:disabled):hover,
 .bf-btn-sec:not(:disabled):focus-visible {
-  color: #1c1d21 !important;
+  color: #0B1730 !important;
   border-color: transparent !important;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -182,7 +189,7 @@ a:hover {
   box-sizing: border-box;
   font-family: inherit;
   font-size: 15px;
-  color: #f3f1ec;
+  color: #FFFFFF;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
@@ -197,9 +204,9 @@ a:hover {
   border-color: rgba(255, 255, 255, 0.28);
 }
 .bf-input:focus {
-  border-color: #e8d5b0;
+  border-color: #1E7CF2;
   background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 0 3px rgba(232, 213, 176, 0.18);
+  box-shadow: 0 0 0 3px rgba(30, 124, 242, 0.18);
 }
 .bf-input[data-estado='ok'] {
   border-color: rgba(143, 185, 154, 0.55);
@@ -223,7 +230,7 @@ select.bf-input {
   background-position: right 14px center;
 }
 select.bf-input option {
-  background: #24272c;
+  background: #122552;
   color: #ffffff;
 }
 
@@ -403,7 +410,7 @@ select.bf-input option {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #15161a;
+  background: #060F28;
 }
 
 .bf-auth-right {
@@ -411,7 +418,7 @@ select.bf-input option {
   align-items: center;
   justify-content: center;
   padding: 32px clamp(20px, 4vw, 56px);
-  background: #f3f1ec;
+  background: #FFFFFF;
 }
 
 @media (max-width: 860px) {
@@ -425,17 +432,17 @@ select.bf-input option {
 }
 
 .bf-auth-right {
-  background: linear-gradient(160deg, #ececea 0%, #f7f7f6 100%);
+  background: linear-gradient(160deg, #D5DEEE 0%, #EDF2FA 100%);
 }
 
 .bf-auth-card {
   width: 100%;
   max-width: 520px;
-  background: #f3f1ec;
+  background: #FFFFFF;
   border-radius: 28px;
   padding: clamp(28px, 4vw, 52px);
   box-shadow: 0 24px 60px -12px rgba(61, 61, 61, 0.18), 0 2px 6px rgba(35, 35, 35, 0.04);
-  border: 1px solid #ececea;
+  border: 1px solid #D5DEEE;
 }
 
 /* Inputs do cartão claro de login/redefinição. Escopados em .bf-auth-card: o .bf-input global é glass
@@ -443,26 +450,26 @@ select.bf-input option {
 .bf-auth-card .bf-input {
   width: 100%;
   padding: 15px 18px;
-  border: 1.5px solid #d4d4d2;
-  background: #f7f7f6;
+  border: 1.5px solid #D5DEEE;
+  background: #EDF2FA;
   border-radius: 14px;
   font-size: 15px;
-  color: #15161a;
+  color: #060F28;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
 .bf-auth-card .bf-input::placeholder {
-  color: #9a9a98;
+  color: #8EA0C4;
 }
 
 .bf-auth-card .bf-input:hover:not(:disabled) {
-  border-color: #b8b8b6;
+  border-color: #D5DEEE;
 }
 
 .bf-auth-card .bf-input:focus {
-  border-color: #5f5f5f;
-  background: #f3f1ec;
+  border-color: #4A5878;
+  background: #FFFFFF;
   box-shadow: 0 0 0 4px rgba(95, 95, 95, 0.14);
 }
 
@@ -482,20 +489,20 @@ select.bf-input option {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: #f3f1ec;
-  border: 1.5px solid #d4d4d2;
-  color: #15161a;
+  background: #FFFFFF;
+  border: 1.5px solid #D5DEEE;
+  color: #060F28;
 }
 
 .bf-btn-google:hover {
-  background: #f7f7f6;
+  background: #EDF2FA;
   box-shadow: 0 4px 14px rgba(35, 35, 35, 0.08);
 }
 
 .bf-btn-primary {
   border: none;
-  color: #f3f1ec;
-  background: linear-gradient(135deg, #5f5f5f, #3d3d3d);
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #4A5878, #2B3957);
   box-shadow: 0 10px 24px -8px rgba(95, 95, 95, 0.6);
 }
 
@@ -514,7 +521,7 @@ select.bf-input option {
 .bf-auth {
   position: relative;
   overflow: hidden;
-  background: #15161a;
+  background: #060F28;
 }
 .bf-auth .bf-auth-left {
   position: static;
@@ -532,12 +539,12 @@ select.bf-input option {
   -webkit-backdrop-filter: blur(22px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  color: #f3f1ec;
+  color: #FFFFFF;
 }
 .bf-auth .bf-auth-card .bf-input {
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.05);
-  color: #f3f1ec;
+  color: #FFFFFF;
 }
 .bf-auth .bf-auth-card .bf-input::placeholder {
   color: rgba(243, 241, 236, 0.4);
@@ -546,24 +553,24 @@ select.bf-input option {
   border-color: rgba(255, 255, 255, 0.3);
 }
 .bf-auth .bf-auth-card .bf-input:focus {
-  border-color: #e8d5b0;
+  border-color: #1E7CF2;
   background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 4px rgba(232, 213, 176, 0.18);
+  box-shadow: 0 0 0 4px rgba(30, 124, 242, 0.18);
 }
 .bf-auth .bf-btn-google {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #f3f1ec;
+  color: #FFFFFF;
 }
 .bf-auth .bf-btn-google:hover {
   background: rgba(255, 255, 255, 0.1);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 .bf-auth .bf-btn-primary {
-  color: #1c1d21;
-  background: linear-gradient(135deg, #e8d5b0 0%, #cdb68e 100%);
-  border: 1px solid rgba(246, 231, 204, 0.4);
-  box-shadow: 0 10px 24px -8px rgba(205, 182, 142, 0.55);
+  color: #0B1730;
+  background: linear-gradient(135deg, #1E7CF2 0%, #3FA0FF 100%);
+  border: 1px solid rgba(201, 214, 238, 0.4);
+  box-shadow: 0 10px 24px -8px rgba(63, 160, 255, 0.55);
   transition: transform 0.1s, box-shadow 0.15s, color 0.35s ease, border-color 0.35s ease;
 }
 
@@ -572,37 +579,37 @@ select.bf-input option {
    Design tokens da marca (espelham lib/theme.ts)
    ============================================================ */
 :root {
-  /* Paleta TechTie Flow — fonte única da identidade visual (documentada no artifact "TechTie Identidade Visual").
-     Grafite em 4 níveis de profundidade + champagne como único acento. */
-  --tt-ink: #15161a; /* sidebar, rodapés, fundo mais profundo */
-  --tt-base: #1c1d21; /* fundo da aplicação */
-  --tt-surface: #24272c; /* cards */
-  --tt-raised: #2c2f35; /* hover de card, popovers */
-  --tt-active: #3a3e47; /* item de navegação ativo */
-  --tt-line: #33363c; /* bordas */
-  --tt-text: #f3f1ec;
-  --tt-text-2: #9a9da5;
-  --tt-text-3: #6b6e76;
-  --tt-champagne-100: #f6e7cc; /* destaque em texto (nome, números) */
-  --tt-champagne-300: #e8d5b0; /* acento principal: botão primário, badges */
-  --tt-champagne-500: #cdb68e;
-  --tt-champagne-700: #8f7b58; /* acento sobre fundo claro */
-  --tt-success: #8fb99a;
+  /* Paleta JusConsulta (briefing de identidade v1.0): azul-noite em 4 níveis de profundidade + azul elétrico como acento.
+     Os nomes --tt-champagne-* foram mantidos por compatibilidade; hoje representam a escala de azul da marca. */
+  --tt-ink: #060F28; /* sidebar, rodapés, fundo mais profundo */
+  --tt-base: #0B1730; /* fundo da aplicação */
+  --tt-surface: #122552; /* cards */
+  --tt-raised: #19305F; /* hover de card, popovers */
+  --tt-active: #1F3A7A; /* item de navegação ativo */
+  --tt-line: #22345E; /* bordas */
+  --tt-text: #FFFFFF;
+  --tt-text-2: #C9D6EE;
+  --tt-text-3: #8EA0C4;
+  --tt-champagne-100: #C9D6EE; /* Névoa 300: destaque em texto (nome, números) */
+  --tt-champagne-300: #1E7CF2; /* Azul Elétrico 400: acento principal, botão primário, badges */
+  --tt-champagne-500: #3FA0FF; /* Azul Claro 300: ícones e brilho no escuro */
+  --tt-champagne-700: #1B3FA8; /* Azul Profundo 600: acento sobre fundo claro */
+  --tt-success: #12A37A;
   --tt-danger: #e08a8a;
 
-  --bf-navy-950: #1c1d21;
-  --bf-navy-900: #24272c;
-  --bf-navy-800: #2c2f35;
-  --bf-blue-700: #8f7b58;
-  --bf-blue-600: #cdb68e;
-  --bf-blue-500: #e8d5b0;
-  --bf-surface: #f7f7f6;
+  --bf-navy-950: #0B1730;
+  --bf-navy-900: #122552;
+  --bf-navy-800: #19305F;
+  --bf-blue-700: #1B3FA8;
+  --bf-blue-600: #3FA0FF;
+  --bf-blue-500: #1E7CF2;
+  --bf-surface: #EDF2FA;
   --bf-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* Tema dark/glass do shell autenticado (#1c1d21 Charcoal + White Glass Contrast) */
-  --bf-purple-950: #1c1d21;
-  --bf-purple-900: #24272c;
-  --bf-purple-800: #2c2f35;
+  /* Tema dark/glass do shell autenticado (#0B1730 Charcoal + White Glass Contrast) */
+  --bf-purple-950: #0B1730;
+  --bf-purple-900: #122552;
+  --bf-purple-800: #19305F;
   --bf-glass-bg: rgba(255, 255, 255, 0.05);
   --bf-glass-bg-strong: rgba(255, 255, 255, 0.08);
   --bf-glass-border: rgba(255, 255, 255, 0.12);
@@ -652,28 +659,24 @@ select.bf-input option {
 
 .bf-side-wordmark {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: baseline;
   max-width: 0;
   overflow: hidden;
   opacity: 0;
   white-space: nowrap;
+  font-family: var(--font-outfit), 'Outfit', sans-serif;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+  color: var(--tt-text);
   transition: max-width 260ms var(--bf-ease), opacity 180ms ease, margin 260ms var(--bf-ease);
 }
 
 .bf-side-wordmark strong {
-  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.22em;
-  color: var(--tt-text);
 }
 
-.bf-side-wordmark small {
-  font-size: 9.5px;
-  font-weight: 500;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--tt-text-2);
+.bf-side-wordmark span {
+  font-weight: 300;
 }
 
 .bf-side[data-expanded] .bf-side-logo {
@@ -934,17 +937,17 @@ select.bf-input option {
 }
 
 .mantine-AppShell-root {
-  background-color: #1c1d21 !important;
+  background-color: #0B1730 !important;
 }
 
 .mantine-AppShell-main {
-  background-color: #1c1d21 !important;
+  background-color: #0B1730 !important;
 }
 
 .bf-main.bf-main {
   position: relative;
-  background-color: #1c1d21;
-  background: radial-gradient(circle at 50% 0%, #24272c 0%, #1c1d21 70%);
+  background-color: #0B1730;
+  background: radial-gradient(circle at 50% 0%, #122552 0%, #0B1730 70%);
   color: var(--bf-text-primary);
   min-height: 100dvh;
 }
@@ -1020,7 +1023,7 @@ select.bf-input option {
 }
 
 .mantine-SegmentedControl-label {
-  color: #e6e4df !important;
+  color: #D5DEEE !important;
   font-size: 13px !important;
   font-weight: 500 !important;
   display: inline-flex !important;
@@ -1031,7 +1034,7 @@ select.bf-input option {
 }
 
 .mantine-SegmentedControl-label[data-active] {
-  color: #15161a !important;
+  color: #FFFFFF !important;
   font-weight: 700 !important;
 }
 
@@ -1042,7 +1045,7 @@ select.bf-input option {
 
 .mantine-SegmentedControl-indicator {
   background: linear-gradient(135deg, var(--bf-blue-500) 0%, var(--bf-blue-600) 100%) !important;
-  box-shadow: 0 2px 10px rgba(143, 123, 88, 0.3) !important;
+  box-shadow: 0 2px 10px rgba(27, 63, 168, 0.3) !important;
   border-radius: 6px !important;
 }
 
@@ -1073,7 +1076,7 @@ html[data-bf-zoom] .mantine-SegmentedControl-label[data-active]::before {
   z-index: -1 !important;
   border-radius: 6px !important;
   background: linear-gradient(135deg, var(--bf-blue-500) 0%, var(--bf-blue-600) 100%) !important;
-  box-shadow: 0 2px 10px rgba(143, 123, 88, 0.3) !important;
+  box-shadow: 0 2px 10px rgba(27, 63, 168, 0.3) !important;
 }
 
 /* Variante 50/50: cada aba ocupa metade da largura. O label global é inline-flex (encolhe ao conteúdo),
@@ -1257,17 +1260,17 @@ html[data-bf-zoom] .mantine-SegmentedControl-label[data-active]::before {
 }
 
 .mantine-Tabs-tab[data-active] {
-  background: rgba(232, 213, 176, 0.14) !important;
-  border-color: rgba(232, 213, 176, 0.3) rgba(232, 213, 176, 0.3) transparent rgba(232, 213, 176, 0.3) !important;
+  background: rgba(30, 124, 242, 0.14) !important;
+  border-color: rgba(30, 124, 242, 0.3) rgba(30, 124, 242, 0.3) transparent rgba(30, 124, 242, 0.3) !important;
   border-bottom: 2px solid var(--bf-blue-500) !important;
   color: #ffffff !important;
   font-weight: 600 !important;
   box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-  text-shadow: 0 0 10px rgba(232, 213, 176, 0.35) !important;
+  text-shadow: 0 0 10px rgba(30, 124, 242, 0.35) !important;
 }
 
 .mantine-Tabs-tab[data-active]:hover {
-  background: rgba(232, 213, 176, 0.2) !important;
+  background: rgba(30, 124, 242, 0.2) !important;
   color: #ffffff !important;
   border-bottom: 2px solid var(--bf-blue-500) !important;
 }
@@ -1285,7 +1288,7 @@ html[data-bf-zoom] .mantine-SegmentedControl-label[data-active]::before {
 
 .mantine-Pagination-control[data-active] {
   background: var(--bf-blue-600) !important;
-  color: #15161a !important;
+  color: #FFFFFF !important;
   font-weight: 700 !important;
 }
 

@@ -8,8 +8,8 @@ import { getSupabase } from '@/lib/supabase';
 import { cleanDigits, formatDocumento, isValidCpf, isValidCnpj } from '@/lib/format';
 
 // Cartão de vidro sobre o fundo escuro do login: texto claro e destaques no dourado da marca.
-const BLUE = '#e8d5b0';
-const TEXT = '#f3f1ec';
+const BLUE = '#1E7CF2';
+const TEXT = '#FFFFFF';
 const MUTED = 'rgba(243, 241, 236,0.65)';
 
 type Mode = 'login' | 'signup' | 'forgot';
@@ -22,7 +22,7 @@ const linkButton: CSSProperties = {
   background: 'none',
   border: 'none',
   padding: 0,
-  color: '#e8d5b0',
+  color: '#1E7CF2',
   textDecoration: 'underline',
   fontWeight: 600,
   cursor: 'pointer',

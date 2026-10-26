@@ -77,15 +77,15 @@ export default function UserChip() {
               alignItems: 'center',
               gap: 3,
               borderRadius: 9999,
-              border: '1px solid rgba(232, 213, 176, 0.4)',
-              background: 'rgba(232, 213, 176, 0.15)',
+              border: '1px solid rgba(30, 124, 242, 0.4)',
+              background: 'rgba(30, 124, 242, 0.15)',
               padding: '1px 6px',
               fontSize: '10px',
               fontWeight: 700,
-              color: '#f6e7cc'
+              color: '#C9D6EE'
             }}
           >
-            <Crown size={10} style={{ color: '#e8d5b0' }} />
+            <Crown size={10} style={{ color: '#1E7CF2' }} />
             PRO
           </span>
         )}

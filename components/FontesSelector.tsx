@@ -10,13 +10,13 @@ import { custoServico, custoTotal, formatarReais } from '@/lib/infosimplesPricin
 import { UFS, UFS_RAPIDAS, nomeDaUf, ufsDoAlias } from '@/lib/regioes';
 
 /* ── Tokens (mesma paleta dark/glass do ProcessTracker) ───────────────── */
-const BLUE = '#e8d5b0';
-const BLUE_LIGHT = '#f6e7cc';
+const BLUE = '#1E7CF2';
+const BLUE_LIGHT = '#C9D6EE';
 const BORDER = 'rgba(255,255,255,0.12)';
 const INPUT_BORDER = 'rgba(255,255,255,0.18)';
-const TEXT = '#f3f1ec';
+const TEXT = '#FFFFFF';
 const MUTED = 'rgba(243, 241, 236,0.65)';
-const GREEN = '#8fb99a';
+const GREEN = '#12A37A';
 
 export const IDS_TODOS_DATAJUD = FONTES_DATAJUD.map(f => f.id);
 
@@ -734,7 +734,7 @@ function CardProvedor({
         padding: '12px 14px',
         borderRadius: 4,
         border: `1px solid ${emFoco ? BLUE : INPUT_BORDER}`,
-        background: emFoco ? 'rgba(232, 213, 176,0.10)' : 'rgba(255,255,255,0.03)',
+        background: emFoco ? 'rgba(30, 124, 242,0.10)' : 'rgba(255,255,255,0.03)',
         cursor: 'pointer',
         opacity: desabilitado && !emFoco ? 0.6 : 1,
         display: 'flex',

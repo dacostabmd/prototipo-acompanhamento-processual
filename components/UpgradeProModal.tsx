@@ -101,8 +101,8 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
       withCloseButton={false}
       styles={{
         content: {
-          backgroundColor: '#15161a',
-          border: '1px solid rgba(232, 213, 176, 0.3)',
+          backgroundColor: '#060F28',
+          border: '1px solid rgba(30, 124, 242, 0.3)',
           borderRadius: '24px',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
         },
@@ -111,8 +111,8 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
     >
       <div className="relative">
         {/* Badge Superior */}
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-[#e8d5b0]/40 bg-[#e8d5b0]/10 px-3 py-1 text-xs font-semibold text-[#f6e7cc]">
-          <Crown size={14} className="text-[#e8d5b0]" />
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-3 py-1 text-xs font-semibold text-[#C9D6EE]">
+          <Crown size={14} className="text-[#1E7CF2]" />
           <span>JusConsulta Pro</span>
         </div>
 
@@ -121,7 +121,7 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
         </h2>
 
         {motivo ? (
-          <p className="mt-1 text-sm text-[#e8d5b0]">{motivo}</p>
+          <p className="mt-1 text-sm text-[#1E7CF2]">{motivo}</p>
         ) : (
           <p className="mt-1 text-sm text-white/60">
             Acompanhamento processual de alta fidelidade com inteligência artificial conversacional no WhatsApp.
@@ -137,7 +137,7 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
                 key={idx}
                 className="flex items-start gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-3 transition-colors hover:border-white/10"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#e8d5b0]/30 bg-[#e8d5b0]/10 text-[#e8d5b0]">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 text-[#1E7CF2]">
                   <Icon size={16} />
                 </div>
                 <div className="min-w-0">
@@ -162,7 +162,7 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
             type="button"
             disabled={ativando}
             onClick={ativarPlanoPro}
-            className="mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e8d5b0] to-[#c7b288] py-3 text-sm font-bold text-[#15161a] shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#1E7CF2] to-[#c7b288] py-3 text-sm font-bold text-[#060F28] shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {ativando ? (
               <span className="inline-flex items-center gap-2">

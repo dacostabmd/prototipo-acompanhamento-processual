@@ -159,3 +159,12 @@ WHATSAPP_WEBHOOK_VERIFY_TOKEN=jusconsulta_whatsapp_secret
 # Agendadores (Crons)
 CRON_SECRET=...
 ```
+
+---
+
+## Identidade visual JusConsulta (briefing v1.0) — Implementada
+
+- Paleta azul-noite + azul eletrico aplicada nos tokens `--tt-*` (`app/globals.css`) e no tema Mantine (`lib/theme.ts`); hex champagne/grafite antigos substituidos em todo o codigo.
+- Tipografia: Outfit (titulos/logotipo) e Inter Tight (interface) via `next/font` em `app/layout.tsx`.
+- Simbolo em `public/jusconsulta-mark.png` (favicon, sidebar, hero). Logotipo "Jus" Bold + "Consulta" Light na sidebar.
+- Pendente: gerar imagem OG (`public/techtie-og.png` ainda e a antiga) e versao SVG do simbolo.

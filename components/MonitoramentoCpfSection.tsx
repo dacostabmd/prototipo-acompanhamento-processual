@@ -181,7 +181,7 @@ export function MonitoramentoCpfSection() {
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-white">
-              <Fingerprint size={19} strokeWidth={1.8} className="text-[#e8d5b0]" />
+              <Fingerprint size={19} strokeWidth={1.8} className="text-[#1E7CF2]" />
               Radar de Novos Processos (CPF / CNPJ)
             </h2>
             <p className="mt-1 text-xs text-white/50">
@@ -193,9 +193,9 @@ export function MonitoramentoCpfSection() {
             <button
               type="button"
               onClick={() => setModalProAberto(true)}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#e8d5b0]/40 bg-[#e8d5b0]/15 px-3 py-1 text-xs font-semibold text-[#f6e7cc] transition-all hover:bg-[#e8d5b0]/25"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-3 py-1 text-xs font-semibold text-[#C9D6EE] transition-all hover:bg-[#1E7CF2]/25"
             >
-              <Crown size={13} className="text-[#e8d5b0]" />
+              <Crown size={13} className="text-[#1E7CF2]" />
               Recurso Pro
             </button>
           )}
@@ -215,7 +215,7 @@ export function MonitoramentoCpfSection() {
                 onChange={handleDocChange}
                 placeholder="000.000.000-00 ou CNPJ"
                 maxLength={18}
-                className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2 text-sm text-white placeholder-white/30 outline-none transition focus:border-[#e8d5b0]/60 focus:ring-1 focus:ring-[#e8d5b0]/60"
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2 text-sm text-white placeholder-white/30 outline-none transition focus:border-[#1E7CF2]/60 focus:ring-1 focus:ring-[#1E7CF2]/60"
               />
             </div>
 
@@ -229,7 +229,7 @@ export function MonitoramentoCpfSection() {
                 value={nomeInput}
                 onChange={e => setNomeInput(e.target.value)}
                 placeholder="Ex.: Meu CPF, Holding, Cliente X"
-                className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2 text-sm text-white placeholder-white/30 outline-none transition focus:border-[#e8d5b0]/60 focus:ring-1 focus:ring-[#e8d5b0]/60"
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2 text-sm text-white placeholder-white/30 outline-none transition focus:border-[#1E7CF2]/60 focus:ring-1 focus:ring-[#1E7CF2]/60"
               />
             </div>
 
@@ -267,11 +267,11 @@ export function MonitoramentoCpfSection() {
               <button
                 type="submit"
                 disabled={salvando}
-                className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#e8d5b0]/50 bg-[#e8d5b0]/15 px-4 py-2 text-sm font-semibold text-[#f6e7cc] transition-all hover:bg-[#e8d5b0]/25 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-4 py-2 text-sm font-semibold text-[#C9D6EE] transition-all hover:bg-[#1E7CF2]/25 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {salvando ? (
                   <>
-                    <Loader2 size={16} className="animate-spin text-[#e8d5b0]" />
+                    <Loader2 size={16} className="animate-spin text-[#1E7CF2]" />
                     <span>Cadastrando...</span>
                   </>
                 ) : (
@@ -310,8 +310,8 @@ export function MonitoramentoCpfSection() {
                     >
                       <div>
                         <div className="flex items-start justify-between gap-2">
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e8d5b0]/30 bg-[#e8d5b0]/10 px-2 py-0.5 text-[11px] font-semibold text-[#f6e7cc]">
-                            <ShieldCheck size={12} className="text-[#e8d5b0]" />
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2 py-0.5 text-[11px] font-semibold text-[#C9D6EE]">
+                            <ShieldCheck size={12} className="text-[#1E7CF2]" />
                             {doc.tipo.toUpperCase()}
                           </span>
 
@@ -329,7 +329,7 @@ export function MonitoramentoCpfSection() {
                         {doc.nomeTitular && <p className="mt-0.5 text-xs text-white/60">{doc.nomeTitular}</p>}
 
                         <div className="mt-3 flex items-center gap-2 text-xs text-white/60">
-                          <Sparkles size={13} className="text-[#e8d5b0]" />
+                          <Sparkles size={13} className="text-[#1E7CF2]" />
                           <span>
                             {doc.totalProcessosConhecidos} processo{doc.totalProcessosConhecidos === 1 ? '' : 's'} mapeado{doc.totalProcessosConhecidos === 1 ? '' : 's'}
                           </span>

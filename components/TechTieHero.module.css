@@ -6,7 +6,7 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: radial-gradient(ellipse 85% 60% at 50% 32%, #2c2f35 0%, #1c1d21 55%, #15161a 100%);
+  background: radial-gradient(ellipse 85% 60% at 50% 32%, #19305F 0%, #0B1730 55%, #060F28 100%);
 }
 
 .brilho {
@@ -18,7 +18,7 @@
   transform: translate(-50%, -50%);
   border-radius: 50%;
   /* sem filter: blur — o gradiente já é suave, e um filtro animado é recalculado pela GPU a cada quadro */
-  background: radial-gradient(circle, rgba(232, 213, 176, 0.28) 0%, rgba(232, 213, 176, 0.08) 45%, transparent 70%);
+  background: radial-gradient(circle, rgba(30, 124, 242, 0.28) 0%, rgba(30, 124, 242, 0.08) 45%, transparent 70%);
   animation: pulsar 6s ease-in-out 1.2s infinite both;
 }
 
@@ -64,7 +64,7 @@
   display: block; /* sem o vão de linha do inline: a máscara do reflexo precisa da mesma caixa da imagem */
   height: clamp(170px, 30vh, 280px);
   width: auto;
-  filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 26px rgba(232, 213, 176, 0.18));
+  filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 26px rgba(30, 124, 242, 0.18));
   user-select: none;
   -webkit-user-drag: none;
 }
@@ -75,7 +75,7 @@
   width: 70%;
   aspect-ratio: 1;
   border-radius: 50%;
-  border: 1px solid rgba(232, 213, 176, 0.55);
+  border: 1px solid rgba(30, 124, 242, 0.55);
   opacity: 0;
   pointer-events: none;
   animation: onda 1.6s cubic-bezier(0.22, 1, 0.36, 1) 0.75s backwards; /* termina invisível, igual ao estado base */
@@ -87,8 +87,8 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  -webkit-mask: url('/techtie-mark-512.png') center / 100% 100% no-repeat;
-  mask: url('/techtie-mark-512.png') center / 100% 100% no-repeat;
+  -webkit-mask: url('/jusconsulta-mark.png') center / 100% 100% no-repeat;
+  mask: url('/jusconsulta-mark.png') center / 100% 100% no-repeat;
 }
 
 .reflexo {
@@ -106,7 +106,7 @@
 .copy {
   max-width: 540px;
   text-align: center;
-  color: #f3f1ec;
+  color: #FFFFFF;
 }
 
 .eyebrow {
@@ -115,7 +115,7 @@
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #d9c39b;
+  color: #4DA6FF;
   opacity: 0;
   animation: entrar 0.7s ease 1s forwards;
 }
@@ -170,9 +170,9 @@
   height: 28px;
   margin-top: -3px;
   border-radius: 8px;
-  color: #e8d5b0;
-  background: rgba(232, 213, 176, 0.12);
-  border: 1px solid rgba(232, 213, 176, 0.28);
+  color: #1E7CF2;
+  background: rgba(30, 124, 242, 0.12);
+  border: 1px solid rgba(30, 124, 242, 0.28);
 }
 
 /* blur só na entrada (uma vez); depois o filtro some e a marca fica estática na GPU */
@@ -253,7 +253,7 @@
    recentrado na metade esquerda, atrás do T. */
 @media (min-width: 861px) {
   .fundo {
-    background: radial-gradient(ellipse 60% 70% at 25% 32%, #2c2f35 0%, #1c1d21 55%, #15161a 100%);
+    background: radial-gradient(ellipse 60% 70% at 25% 32%, #19305F 0%, #0B1730 55%, #060F28 100%);
   }
   .brilho {
     left: 25%;

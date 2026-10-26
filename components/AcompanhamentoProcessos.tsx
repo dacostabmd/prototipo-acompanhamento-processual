@@ -24,6 +24,7 @@ import {
 import { authFetch } from '@/lib/authFetch';
 import { useSharedProfile } from '@/components/ProfileProvider';
 import { UpgradeProModal } from '@/components/UpgradeProModal';
+import { WhatsAppSimulatorModal } from './WhatsAppSimulatorModal';
 import type { ModoSensibilidade, ProcessoAcompanhado, RespostaMonitoramento, UrgenciaResumo, Notificacao } from '@/lib/types/monitoramento';
 
 const fmtData = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '—');
@@ -34,7 +35,7 @@ const fmtDataHora = (iso: string) =>
 
 const URGENCIA: Record<UrgenciaResumo, { rotulo: string; classe: string }> = {
   alta: { rotulo: 'Pode exigir ação rápida', classe: 'border-red-400/40 bg-red-400/10 text-red-200' },
-  media: { rotulo: 'Movimentação relevante', classe: 'border-[#e8d5b0]/40 bg-[#e8d5b0]/10 text-[#f6e7cc]' },
+  media: { rotulo: 'Movimentação relevante', classe: 'border-[#1E7CF2]/40 bg-[#1E7CF2]/10 text-[#C9D6EE]' },
   baixa: { rotulo: 'Rotina', classe: 'border-white/15 bg-white/5 text-white/60' }
 };
 
@@ -49,6 +50,7 @@ export function AcompanhamentoProcessos() {
   const [dados, setDados] = useState<RespostaMonitoramento | null>(null);
   const { profile } = useSharedProfile();
   const [modalProAberto, setModalProAberto] = useState(false);
+  const [modalSimulatorAberto, setModalSimulatorAberto] = useState(false);
   const [motivoPro, setMotivoPro] = useState<string | undefined>();
   const [erroCarga, setErroCarga] = useState(false);
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
@@ -219,17 +221,17 @@ export function AcompanhamentoProcessos() {
         <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-sm backdrop-blur-md">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-white">
-              {naoLidas > 0 ? <BellRing size={18} strokeWidth={1.8} className="text-[#e8d5b0]" /> : <Bell size={18} strokeWidth={1.8} className="text-white/50" />}
+              {naoLidas > 0 ? <BellRing size={18} strokeWidth={1.8} className="text-[#1E7CF2]" /> : <Bell size={18} strokeWidth={1.8} className="text-white/50" />}
               Alertas recentes
               {naoLidas > 0 && (
-                <span className="rounded-full bg-[#e8d5b0] px-2 py-0.5 text-xs font-semibold text-[#15161a]">{naoLidas} novo(s)</span>
+                <span className="rounded-full bg-[#1E7CF2] px-2 py-0.5 text-xs font-semibold text-[#060F28]">{naoLidas} novo(s)</span>
               )}
             </h2>
             {naoLidas > 0 && (
               <button
                 type="button"
                 onClick={marcarTodasComoLidas}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:border-[#e8d5b0]/50 hover:text-white"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:border-[#1E7CF2]/50 hover:text-white"
               >
                 <CheckCheck size={14} />
                 Marcar todos como lidos
@@ -240,7 +242,7 @@ export function AcompanhamentoProcessos() {
             {notificacoes.slice(0, 8).map(n => (
               <li
                 key={n.id}
-                className={`rounded-2xl border px-4 py-3 ${n.lida ? 'border-white/5 bg-white/[0.02]' : 'border-[#e8d5b0]/25 bg-[#e8d5b0]/[0.06]'}`}
+                className={`rounded-2xl border px-4 py-3 ${n.lida ? 'border-white/5 bg-white/[0.02]' : 'border-[#1E7CF2]/25 bg-[#1E7CF2]/[0.06]'}`}
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                   <p className={`text-sm font-medium ${n.lida ? 'text-white/70' : 'text-white'}`}>{n.titulo}</p>
@@ -257,7 +259,7 @@ export function AcompanhamentoProcessos() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-white">
-              <Sparkles size={18} strokeWidth={1.8} className="text-[#e8d5b0]" />
+              <Sparkles size={18} strokeWidth={1.8} className="text-[#1E7CF2]" />
               Acompanhamento
             </h2>
             <p className="mt-1 text-xs text-white/50">
@@ -265,10 +267,19 @@ export function AcompanhamentoProcessos() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setModalSimulatorAberto(true)}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#25d366]/40 bg-[#25d366]/10 px-3 py-1 text-xs font-semibold text-[#25d366] transition-all hover:bg-[#25d366]/20"
+            >
+              <MessageCircle size={13} />
+              <span>Simulador Copiloto WhatsApp</span>
+            </button>
+
             {profile.plano === 'pro' ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e8d5b0]/40 bg-[#e8d5b0]/10 px-3 py-1 text-xs font-semibold text-[#f6e7cc]">
-                <Crown size={13} className="text-[#e8d5b0]" />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-3 py-1 text-xs font-semibold text-[#C9D6EE]">
+                <Crown size={13} className="text-[#1E7CF2]" />
                 Plano Pro Ativo
               </span>
             ) : (
@@ -278,7 +289,7 @@ export function AcompanhamentoProcessos() {
                   setMotivoPro(undefined);
                   setModalProAberto(true);
                 }}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#e8d5b0]/40 bg-[#e8d5b0]/15 px-3 py-1 text-xs font-semibold text-[#f6e7cc] transition-all hover:bg-[#e8d5b0]/25"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-3 py-1 text-xs font-semibold text-[#C9D6EE] transition-all hover:bg-[#1E7CF2]/25"
               >
                 <Crown size={13} />
                 <span>Upgrade Pro</span>
@@ -292,7 +303,7 @@ export function AcompanhamentoProcessos() {
             <MessageCircle size={14} className="mt-px shrink-0 text-white/40" />
             <span>
               Para receber pelo WhatsApp, cadastre seu celular com DDD no{' '}
-              <Link href="/perfil" className="cursor-pointer font-medium text-[#e8d5b0] underline-offset-2 hover:underline">
+              <Link href="/perfil" className="cursor-pointer font-medium text-[#1E7CF2] underline-offset-2 hover:underline">
                 perfil
               </Link>
               .
@@ -302,7 +313,37 @@ export function AcompanhamentoProcessos() {
 
         {erroCarga && <p className="mt-4 text-sm text-white/60">Não foi possível carregar o acompanhamento agora.</p>}
         {!erroCarga && dados.processos.length === 0 && (
-          <p className="mt-4 text-sm text-white/60">Nenhum processo acompanhado ainda. Os processos que você consulta entram aqui automaticamente.</p>
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#25d366]/15 text-[#25d366]">
+              <MessageCircle size={24} />
+            </div>
+            <h3 className="mt-3 text-base font-semibold text-white">Nenhum processo acompanhado ainda</h3>
+            <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-white/60">
+              Ao pesquisar um processo na tela de busca ou consulta, você pode ativá-lo no WhatsApp com 1 clique.
+              Nosso Copiloto Jurídico traduz intimações e te avisa 24h por dia.
+            </p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  const res = await authFetch('/api/processos/seed-demo', { method: 'POST' });
+                  if (res.ok) window.location.reload();
+                }}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-4 py-2 text-xs font-semibold text-[#C9D6EE] transition-all hover:bg-[#1E7CF2]/25"
+              >
+                <Sparkles size={13} />
+                <span>Carregar Processos de Demonstração</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalSimulatorAberto(true)}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#25d366]/40 bg-[#25d366]/10 px-4 py-2 text-xs font-semibold text-[#25d366] transition-all hover:bg-[#25d366]/20"
+              >
+                <MessageCircle size={13} />
+                <span>Testar no Simulador WhatsApp</span>
+              </button>
+            </div>
+          </div>
         )}
 
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
@@ -337,7 +378,7 @@ export function AcompanhamentoProcessos() {
                   <p className="text-white/80">{p.resumo.resumo}</p>
                   {p.resumo.proximoPasso && (
                     <p className="text-white/60">
-                      <span className="font-medium text-[#e8d5b0]">Próximo passo: </span>
+                      <span className="font-medium text-[#1E7CF2]">Próximo passo: </span>
                       {p.resumo.proximoPasso}
                     </p>
                   )}
@@ -387,7 +428,7 @@ export function AcompanhamentoProcessos() {
                       type="button"
                       disabled={testandoWhatsapp[p.processoId]}
                       onClick={() => testarEnvioWhatsApp(p.processoId)}
-                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[#e8d5b0]/30 bg-[#e8d5b0]/10 px-2.5 py-1 text-xs font-medium text-[#f6e7cc] transition-colors hover:bg-[#e8d5b0]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2.5 py-1 text-xs font-medium text-[#C9D6EE] transition-colors hover:bg-[#1E7CF2]/20 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Send size={12} className={testandoWhatsapp[p.processoId] ? 'animate-pulse' : ''} />
                       {testandoWhatsapp[p.processoId] ? 'Enviando...' : 'Testar WhatsApp'}
@@ -399,7 +440,7 @@ export function AcompanhamentoProcessos() {
                   <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="inline-flex items-center gap-1.5 text-xs font-medium text-white/80">
-                        <SlidersHorizontal size={13} className="text-[#e8d5b0]" />
+                        <SlidersHorizontal size={13} className="text-[#1E7CF2]" />
                         Frequência de alertas
                       </span>
                       <span className="text-[11px] text-white/40">
@@ -416,12 +457,12 @@ export function AcompanhamentoProcessos() {
                         onClick={() => alterarSensibilidade(p, 'smart_digest')}
                         className={`inline-flex flex-col items-center justify-center gap-0.5 rounded-lg border py-1.5 px-2 text-center transition-all ${
                           p.sensibilidade === 'smart_digest'
-                            ? 'border-[#e8d5b0]/60 bg-[#e8d5b0]/15 text-[#f6e7cc] shadow-sm'
+                            ? 'border-[#1E7CF2]/60 bg-[#1E7CF2]/15 text-[#C9D6EE] shadow-sm'
                             : 'border-white/5 bg-white/[0.02] text-white/50 hover:border-white/15 hover:text-white/80'
                         }`}
                       >
                         <div className="inline-flex items-center gap-1 text-[11px] font-medium">
-                          <Sparkles size={11} className={p.sensibilidade === 'smart_digest' ? 'text-[#e8d5b0]' : 'text-white/40'} />
+                          <Sparkles size={11} className={p.sensibilidade === 'smart_digest' ? 'text-[#1E7CF2]' : 'text-white/40'} />
                           Smart Digest
                         </div>
                         <span className="text-[10px] text-white/40">Recomendado</span>
@@ -432,12 +473,12 @@ export function AcompanhamentoProcessos() {
                         onClick={() => alterarSensibilidade(p, 'todas')}
                         className={`inline-flex flex-col items-center justify-center gap-0.5 rounded-lg border py-1.5 px-2 text-center transition-all ${
                           p.sensibilidade === 'todas'
-                            ? 'border-[#e8d5b0]/60 bg-[#e8d5b0]/15 text-[#f6e7cc] shadow-sm'
+                            ? 'border-[#1E7CF2]/60 bg-[#1E7CF2]/15 text-[#C9D6EE] shadow-sm'
                             : 'border-white/5 bg-white/[0.02] text-white/50 hover:border-white/15 hover:text-white/80'
                         }`}
                       >
                         <div className="inline-flex items-center gap-1 text-[11px] font-medium">
-                          <Zap size={11} className={p.sensibilidade === 'todas' ? 'text-[#e8d5b0]' : 'text-white/40'} />
+                          <Zap size={11} className={p.sensibilidade === 'todas' ? 'text-[#1E7CF2]' : 'text-white/40'} />
                           Todas
                         </div>
                         <span className="text-[10px] text-white/40">Sem filtro</span>
@@ -448,12 +489,12 @@ export function AcompanhamentoProcessos() {
                         onClick={() => alterarSensibilidade(p, 'urgentes_apenas')}
                         className={`inline-flex flex-col items-center justify-center gap-0.5 rounded-lg border py-1.5 px-2 text-center transition-all ${
                           p.sensibilidade === 'urgentes_apenas'
-                            ? 'border-[#e8d5b0]/60 bg-[#e8d5b0]/15 text-[#f6e7cc] shadow-sm'
+                            ? 'border-[#1E7CF2]/60 bg-[#1E7CF2]/15 text-[#C9D6EE] shadow-sm'
                             : 'border-white/5 bg-white/[0.02] text-white/50 hover:border-white/15 hover:text-white/80'
                         }`}
                       >
                         <div className="inline-flex items-center gap-1 text-[11px] font-medium">
-                          <ShieldAlert size={11} className={p.sensibilidade === 'urgentes_apenas' ? 'text-[#e8d5b0]' : 'text-white/40'} />
+                          <ShieldAlert size={11} className={p.sensibilidade === 'urgentes_apenas' ? 'text-[#1E7CF2]' : 'text-white/40'} />
                           Urgências
                         </div>
                         <span className="text-[10px] text-white/40">Apenas risco</span>
@@ -471,7 +512,7 @@ export function AcompanhamentoProcessos() {
                     >
                       {erroCanal.mensagem}{' '}
                       {erroCanal.semTelefone && (
-                        <Link href="/perfil" className="cursor-pointer font-medium text-[#e8d5b0] underline underline-offset-2">
+                        <Link href="/perfil" className="cursor-pointer font-medium text-[#1E7CF2] underline underline-offset-2">
                           Ir para o perfil
                         </Link>
                       )}
@@ -488,6 +529,12 @@ export function AcompanhamentoProcessos() {
         opened={modalProAberto}
         onClose={() => setModalProAberto(false)}
         motivo={motivoPro}
+      />
+
+      <WhatsAppSimulatorModal
+        opened={modalSimulatorAberto}
+        onClose={() => setModalSimulatorAberto(false)}
+        processoIdPadrao={dados?.processos?.[0]?.processoId}
       />
     </>
   );

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 
-const TEXT = '#15161a';
-const MUTED = '#7a7a7a';
+const TEXT = '#060F28';
+const MUTED = '#4A5878';
 const MIN_SENHA = 8;
 
 const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', margin: '0 0 8px' };
@@ -19,7 +19,7 @@ const toggleBtn: CSSProperties = {
   border: 'none',
   padding: 6,
   cursor: 'pointer',
-  color: '#7a7a7a',
+  color: '#4A5878',
   display: 'flex'
 };
 

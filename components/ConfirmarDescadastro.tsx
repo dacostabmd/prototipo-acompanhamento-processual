@@ -38,11 +38,11 @@ export default function ConfirmarDescadastro({ token }: { token: string }) {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-[#15161a] px-4 py-10">
+    <main className="flex min-h-dvh items-center justify-center bg-[#060F28] px-4 py-10">
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-6 text-center shadow-sm backdrop-blur-md sm:p-8">
         {estado === 'concluido' ? (
           <>
-            <CircleCheck size={40} strokeWidth={1.6} className="mx-auto text-[#e8d5b0]" />
+            <CircleCheck size={40} strokeWidth={1.6} className="mx-auto text-[#1E7CF2]" />
             <h1 className="mt-4 text-xl font-semibold text-white">Pronto, avisos desligados</h1>
             <p className="mt-2 text-sm leading-relaxed text-white/60">
               Você não vai mais receber e-mails sobre {numeroCnj ? <strong className="text-white/80">{numeroCnj}</strong> : 'este processo'}. Os outros processos
@@ -59,7 +59,7 @@ export default function ConfirmarDescadastro({ token }: { token: string }) {
           </>
         ) : (
           <>
-            <BellOff size={40} strokeWidth={1.6} className="mx-auto text-[#e8d5b0]" />
+            <BellOff size={40} strokeWidth={1.6} className="mx-auto text-[#1E7CF2]" />
             <h1 className="mt-4 text-xl font-semibold text-white">Parar os avisos deste processo?</h1>
             <p className="mt-2 text-sm leading-relaxed text-white/60">
               Você deixa de receber e-mails quando este processo tiver movimentação. Os outros processos continuam como estão.
@@ -68,7 +68,7 @@ export default function ConfirmarDescadastro({ token }: { token: string }) {
               type="button"
               onClick={confirmar}
               disabled={estado === 'enviando'}
-              className="bf-btn-ouro mt-6 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#e8d5b0] px-5 py-3 text-sm font-semibold text-[#15161a] disabled:cursor-wait disabled:opacity-70"
+              className="bf-btn-ouro mt-6 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#1E7CF2] px-5 py-3 text-sm font-semibold text-[#060F28] disabled:cursor-wait disabled:opacity-70"
             >
               {estado === 'enviando' && <LoaderCircle size={16} className="animate-spin" />}
               Parar avisos por e-mail

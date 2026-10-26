@@ -149,8 +149,8 @@ export default function PlanosPage() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-8 sm:px-10 sm:py-12">
       <header className="text-center">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e8d5b0]/40 bg-[#e8d5b0]/10 px-3.5 py-1 text-xs font-semibold text-[#f6e7cc]">
-          <Sparkles size={13} className="text-[#e8d5b0]" />
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-3.5 py-1 text-xs font-semibold text-[#C9D6EE]">
+          <Sparkles size={13} className="text-[#1E7CF2]" />
           Planos Transparentes
         </span>
         <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
@@ -239,17 +239,17 @@ export default function PlanosPage() {
         <div
           className={`relative flex flex-col justify-between rounded-3xl border p-6 shadow-2xl backdrop-blur-xl sm:p-8 ${
             isPro
-              ? 'border-[#e8d5b0]/60 bg-gradient-to-b from-[#e8d5b0]/15 to-white/5 ring-1 ring-[#e8d5b0]/40'
-              : 'border-[#e8d5b0]/40 bg-gradient-to-b from-[#e8d5b0]/10 to-white/5 ring-1 ring-[#e8d5b0]/20'
+              ? 'border-[#1E7CF2]/60 bg-gradient-to-b from-[#1E7CF2]/15 to-white/5 ring-1 ring-[#1E7CF2]/40'
+              : 'border-[#1E7CF2]/40 bg-gradient-to-b from-[#1E7CF2]/10 to-white/5 ring-1 ring-[#1E7CF2]/20'
           }`}
         >
           <div>
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#e8d5b0]">
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#1E7CF2]">
                 <Crown size={15} />
                 Plano Pro
               </span>
-              <span className="rounded-full border border-[#e8d5b0]/50 bg-[#e8d5b0]/20 px-3 py-0.5 text-xs font-semibold text-[#f6e7cc]">
+              <span className="rounded-full border border-[#1E7CF2]/50 bg-[#1E7CF2]/20 px-3 py-0.5 text-xs font-semibold text-[#C9D6EE]">
                 {isPro ? 'Plano Ativo' : 'Mais Popular'}
               </span>
             </div>
@@ -258,43 +258,43 @@ export default function PlanosPage() {
               <span className="text-4xl font-bold tracking-tight text-white">R$ 79,90</span>
               <span className="text-sm text-white/50">/ mês</span>
             </div>
-            <p className="mt-2 text-xs text-[#f6e7cc]/80">Para clientes e advogados que exigem acompanhamento completo e sem ruído.</p>
+            <p className="mt-2 text-xs text-[#C9D6EE]/80">Para clientes e advogados que exigem acompanhamento completo e sem ruído.</p>
 
             <ul className="mt-6 space-y-3 text-sm text-white">
               <li className="flex items-center gap-2.5">
-                <Check size={16} className="shrink-0 text-[#e8d5b0]" />
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
                 <span className="font-medium text-white">Até 50 processos monitorados</span>
               </li>
               <li className="flex items-center gap-2.5">
-                <Check size={16} className="shrink-0 text-[#e8d5b0]" />
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
                 <span>
                   <strong className="text-white">WhatsApp Conversacional 24/7</strong>: tire dúvidas com o Agente Jurídico por mensagem
                 </span>
               </li>
               <li className="flex items-center gap-2.5">
-                <Check size={16} className="shrink-0 text-[#e8d5b0]" />
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
                 <span>
                   <strong className="text-white">Smart Digest Anti-Spam</strong>: urgências na hora e rotina consolidada às sextas
                 </span>
               </li>
               <li className="flex items-center gap-2.5">
-                <Check size={16} className="shrink-0 text-[#e8d5b0]" />
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
                 <span>
                   <strong className="text-white">Leitura Multimodal de Intimações</strong>: envie fotos/PDFs no WhatsApp para decifrar prazos CPC
                 </span>
               </li>
               <li className="flex items-center gap-2.5">
-                <Check size={16} className="shrink-0 text-[#e8d5b0]" />
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
                 <span>
                   <strong className="text-white">Radar de Novos Processos</strong>: alerta imediato de novas ações distribuídas no seu CPF/CNPJ
                 </span>
               </li>
               <li className="flex items-center gap-2.5">
-                <Check size={16} className="shrink-0 text-[#e8d5b0]" />
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
                 <span>Detecção proativa de bloqueios judiciais (Sisbajud)</span>
               </li>
               <li className="flex items-center gap-2.5">
-                <Check size={16} className="shrink-0 text-[#e8d5b0]" />
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
                 <span>Suporte prioritário da equipe</span>
               </li>
             </ul>
@@ -302,15 +302,15 @@ export default function PlanosPage() {
 
           <div className="mt-8 pt-4 border-t border-white/10">
             {isPro ? (
-              <div className="flex items-center justify-center gap-2 rounded-xl border border-[#e8d5b0]/40 bg-[#e8d5b0]/20 py-2.5 text-center text-sm font-semibold text-[#f6e7cc]">
-                <ShieldCheck size={16} className="text-[#e8d5b0]" />
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/40 bg-[#1E7CF2]/20 py-2.5 text-center text-sm font-semibold text-[#C9D6EE]">
+                <ShieldCheck size={16} className="text-[#1E7CF2]" />
                 Você já é assinante Pro
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => handleMudarPlano('pro')}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#e8d5b0]/80 bg-[#e8d5b0] py-3 text-center text-sm font-bold text-[#15161a] shadow-lg transition-all hover:bg-[#eddcb9]"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/80 bg-[#1E7CF2] py-3 text-center text-sm font-bold text-[#060F28] shadow-lg transition-all hover:bg-[#eddcb9]"
               >
                 <span>Fazer Upgrade para Pro</span>
                 <ArrowRight size={16} />
@@ -331,7 +331,7 @@ export default function PlanosPage() {
               <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-white/40">
                 <th className="pb-3 font-semibold">Recurso</th>
                 <th className="pb-3 text-center font-semibold">Gratuito</th>
-                <th className="pb-3 text-center font-semibold text-[#e8d5b0]">Pro</th>
+                <th className="pb-3 text-center font-semibold text-[#1E7CF2]">Pro</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -351,15 +351,15 @@ export default function PlanosPage() {
                       <span>{r.free}</span>
                     )}
                   </td>
-                  <td className="py-3.5 text-center text-[#f6e7cc]">
+                  <td className="py-3.5 text-center text-[#C9D6EE]">
                     {typeof r.pro === 'boolean' ? (
                       r.pro ? (
-                        <Check size={16} className="mx-auto text-[#e8d5b0]" />
+                        <Check size={16} className="mx-auto text-[#1E7CF2]" />
                       ) : (
                         <span className="text-white/20">—</span>
                       )
                     ) : (
-                      <span className="font-semibold text-[#e8d5b0]">{r.pro}</span>
+                      <span className="font-semibold text-[#1E7CF2]">{r.pro}</span>
                     )}
                   </td>
                 </tr>
@@ -372,7 +372,7 @@ export default function PlanosPage() {
       {/* FAQ */}
       <section className="mt-16">
         <h2 className="inline-flex items-center gap-2 text-xl font-bold text-white">
-          <HelpCircle size={20} className="text-[#e8d5b0]" />
+          <HelpCircle size={20} className="text-[#1E7CF2]" />
           Dúvidas Frequentes
         </h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">

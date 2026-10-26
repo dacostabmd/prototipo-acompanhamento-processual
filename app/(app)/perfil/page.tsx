@@ -389,11 +389,11 @@ export default function Perfil() {
                   onClick={() => trocarAba(item.id)}
                   className={`flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all text-left outline-none border ${
                     ativo
-                      ? 'border-[rgba(232, 213, 176,0.4)] bg-[rgba(232, 213, 176,0.14)] text-[#f6e7cc] shadow-sm'
+                      ? 'border-[rgba(30, 124, 242,0.4)] bg-[rgba(30, 124, 242,0.14)] text-[#C9D6EE] shadow-sm'
                       : 'border-transparent bg-transparent text-white/70 hover:border-white/10 hover:bg-white/10 hover:text-white'
                   }`}
                 >
-                  <Icon size={17} strokeWidth={1.8} className={ativo ? 'text-[#f6e7cc]' : 'text-white/60'} />
+                  <Icon size={17} strokeWidth={1.8} className={ativo ? 'text-[#C9D6EE]' : 'text-white/60'} />
                   <span>{item.label}</span>
                 </button>
               );
@@ -552,7 +552,7 @@ export default function Perfil() {
                   <button
                     type="submit"
                     disabled={salvandoDados}
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/15 px-5 py-2.5 text-sm font-semibold text-amber-200 shadow-md transition-all hover:bg-amber-400/25 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-5 py-2.5 text-sm font-semibold text-[#C9D6EE] shadow-md transition-all hover:bg-[#1E7CF2]/25 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {salvandoDados ? (
                       <>
@@ -662,7 +662,7 @@ export default function Perfil() {
                 <button
                   type="submit"
                   disabled={salvandoSenha || !senhaNova || !senhaAtual}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/15 px-5 py-2.5 text-sm font-semibold text-amber-200 shadow-md transition-all hover:bg-amber-400/25 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-5 py-2.5 text-sm font-semibold text-[#C9D6EE] shadow-md transition-all hover:bg-[#1E7CF2]/25 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {salvandoSenha ? (
                     <>
@@ -719,11 +719,11 @@ export default function Perfil() {
 
                 <Link
                   href="/consulta"
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/90 via-amber-400 to-amber-500/90 py-3 text-sm font-semibold !text-neutral-950 !no-underline shadow-md shadow-amber-950/20 transition-all hover:brightness-110 hover:shadow-amber-500/20 active:scale-[0.99]"
-                  style={{ color: '#15161a', textDecoration: 'none' }}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#3FA0FF]/40 bg-gradient-to-r from-[#1B3FA8] via-[#1E7CF2] to-[#3FA0FF] py-3 text-sm font-semibold !text-white !no-underline shadow-md shadow-[#060F28]/30 transition-all hover:brightness-110 hover:shadow-[#1E7CF2]/30 active:scale-[0.99]"
+                  style={{ color: '#FFFFFF', textDecoration: 'none' }}
                 >
-                  <Sparkles size={16} className="text-neutral-950" />
-                  <span className="font-semibold text-neutral-950" style={{ color: '#15161a' }}>
+                  <Sparkles size={16} className="text-white" />
+                  <span className="font-semibold text-neutral-950" style={{ color: '#FFFFFF' }}>
                     Realizar Nova Consulta
                   </span>
                 </Link>

@@ -181,3 +181,205 @@ export async function PATCH(request: Request) {
     sensibilidade: sensibilidadeEfetiva
   });
 }
+
+/**
+ * Adiciona um processo ao acompanhamento do usuário diretamente da tela de resultados da busca.
+ * Salva em ap_processos e vincula em ap_processos_monitorados com alertas via WhatsApp e/ou E-mail.
+ */
+export async function POST(request: Request) {
+  const unauthorized = await requireUser(request);
+  if (unauthorized) return unauthorized;
+
+  const userId = await getUserId(request);
+  const db = getAdminClient();
+  if (!userId || !db) return NextResponse.json({ error: 'Indisponível no modo demonstração.' }, { status: 503 });
+
+  const body = await request.json().catch(() => null);
+  const numeroCnj = typeof body?.numeroCnj === 'string' ? body.numeroCnj.trim() : '';
+  if (!numeroCnj) {
+    return NextResponse.json({ error: 'Número CNJ não informado.' }, { status: 400 });
+  }
+
+  const {
+    tribunal,
+    classe,
+    assunto,
+    parteAutora,
+    parteRe,
+    valorCausa,
+    notificarWhatsapp = true,
+    notificarEmail = true,
+    sensibilidade = 'smart_digest',
+    telefone,
+    movimentos,
+    resumoIa
+  } = body || {};
+
+  // Se o usuário passou telefone novo, salva no perfil
+  if (typeof telefone === 'string' && telefone.trim()) {
+    const limpo = telefone.replace(/\D/g, '');
+    if (limpo.length >= 10) {
+      await db.from('ap_perfis').update({ telefone: limpo }).eq('id', userId);
+    }
+  }
+
+  // Se pediu notificação por WhatsApp, verifica telefone cadastrado
+  if (notificarWhatsapp) {
+    const { data: perfil } = await db.from('ap_perfis').select('telefone').eq('id', userId).maybeSingle();
+    const tel = normalizarTelefoneBr(perfil?.telefone as string | null);
+    if (!tel) {
+      return NextResponse.json(
+        {
+          error: 'Para ativar alertas por WhatsApp, cadastre seu celular com DDD no perfil.',
+          codigo: 'sem_telefone'
+        },
+        { status: 400 }
+      );
+    }
+  }
+
+  // 1. Upsert em ap_processos
+  const valorNumerico =
+    typeof valorCausa === 'number'
+      ? valorCausa
+      : typeof valorCausa === 'string'
+      ? parseFloat(valorCausa.replace(/[^\d,]/g, '').replace(',', '.')) || null
+      : null;
+
+  const ultimaMovimentacao =
+    Array.isArray(movimentos) && movimentos.length > 0 ? movimentos[0].data : null;
+
+  const { data: proc, error: procErr } = await db
+    .from('ap_processos')
+    .upsert(
+      {
+        numero_cnj: numeroCnj,
+        titulo: numeroCnj,
+        tribunal: tribunal || null,
+        classe_processual: classe || null,
+        assunto_principal: assunto || null,
+        valor_causa: valorNumerico,
+        status: 'ativo',
+        monitorar: true,
+        ultima_movimentacao_em: ultimaMovimentacao || new Date().toISOString(),
+        metadados: {
+          parteAtiva: parteAutora || null,
+          partePassiva: parteRe || null
+        }
+      },
+      { onConflict: 'numero_cnj' }
+    )
+    .select('id')
+    .single();
+
+  if (procErr || !proc) {
+    console.error('[api/monitoramento] erro ao upsert processo:', procErr);
+    return NextResponse.json({ error: 'Erro ao registrar processo.' }, { status: 500 });
+  }
+
+  // 2. Upsert em ap_processos_monitorados
+  const tagSensibilidade = `sensibilidade:${sensibilidade || 'smart_digest'}`;
+  const { error: monErr } = await db.from('ap_processos_monitorados').upsert(
+    {
+      user_id: userId,
+      processo_id: proc.id,
+      pasta: 'Principal',
+      notificar_email: notificarEmail,
+      notificar_whatsapp: notificarWhatsapp,
+      tags: [tagSensibilidade]
+    },
+    { onConflict: 'user_id,processo_id' }
+  );
+
+  if (monErr) {
+    console.error('[api/monitoramento] erro ao vincular monitoramento:', monErr);
+    return NextResponse.json({ error: 'Erro ao ativar acompanhamento.' }, { status: 500 });
+  }
+
+  // 3. Salvar resumo de IA se fornecido
+  if (resumoIa && typeof resumoIa === 'object') {
+    const { data: resumoExistente } = await db
+      .from('ap_resumos_ia')
+      .select('id')
+      .eq('processo_id', proc.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (!resumoExistente) {
+      await db.from('ap_resumos_ia').insert({
+        processo_id: proc.id,
+        resumo_simplificado: resumoIa.resumo || 'Processo acompanhado ativamente.',
+        status_atual_explicado:
+          resumoIa.significado || 'Monitoramento contínuo com inteligência artificial ativado.',
+        proximos_passos: resumoIa.proximoPasso || null,
+        urgencia: resumoIa.urgencia || 'baixa',
+        modelo_ia: 'gpt-4o-mini',
+        ultima_movimentacao_coberta: ultimaMovimentacao
+      });
+    }
+  }
+
+  // 4. Salvar em ap_processos_pesquisados
+  const crypto = await import('crypto');
+  const hash = crypto.createHash('sha256').update(numeroCnj).digest('hex');
+  await db.from('ap_processos_pesquisados').upsert(
+    {
+      user_id: userId,
+      hash,
+      numero_cnj: numeroCnj,
+      tribunal: tribunal || null,
+      classe: classe || null,
+      parte_passiva: parteRe || null,
+      ultima_movimentacao_em: ultimaMovimentacao
+    },
+    { onConflict: 'user_id,hash' }
+  );
+
+  return NextResponse.json({
+    sucesso: true,
+    processoId: proc.id,
+    numeroCnj,
+    notificarWhatsapp,
+    notificarEmail,
+    mensagem: 'Processo adicionado ao acompanhamento com sucesso!'
+  });
+}
+
+/**
+ * Remove um processo do acompanhamento do usuário.
+ */
+export async function DELETE(request: Request) {
+  const unauthorized = await requireUser(request);
+  if (unauthorized) return unauthorized;
+
+  const userId = await getUserId(request);
+  const db = getAdminClient();
+  if (!userId || !db) return NextResponse.json({ error: 'Indisponível no modo demonstração.' }, { status: 503 });
+
+  const body = await request.json().catch(() => null);
+  const processoId = typeof body?.processoId === 'string' ? body.processoId : '';
+  const numeroCnj = typeof body?.numeroCnj === 'string' ? body.numeroCnj : '';
+
+  let idParaRemover = processoId;
+  if (!idParaRemover && numeroCnj) {
+    const { data: proc } = await db.from('ap_processos').select('id').eq('numero_cnj', numeroCnj).maybeSingle();
+    if (proc?.id) idParaRemover = proc.id;
+  }
+
+  if (!idParaRemover) {
+    return NextResponse.json({ error: 'Informe o ID ou número do processo para remover.' }, { status: 400 });
+  }
+
+  const { error } = await db
+    .from('ap_processos_monitorados')
+    .delete()
+    .eq('user_id', userId)
+    .eq('processo_id', idParaRemover);
+
+  if (error) {
+    console.error('[api/monitoramento] erro ao remover:', error.message);
+    return NextResponse.json({ error: 'Erro ao remover acompanhamento.' }, { status: 500 });
+  }
+
+  return NextResponse.json({ sucesso: true, removido: true });
+}

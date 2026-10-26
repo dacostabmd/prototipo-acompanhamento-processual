@@ -218,26 +218,26 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#15161a] text-white">
+    <div className="min-h-screen bg-[#060F28] text-white">
       {/* Script JSON-LD */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* Header Público */}
-      <header className="border-b border-white/10 bg-[#15161a]/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-white/10 bg-[#060F28]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3.5 sm:px-6">
           <Link href="/" className="inline-flex items-center gap-2 font-bold text-white tracking-tight">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#e8d5b0] to-[#b39968] text-[#15161a]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E7CF2] to-[#b39968] text-[#060F28]">
               <Scale size={18} strokeWidth={2.2} />
             </span>
             <span className="text-lg">JusConsulta</span>
-            <span className="rounded-full border border-[#e8d5b0]/30 bg-[#e8d5b0]/10 px-2 py-0.5 text-[10px] font-semibold text-[#f6e7cc]">
+            <span className="rounded-full border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C9D6EE]">
               Consulta Pública
             </span>
           </Link>
 
           <Link
             href={`/consulta?busca=${digits}`}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[#e8d5b0]/40 bg-[#e8d5b0]/15 px-3.5 py-1.5 text-xs font-medium text-[#f6e7cc] transition-colors hover:bg-[#e8d5b0]/25"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-3.5 py-1.5 text-xs font-medium text-[#C9D6EE] transition-colors hover:bg-[#1E7CF2]/25"
           >
             <span>Monitorar no WhatsApp</span>
             <ArrowRight size={13} />
@@ -254,14 +254,14 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
           <span>/</span>
           <span className="text-white/80">{tribunalExibicao}</span>
           <span>/</span>
-          <span className="text-[#e8d5b0] font-mono">{cnjFormatado}</span>
+          <span className="text-[#1E7CF2] font-mono">{cnjFormatado}</span>
         </nav>
 
         {/* Título e Header do Processo */}
         <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-xl backdrop-blur-md">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#e8d5b0]">
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#1E7CF2]">
                 <Gavel size={14} />
                 Processo Judicial
               </span>
@@ -310,10 +310,10 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
         </section>
 
         {/* Banner CTA WhatsApp Conversacional */}
-        <section className="mt-6 overflow-hidden rounded-3xl border border-[#e8d5b0]/30 bg-gradient-to-br from-[#e8d5b0]/15 via-[#15161a] to-[#15161a] p-6 shadow-xl">
+        <section className="mt-6 overflow-hidden rounded-3xl border border-[#1E7CF2]/30 bg-gradient-to-br from-[#1E7CF2]/15 via-[#060F28] to-[#060F28] p-6 shadow-xl">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-xl">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e8d5b0]/30 bg-[#e8d5b0]/10 px-2.5 py-0.5 text-xs font-semibold text-[#f6e7cc]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2.5 py-0.5 text-xs font-semibold text-[#C9D6EE]">
                 <MessageCircle size={13} />
                 Acompanhamento WhatsApp 24h
               </span>
@@ -328,7 +328,7 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
             <div className="shrink-0">
               <Link
                 href={`/consulta?busca=${digits}`}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#e8d5b0] px-6 py-3.5 text-sm font-bold text-[#15161a] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] sm:w-auto"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1E7CF2] px-6 py-3.5 text-sm font-bold text-[#060F28] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] sm:w-auto"
               >
                 <MessageCircle size={17} />
                 <span>Ativar no WhatsApp</span>
@@ -340,10 +340,10 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
 
         {/* Resumo com IA (O Grande Diferencial frente ao JusBrasil) */}
         {resumoIa ? (
-          <section className="mt-6 rounded-3xl border border-[#e8d5b0]/30 bg-[#e8d5b0]/[0.04] p-6 backdrop-blur-md">
+          <section className="mt-6 rounded-3xl border border-[#1E7CF2]/30 bg-[#1E7CF2]/[0.04] p-6 backdrop-blur-md">
             <div className="flex items-center justify-between">
               <h2 className="inline-flex items-center gap-2 text-base font-semibold text-white">
-                <Sparkles size={17} className="text-[#e8d5b0]" />
+                <Sparkles size={17} className="text-[#1E7CF2]" />
                 O que está acontecendo neste processo? (Resumo com IA)
               </h2>
               <span className="text-[11px] text-white/40">Gerado em {fmtData(resumoIa.criadoEm)}</span>
@@ -359,7 +359,7 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
               )}
               {resumoIa.proximoPasso && (
                 <p className="text-white/70">
-                  <span className="font-semibold text-[#e8d5b0]">Próximo passo esperado: </span>
+                  <span className="font-semibold text-[#1E7CF2]">Próximo passo esperado: </span>
                   {resumoIa.proximoPasso}
                 </p>
               )}
@@ -368,7 +368,7 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
         ) : (
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-md">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[#e8d5b0]">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[#1E7CF2]">
                 <Sparkles size={18} />
               </div>
               <div>
@@ -385,7 +385,7 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
         <section className="mt-8">
           <div className="flex items-center justify-between">
             <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-white">
-              <Clock size={18} strokeWidth={1.8} className="text-[#e8d5b0]" />
+              <Clock size={18} strokeWidth={1.8} className="text-[#1E7CF2]" />
               Movimentações do Processo
             </h2>
             <span className="text-xs text-white/40">{movimentos.length} andamento(s) disponível(is)</span>
@@ -403,7 +403,7 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
                   className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 transition-colors hover:border-white/20"
                 >
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="text-xs font-semibold text-[#e8d5b0]">{fmtDia(m.data)}</span>
+                    <span className="text-xs font-semibold text-[#1E7CF2]">{fmtDia(m.data)}</span>
                     {m.tag === 'urgente' && (
                       <span className="inline-flex items-center gap-1 rounded-full border border-red-400/40 bg-red-400/10 px-2 py-0.5 text-[10px] font-medium text-red-200">
                         <ShieldAlert size={11} />
@@ -437,7 +437,7 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
                 As informações deste processo são públicas conforme o art. 5º, inciso LX da Constituição Federal e a Lei nº 12.527/2011.
                 O JusConsulta não exibe dados de processos sob segredo de justiça, nem divulga telefones, e-mails ou dados bancários de partes.
                 Se você é titular dos dados e deseja solicitar a ocultação do seu nome das buscas públicas,{' '}
-                <Link href="/descadastro" className="text-[#e8d5b0] underline underline-offset-2 hover:text-white">
+                <Link href="/descadastro" className="text-[#1E7CF2] underline underline-offset-2 hover:text-white">
                   clique aqui para solicitar o bloqueio
                 </Link>
                 .

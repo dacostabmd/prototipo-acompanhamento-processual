@@ -3,9 +3,9 @@
 import React, { useState, useEffect, Children, useRef, useLayoutEffect, type HTMLAttributes, type ReactNode } from 'react';
 import { motion, AnimatePresence, type Variants } from 'motion/react';
 
-const GOLD = '#e8d5b0';
-const GOLD_DARK = '#cdb68e';
-const GOLD_LIGHT = '#f6e7cc';
+const GOLD = '#1E7CF2';
+const GOLD_DARK = '#3FA0FF';
+const GOLD_LIGHT = '#C9D6EE';
 
 export interface StepperProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
@@ -221,10 +221,10 @@ export default function Stepper({
                 className="bf-btn-ouro"
                 style={{
                   background: canAdvance
-                    ? 'linear-gradient(135deg, #e8d5b0 0%, #cdb68e 100%)'
+                    ? 'linear-gradient(135deg, #1E7CF2 0%, #3FA0FF 100%)'
                     : 'rgba(255,255,255,0.12)',
-                  color: canAdvance ? '#1c1d21' : 'rgba(255,255,255,0.35)',
-                  border: canAdvance ? '1px solid rgba(246, 231, 204,0.4)' : '1px solid transparent',
+                  color: canAdvance ? '#0B1730' : 'rgba(255,255,255,0.35)',
+                  border: canAdvance ? '1px solid rgba(201, 214, 238,0.4)' : '1px solid transparent',
                   padding: '12px 28px',
                   fontSize: 12.5,
                   letterSpacing: 1.5,
@@ -234,7 +234,7 @@ export default function Stepper({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  boxShadow: canAdvance ? '0 4px 16px rgba(205, 182, 142,0.35)' : 'none',
+                  boxShadow: canAdvance ? '0 4px 16px rgba(63, 160, 255,0.35)' : 'none',
                   transition: 'all 0.2s ease'
                 }}
                 {...nextButtonProps}
@@ -388,8 +388,8 @@ function StepIndicator({ step, currentStep, onClickStep, disableStepIndicators =
       <motion.div
         variants={{
           inactive: { scale: 1, backgroundColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' },
-          active: { scale: 1.08, backgroundColor: GOLD, color: '#1c1d21' },
-          complete: { scale: 1, backgroundColor: GOLD_DARK, color: '#1c1d21' }
+          active: { scale: 1.08, backgroundColor: GOLD, color: '#0B1730' },
+          complete: { scale: 1, backgroundColor: GOLD_DARK, color: '#0B1730' }
         }}
         transition={{ duration: 0.3 }}
         style={{
@@ -401,11 +401,11 @@ function StepIndicator({ step, currentStep, onClickStep, disableStepIndicators =
           justifyContent: 'center',
           fontSize: 13,
           fontWeight: 700,
-          boxShadow: status === 'active' ? '0 2px 10px rgba(232, 213, 176,0.45)' : 'none'
+          boxShadow: status === 'active' ? '0 2px 10px rgba(30, 124, 242,0.45)' : 'none'
         }}
       >
         {status === 'complete' ? (
-          <CheckIcon style={{ width: 16, height: 16, color: '#1c1d21' }} />
+          <CheckIcon style={{ width: 16, height: 16, color: '#0B1730' }} />
         ) : (
           <span>{step}</span>
         )}

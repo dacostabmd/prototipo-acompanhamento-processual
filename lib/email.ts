@@ -4,7 +4,7 @@ import type { ResumoAndamento } from '@/lib/resumoAndamento';
 
 const ROTULO_URGENCIA: Record<ResumoAndamento['urgencia'], { texto: string; cor: string }> = {
   alta: { texto: 'Atenção: pode exigir ação rápida', cor: '#b42318' },
-  media: { texto: 'Movimentação relevante', cor: '#8f7b58' },
+  media: { texto: 'Movimentação relevante', cor: '#1B3FA8' },
   baixa: { texto: 'Movimentação de rotina', cor: '#555555' }
 };
 
@@ -60,23 +60,23 @@ export async function enviarAlertaMovimentacao(
   const resumoHtml =
     resumo && urgencia
       ? `
-      <div style="border:1px solid #e8d5b0;border-radius:8px;padding:14px 16px;margin:16px 0;background:#fbf7ef">
+      <div style="border:1px solid #1E7CF2;border-radius:8px;padding:14px 16px;margin:16px 0;background:#fbf7ef">
         <p style="margin:0 0 8px;color:${urgencia.cor};font-weight:700;font-size:13px">${urgencia.texto}</p>
-        <p style="margin:0 0 8px;color:#15161a"><strong>Em resumo:</strong> ${escapeHtml(resumo.resumo)}</p>
-        <p style="margin:0 0 8px;color:#15161a"><strong>O que significa:</strong> ${escapeHtml(resumo.significado)}</p>
-        <p style="margin:0;color:#15161a"><strong>Próximo passo:</strong> ${escapeHtml(resumo.proximoPasso)}</p>
+        <p style="margin:0 0 8px;color:#060F28"><strong>Em resumo:</strong> ${escapeHtml(resumo.resumo)}</p>
+        <p style="margin:0 0 8px;color:#060F28"><strong>O que significa:</strong> ${escapeHtml(resumo.significado)}</p>
+        <p style="margin:0;color:#060F28"><strong>Próximo passo:</strong> ${escapeHtml(resumo.proximoPasso)}</p>
       </div>
       <p style="color:#888;font-size:12px;margin:0 0 8px">Resumo gerado automaticamente por IA a partir das movimentações abaixo. Não substitui a orientação do seu advogado.</p>`
       : '';
 
   const html = `
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto">
-      <h2 style="color:#15161a">Seu processo ${escapeHtml(processo.numeroCnj)} teve uma movimentação</h2>
+      <h2 style="color:#060F28">Seu processo ${escapeHtml(processo.numeroCnj)} teve uma movimentação</h2>
       ${processo.tribunal ? `<p style="color:#555">Tribunal: ${escapeHtml(processo.tribunal)}</p>` : ''}
       ${resumoHtml}
       <ul style="padding-left:18px">${itensHtml}</ul>
       <p style="color:#888;font-size:12px;margin-top:24px">Este é um alerta automático do monitoramento ativo do seu processo. Para alterar suas preferências de aviso, acesse sua conta.</p>
-      ${descadastro ? `<p style="color:#888;font-size:12px"><a href="${escapeHtml(descadastro.pagina)}" style="color:#8f7b58">Não quero mais receber avisos deste processo por e-mail</a></p>` : ''}
+      ${descadastro ? `<p style="color:#888;font-size:12px"><a href="${escapeHtml(descadastro.pagina)}" style="color:#1B3FA8">Não quero mais receber avisos deste processo por e-mail</a></p>` : ''}
     </div>
   `.trim();
 

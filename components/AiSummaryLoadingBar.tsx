@@ -108,7 +108,7 @@ export default function AiSummaryLoadingBar() {
               fontSize: 11,
               letterSpacing: 1.5,
               fontWeight: 700,
-              color: '#bdbdbb',
+              color: '#D5DEEE',
               textTransform: 'uppercase'
             }}
           >
@@ -123,7 +123,7 @@ export default function AiSummaryLoadingBar() {
             style={{
               fontSize: 20,
               fontWeight: 700,
-              color: '#f3f1ec',
+              color: '#FFFFFF',
               fontVariantNumeric: 'tabular-nums'
             }}
           >
@@ -148,7 +148,7 @@ export default function AiSummaryLoadingBar() {
           style={{
             height: '100%',
             width: `${progress}%`,
-            background: 'linear-gradient(90deg, #3d3d3d 0%, #5f5f5f 50%, #999999 100%)',
+            background: 'linear-gradient(90deg, #2B3957 0%, #4A5878 50%, #999999 100%)',
             borderRadius: 999,
             position: 'relative',
             transition: 'width 0.15s ease-out'
@@ -213,7 +213,7 @@ export default function AiSummaryLoadingBar() {
                       height: 22,
                       borderRadius: '50%',
                       background: '#1b6b3e',
-                      color: '#f3f1ec',
+                      color: '#FFFFFF',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -260,7 +260,7 @@ export default function AiSummaryLoadingBar() {
                     style={{
                       fontSize: 12.5,
                       fontWeight: isActive || isDone ? 600 : 500,
-                      color: isDone ? '#4fae7a' : isActive ? '#f3f1ec' : 'rgba(243, 241, 236,0.65)'
+                      color: isDone ? '#4fae7a' : isActive ? '#FFFFFF' : 'rgba(243, 241, 236,0.65)'
                     }}
                   >
                     {stage.title}
@@ -271,7 +271,7 @@ export default function AiSummaryLoadingBar() {
                       style={{
                         fontSize: 9.5,
                         fontWeight: 600,
-                        color: '#f3f1ec',
+                        color: '#FFFFFF',
                         background: 'rgba(153, 153, 153, 0.2)',
                         padding: '2px 6px',
                         borderRadius: 3,
@@ -331,7 +331,7 @@ export default function AiSummaryLoadingBar() {
         <span>
           Cruzando dados processuais com jurisprudência e estratégias de defesa patrimonial...
         </span>
-        <span style={{ fontWeight: 500, color: '#bdbdbb' }}>Sigilo Profissional Garantido</span>
+        <span style={{ fontWeight: 500, color: '#D5DEEE' }}>Sigilo Profissional Garantido</span>
       </div>
     </div>
   );

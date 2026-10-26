@@ -57,16 +57,16 @@ import { custoTotal, formatarReais } from '@/lib/infosimplesPricing';
 import { fontesInfosimplesPara, IDS_PRINCIPAIS_INFOSIMPLES, type TipoBusca } from '@/lib/fontesInfosimples';
 
 /* ── Design tokens (tema dark/glass) ─────────────────────────────────── */
-const BLUE = '#e8d5b0';
-const BLUE_DARK = '#cdb68e';
-const BLUE_LIGHT = '#f6e7cc';
+const BLUE = '#1E7CF2';
+const BLUE_DARK = '#3FA0FF';
+const BLUE_LIGHT = '#C9D6EE';
 const PAPER = 'rgba(255,255,255,0.05)';
 const CREAM = 'rgba(255,255,255,0.06)';
-const CREAM_TEXT = '#f3f1ec';
+const CREAM_TEXT = '#FFFFFF';
 const BORDER = 'rgba(255,255,255,0.12)';
 const INPUT_BORDER = 'rgba(255,255,255,0.18)';
 const INPUT_BG = 'rgba(15,15,15,0.65)';
-const TEXT = '#f3f1ec';
+const TEXT = '#FFFFFF';
 const MUTED = 'rgba(243, 241, 236,0.65)';
 const DANGER = '#e08a8a';
 const WHATSAPP = '#25603f';
@@ -114,7 +114,7 @@ type LemitEvento = { label: string; status: 'loading' | 'ok' | 'vazio' | 'erro';
 const LIMITE_VARREDURA_S = 300;
 
 const MOSS_GREEN = '#3d6b4f';
-const WARN = '#d9c39b';
+const WARN = '#4DA6FF';
 const RUBY_RED = '#9b2c3f';
 
 /** Ordena os ids das fontes colocando primeiro o tribunal manual selecionado ou o do DDD informado. */
@@ -336,13 +336,13 @@ export default function ProcessTracker({
   const triggerConfetti = () => {
     const colors = [
       '#999999',
-      '#5f5f5f',
-      '#3d3d3d',
-      '#bdbdbb',
-      '#d9c39b',
-      '#d9c39b',
+      '#4A5878',
+      '#2B3957',
+      '#D5DEEE',
+      '#4DA6FF',
+      '#4DA6FF',
       '#ecdcbd',
-      '#f3f1ec'
+      '#FFFFFF'
     ];
 
     confetti({
@@ -740,10 +740,10 @@ export default function ProcessTracker({
         icon: <AlertTriangle size={16} />,
         autoClose: 7000,
         styles: {
-          root: { background: '#15161a', border: `1px solid ${BLUE}` },
+          root: { background: '#060F28', border: `1px solid ${BLUE}` },
           title: { color: BLUE_LIGHT },
           description: { color: TEXT },
-          icon: { background: BLUE, color: '#15161a' },
+          icon: { background: BLUE, color: '#FFFFFF' },
           closeButton: { color: MUTED }
         }
       });
@@ -991,7 +991,7 @@ export default function ProcessTracker({
         position: 'relative',
         minHeight: '100vh',
         color: TEXT,
-        fontFamily: 'var(--font-inter), sans-serif'
+        fontFamily: 'var(--font-inter-tight), sans-serif'
       }}
     >
       {/* Container principal */}
@@ -1736,7 +1736,7 @@ export default function ProcessTracker({
                 >
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12, color: MUTED }}>Custo estimado</div>
-                    <div style={{ fontSize: 19, color: custoPrevisto === 0 ? '#8fb99a' : TEXT, fontWeight: 700 }}>{custoPrevistoLabel}</div>
+                    <div style={{ fontSize: 19, color: custoPrevisto === 0 ? '#12A37A' : TEXT, fontWeight: 700 }}>{custoPrevistoLabel}</div>
                   </div>
                   <button
                     type="submit"
@@ -1973,7 +1973,7 @@ export default function ProcessTracker({
             aria-label="Continuar buscando nos demais tribunais?"
             style={{
               width: 'min(420px, 100%)',
-              background: '#15161a',
+              background: '#060F28',
               border: `1px solid ${BORDER}`,
               borderRadius: 8,
               padding: '24px 26px',
@@ -2020,15 +2020,15 @@ export default function ProcessTracker({
                 }}
                 className="bf-btn-ouro"
                 style={{
-                  background: 'linear-gradient(135deg, #e8d5b0 0%, #cdb68e 100%)',
-                  border: '1px solid rgba(246, 231, 204,0.4)',
-                  color: '#1c1d21',
+                  background: 'linear-gradient(135deg, #1E7CF2 0%, #3FA0FF 100%)',
+                  border: '1px solid rgba(201, 214, 238,0.4)',
+                  color: '#0B1730',
                   fontWeight: 700,
                   padding: '9px 16px',
                   fontSize: 12.5,
                   cursor: 'pointer',
                   borderRadius: 6,
-                  boxShadow: '0 4px 14px rgba(205, 182, 142,0.3)'
+                  boxShadow: '0 4px 14px rgba(63, 160, 255,0.3)'
                 }}
               >
                 Continuar buscando
@@ -2438,7 +2438,7 @@ function FontesComErroAviso({ itens }: { itens: ScanItem[] }) {
         padding: '12px 16px',
         borderRadius: 4,
         border: `1px solid ${WARN}`,
-        background: 'rgba(232, 213, 176,0.1)',
+        background: 'rgba(30, 124, 242,0.1)',
         color: TEXT,
         fontSize: 12.5,
         lineHeight: 1.5,
@@ -2474,7 +2474,7 @@ function DescartadosPorPoloAviso({ itens }: { itens: { numero: string; tribunal:
         padding: '12px 16px',
         borderRadius: 4,
         border: `1px solid ${WARN}`,
-        background: 'rgba(232, 213, 176,0.1)',
+        background: 'rgba(30, 124, 242,0.1)',
         color: TEXT,
         fontSize: 12.5,
         lineHeight: 1.5,
@@ -2587,7 +2587,7 @@ function ScanRow({ item }: { item: ScanItem }) {
       style={{
         padding: '7px 10px',
         background: 'rgba(10,10,10,0.6)',
-        border: `1px solid ${statusGeral === 'error' ? 'rgba(232, 213, 176,0.35)' : BORDER}`,
+        border: `1px solid ${statusGeral === 'error' ? 'rgba(30, 124, 242,0.35)' : BORDER}`,
         borderRadius: 4,
         animation: 'bf-fadein 0.35s ease both'
       }}
@@ -2671,8 +2671,8 @@ const inputStyle: React.CSSProperties = {
 };
 
 const primaryButtonStyle: React.CSSProperties = {
-  background: 'linear-gradient(135deg, #e8d5b0 0%, #cdb68e 100%)',
-  color: '#1c1d21',
+  background: 'linear-gradient(135deg, #1E7CF2 0%, #3FA0FF 100%)',
+  color: '#0B1730',
   border: 'none',
   padding: '13px 28px',
   fontFamily: 'inherit',
@@ -2682,7 +2682,7 @@ const primaryButtonStyle: React.CSSProperties = {
   borderRadius: 6,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
-  boxShadow: '0 4px 16px rgba(205, 182, 142,0.35)'
+  boxShadow: '0 4px 16px rgba(63, 160, 255,0.35)'
 };
 
 /** "1:42 de até 5:00" — tempo decorrido da varredura atual, com dica para encerrar quando passa de 2 minutos. */
@@ -2772,8 +2772,8 @@ function OpcaoBusca({
         gap: 12,
         padding: '14px 14px',
         borderRadius: 10,
-        border: `1px solid ${ativa ? 'rgba(232, 213, 176,0.6)' : INPUT_BORDER}`,
-        background: ativa ? 'rgba(232, 213, 176,0.10)' : 'transparent',
+        border: `1px solid ${ativa ? 'rgba(30, 124, 242,0.6)' : INPUT_BORDER}`,
+        background: ativa ? 'rgba(30, 124, 242,0.10)' : 'transparent',
         color: TEXT,
         textAlign: 'left',
         cursor: desabilitada ? 'not-allowed' : 'pointer',
@@ -2792,7 +2792,7 @@ function OpcaoBusca({
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: ativa ? 'rgba(232, 213, 176,0.22)' : 'rgba(255,255,255,0.06)',
+          background: ativa ? 'rgba(30, 124, 242,0.22)' : 'rgba(255,255,255,0.06)',
           color: ativa ? BLUE_LIGHT : MUTED
         }}
       >
@@ -2924,7 +2924,7 @@ function CampoTexto({
           />
           {estado && (
             <span aria-hidden style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
-              {erro ? <AlertCircle size={16} color={DANGER} /> : <CheckCircle2 size={16} color="#8fb99a" />}
+              {erro ? <AlertCircle size={16} color={DANGER} /> : <CheckCircle2 size={16} color="#12A37A" />}
             </span>
           )}
         </div>
@@ -2993,8 +2993,8 @@ function LinhaSwitch({ titulo, descricao, checked, onChange }: { titulo: string;
         gap: 14,
         padding: '12px 14px',
         borderRadius: 8,
-        border: `1px solid ${checked ? 'rgba(232, 213, 176,0.45)' : INPUT_BORDER}`,
-        background: checked ? 'rgba(232, 213, 176,0.07)' : 'rgba(255,255,255,0.03)',
+        border: `1px solid ${checked ? 'rgba(30, 124, 242,0.45)' : INPUT_BORDER}`,
+        background: checked ? 'rgba(30, 124, 242,0.07)' : 'rgba(255,255,255,0.03)',
         cursor: 'pointer',
         transition: 'border-color 0.2s ease, background 0.2s ease'
       }}
