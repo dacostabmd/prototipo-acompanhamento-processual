@@ -243,21 +243,21 @@ function FontesPorDocumento({
       <div role="note" style={{ ...cardStyle(true), display: 'flex', gap: 10, fontSize: 12, color: TEXT, lineHeight: 1.5 }}>
         <Info size={16} style={{ flexShrink: 0, color: BLUE_LIGHT, marginTop: 2 }} />
         <div>
-          <strong>Esta busca consulta {selecionadas.length} serviço{selecionadas.length === 1 ? '' : 's'} da Infosimples.</strong>{' '}
+          <strong>Esta busca abrange {selecionadas.length} serviço{selecionadas.length === 1 ? '' : 's'} de tribunais.</strong>{' '}
           Tribunais de Justiça cobertos: {ufsEstaduais.length > 0 ? ufsEstaduais.join(', ') : 'nenhum'}. Para os outros{' '}
           {UFS.length - ufsEstaduais.length} estados não existe consulta por {rotuloTipo}; se o processo estiver em um deles, use a
-          busca por número do processo, em que o DataJud cobre todos os tribunais, de graça.
+          busca por número do processo, que cobre todos os tribunais de forma gratuita.
         </div>
       </div>
 
-      {/* APIs: um card por provedor (liga/desliga + resumo); o card em foco abre o painel de tribunais abaixo. */}
-      <div role="tablist" aria-label="APIs de consulta" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+      {/* Fontes: um card por serviço (liga/desliga + resumo); o card em foco abre o painel de tribunais abaixo. */}
+      <div role="tablist" aria-label="Sistemas de consulta" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
         <CardProvedor
           icone={<Scale size={16} />}
-          titulo="Infosimples"
+          titulo="Sistemas dos Tribunais"
           selo="Paga"
           resumo={qtdInfo > 0 ? `${qtdInfo} serviço${qtdInfo === 1 ? '' : 's'} · ${formatarReais(custo)}` : 'Desligada'}
-          detalhe={`Busca por ${rotuloTipo} nos portais dos tribunais`}
+          detalhe={`Busca por ${rotuloTipo} nos sistemas dos tribunais`}
           emFoco={provedorAtivo === 'infosimples'}
           ligado={qtdInfo > 0}
           onFocar={() => setProvedorAtivo('infosimples')}
@@ -271,10 +271,10 @@ function FontesPorDocumento({
         />
         <CardProvedor
           icone={<Fingerprint size={16} />}
-          titulo="Lemit"
+          titulo="Validação Cadastral"
           selo="Automática"
           resumo={lemitAtivo ? 'Ligada' : 'Desligada'}
-          detalhe="Dados cadastrais do CPF pesquisado e dos CPFs achados nos processos"
+          detalhe="Localização de endereços e dados para direcionar a busca"
           emFoco={provedorAtivo === 'lemit'}
           ligado={lemitAtivo}
           onFocar={() => setProvedorAtivo('lemit')}
@@ -282,11 +282,11 @@ function FontesPorDocumento({
         />
         <CardProvedor
           icone={<Database size={16} />}
-          titulo="DataJud (CNJ)"
+          titulo="Base Nacional Judiciária"
           selo="Grátis"
           seloCor={GREEN}
-          resumo={datajudSel.length > 0 ? `${datajudSel.length} de ${FONTES_DATAJUD.length} endpoints` : 'Desligado'}
-          detalhe="Complementa os processos encontrados"
+          resumo={datajudSel.length > 0 ? `${datajudSel.length} de ${FONTES_DATAJUD.length} tribunais` : 'Desligado'}
+          detalhe="Complementa os processos encontrados com dados oficiais"
           emFoco={provedorAtivo === 'datajud'}
           ligado={datajudSel.length > 0}
           onFocar={() => setProvedorAtivo('datajud')}
@@ -294,12 +294,12 @@ function FontesPorDocumento({
         />
       </div>
 
-      {/* Infosimples */}
+      {/* Tribunais */}
       {provedorAtivo === 'infosimples' && (
       <section style={cardStyle(false)}>
         <div style={{ marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
-            <span style={{ fontSize: 14, color: TEXT, fontWeight: 700 }}>Tribunais · Infosimples</span>
+            <span style={{ fontSize: 14, color: TEXT, fontWeight: 700 }}>Tribunais Estaduais e Federais</span>
             <span style={{ fontSize: 11, color: BLUE_LIGHT, letterSpacing: 0.5, textTransform: 'uppercase' }}>consulta paga</span>
           </div>
           <div style={{ fontSize: 12, color: MUTED, margin: '2px 0 10px' }}>

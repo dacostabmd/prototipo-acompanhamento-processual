@@ -1,43 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { ActionIcon, Badge, Group, Modal, SegmentedControl, Text, Tooltip } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Gauge, CheckCircle2 } from 'lucide-react';
-import { getDevPagante, setDevPagante } from '@/lib/devPagante';
+import { setDevPagante, useDevPagante } from '@/lib/devPagante';
+import { setDevVisaoAdvogado, useDevVisaoAdvogado } from '@/lib/devVisao';
 
-/** Controle flutuante para alternar modo pagante / não pagante no protótipo. */
+/** Controle flutuante para simular, no protótipo, usuário comum / advogado (e, no advogado, pagante / não pagante). */
 export default function DevMetrics() {
   const [opened, { open, close }] = useDisclosure(false);
-  const [pagante, setPagante] = useState(false);
+  const advogado = useDevVisaoAdvogado();
+  const pagante = useDevPagante();
 
-  useEffect(() => {
-    setPagante(getDevPagante());
-    const onChange = () => setPagante(getDevPagante());
-    window.addEventListener('devPagante:change', onChange);
-    window.addEventListener('storage', onChange);
-    return () => {
-      window.removeEventListener('devPagante:change', onChange);
-      window.removeEventListener('storage', onChange);
-    };
-  }, []);
-
-  const handleToggle = (value: string) => {
-    const next = value === 'pagante';
-    setPagante(next);
-    setDevPagante(next);
-  };
+  const rotuloConta = advogado ? 'Advogado' : 'Usuário comum';
 
   return (
     <>
-      <Tooltip label={`Simular conta (${pagante ? 'Pagante' : 'Não pagante'})`} position="left" withArrow>
+      <Tooltip label={`Simular conta (${rotuloConta})`} position="left" withArrow>
         <ActionIcon
           onClick={open}
           size={44}
           radius="xl"
           variant="filled"
-          color={pagante ? 'teal' : 'brand'}
-          aria-label="Alternar simulação de conta pagante / não pagante"
+          color={advogado ? 'teal' : 'brand'}
+          aria-label="Alternar simulação de conta: usuário comum / advogado"
           style={{
             position: 'fixed',
             right: 20,
@@ -47,7 +33,7 @@ export default function DevMetrics() {
           }}
         >
           <Gauge size={20} strokeWidth={1.8} />
-          {pagante && (
+          {advogado && (
             <span
               aria-hidden="true"
               style={{
@@ -76,39 +62,60 @@ export default function DevMetrics() {
         <div>
           <Group justify="space-between" align="center" mb={6}>
             <Text size="sm" fw={600}>
-              Modo da conta no protótipo
+              Tipo de conta no protótipo
             </Text>
-            <Badge size="sm" color={pagante ? 'teal' : 'gray'} variant="light">
-              {pagante ? 'Pagante' : 'Não pagante'}
+            <Badge size="sm" color={advogado ? 'teal' : 'gray'} variant="light">
+              {rotuloConta}
             </Badge>
           </Group>
           <Text size="xs" c="dimmed" mb="md">
-            Controla localmente (neste navegador) a visualização de recursos para assinantes no protótipo, como a busca por nome da parte.
+            Controla localmente (neste navegador) o que a conta enxerga: o usuário comum busca só por número do processo; o advogado também busca por pessoa ou empresa.
           </Text>
 
           <SegmentedControl
             fullWidth
             size="sm"
-            value={pagante ? 'pagante' : 'nao-pagante'}
-            onChange={handleToggle}
+            value={advogado ? 'advogado' : 'comum'}
+            onChange={v => setDevVisaoAdvogado(v === 'advogado')}
             data={[
-              { label: 'Não pagante', value: 'nao-pagante' },
-              { label: 'Pagante', value: 'pagante' }
+              { label: 'Usuário comum', value: 'comum' },
+              { label: 'Advogado', value: 'advogado' }
             ]}
           />
 
-          {pagante && (
-            <Group gap={6} mt="sm" c="teal" wrap="nowrap">
-              <CheckCircle2 size={14} />
-              <Text size="xs" fw={500}>
-                Recursos para assinantes desbloqueados (ex: busca por nome da parte).
-              </Text>
-            </Group>
+          {advogado && (
+            <div style={{ marginTop: 18 }}>
+              <Group justify="space-between" align="center" mb={6}>
+                <Text size="sm" fw={600}>
+                  Assinatura
+                </Text>
+                <Badge size="sm" color={pagante ? 'teal' : 'gray'} variant="light">
+                  {pagante ? 'Pagante' : 'Não pagante'}
+                </Badge>
+              </Group>
+              <SegmentedControl
+                fullWidth
+                size="sm"
+                value={pagante ? 'pagante' : 'nao-pagante'}
+                onChange={v => setDevPagante(v === 'pagante')}
+                data={[
+                  { label: 'Não pagante', value: 'nao-pagante' },
+                  { label: 'Pagante', value: 'pagante' }
+                ]}
+              />
+
+              {pagante && (
+                <Group gap={6} mt="sm" c="teal" wrap="nowrap">
+                  <CheckCircle2 size={14} />
+                  <Text size="xs" fw={500}>
+                    Recursos para assinantes desbloqueados (ex: busca por nome da parte).
+                  </Text>
+                </Group>
+              )}
+            </div>
           )}
         </div>
       </Modal>
     </>
   );
 }
-
-

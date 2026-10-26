@@ -6,6 +6,7 @@ import { Gavel, History, Search } from 'lucide-react';
 import { motion } from 'motion/react';
 import { authFetch } from '@/lib/authFetch';
 import { useSharedProfile } from '@/components/ProfileProvider';
+import { AcompanhamentoProcessos } from '@/components/AcompanhamentoProcessos';
 import type { ConsultaHistorico } from '@/lib/historicoConsultas';
 
 interface Processo {
@@ -28,7 +29,8 @@ interface Filtros {
 
 const FILTROS_VAZIOS: Filtros = { numero: '', tribunal: null, classe: null, parteContraria: '', ultimaMovimentacao: '' };
 
-const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '—');
+// Última movimentação só tem dia (meia-noite UTC): no fuso local apareceria o dia anterior.
+const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—');
 
 const fmtDataHora = (iso: string) =>
   new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -108,7 +110,10 @@ export default function Processos() {
           : 'Processos localizados nas suas pesquisas.'}
       </p>
 
-      <div className="mt-8 overflow-x-auto rounded-3xl border border-white/10 bg-white/5 shadow-sm backdrop-blur-md">
+      <AcompanhamentoProcessos />
+
+      <h2 className="mt-10 text-lg font-semibold text-white">Processos pesquisados</h2>
+      <div className="mt-3 overflow-x-auto rounded-3xl border border-white/10 bg-white/5 shadow-sm backdrop-blur-md">
         {lista === null && <p className="p-6 text-sm text-white/60">Carregando…</p>}
         {lista?.length === 0 && <p className="p-6 text-sm text-white/60">Nenhum processo pesquisado ainda. Faça uma consulta para vê-lo aqui.</p>}
         {!!lista?.length && (

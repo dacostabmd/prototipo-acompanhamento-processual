@@ -1,13 +1,177 @@
 {
   "descricao": "Checklist de features pendentes (gap Jusbrasil). Atualizado com comentários breves a cada 1h de desenvolvimento.",
   "criado_em": "2026-09-30",
+  "visao": {
+    "atualizado_em": "2026-10-23",
+    "resumo": "Acompanhante processual que avisa no WhatsApp/e-mail, em português simples, o que mudou no processo e o que fazer. Não compete de frente com o Jusbrasil (marca + SEO + jurisprudência); entra por nicho: pessoa física leiga, operação de carteira/precatórios e white-label para escritórios, com custo de varredura mínimo (DataJud como padrão, Infosimples só como reforço).",
+    "jusbrasil_hoje": "Alertas por WhatsApp/e-mail (monitoramento de CPF e plano de processos) e, desde abr/2026, Jus IA no acompanhamento (notifica movimentações e sugere ações ao ADVOGADO). Resumo automático em linguagem simples para leigo no WhatsApp: não confirmado.",
+    "diferenciais": [
+      "Resumo por IA de cada movimentação nova em linguagem simples (o que houve, o que significa, próximo passo, urgência)",
+      "Canal WhatsApp oficial (Cloud API) com o resumo, não só o aviso",
+      "Análise de carteira/precatórios em lote (due diligence)",
+      "Cobrança por uso e white-label"
+    ],
+    "fora_de_escopo": "Jurisprudência, doutrina e modelos de peças (núcleo do Jusbrasil).",
+    "fases": [
+      { "fase": 1, "entrega": "Monitoramento ativo (DataJud padrão), resumo IA no alerta, worker de fila de alertas, WhatsApp Cloud API, ativação em produção", "estimativa": "2-3 semanas" },
+      { "fase": 2, "entrega": "Opt-in de WhatsApp e painel de alertas no app, cobrança/planos, LGPD (opt-out)", "estimativa": "3-4 semanas" },
+      { "fase": 3, "entrega": "Páginas públicas /processo/{cnj} (SEO), documentos na íntegra, diários oficiais, 2º grau/superiores/trabalhista", "estimativa": "6-10 semanas" }
+    ],
+    "premissas_economicas": "Ilustrativas, não validadas: preço ~R$ 39,90/mês; custo variável ~R$ 3-6/usuário (5 processos, mensagens WhatsApp, IA, taxa de pagamento); custo fixo ~R$ 500-800/mês; equilíbrio ~20-30 assinantes. Gargalo real é aquisição, não engenharia."
+  },
+  "branches": [
+    {
+      "nome": "feature/acompanhamento-ia",
+      "linha": "Acompanhamento com IA",
+      "base": "feature/jusbrasil-clone @ f4fe75b (criada em 2026-10-23, trouxe as alterações ainda não commitadas da jusbrasil-clone)",
+      "descricao": "Linha principal do produto: consulta (herdada da jusbrasil-clone) + monitoramento, resumo IA, alertas WhatsApp/e-mail, cobrança e SEO. Sem CRM.",
+      "features": ["resumo-ia-alerta-andamento", "worker-fila-alertas", "whatsapp-cloud-api-alertas", "ativacao-monitoramento-producao", "opt-in-whatsapp-painel-alertas", "cobranca-planos-assinatura", "paginas-publicas-processo-seo", "monitoramento-cpf-novos-processos", "diarios-oficiais-nome-oab", "prazos-agenda-lembretes", "white-label-escritorios", "monitoramento-continuo", "alertas-andamento", "documentos-integra", "cobertura-2grau-superiores", "cobertura-trabalhista-eleitoral-jec", "analise-carteira", "billing-uso-api-por-conta"]
+    },
+    {
+      "nome": "feature/crm-juridico",
+      "linha": "CRM Jurídico",
+      "base": "main @ a2c4e98 (ponteiro criado em 2026-10-23; o CRM foi removido da jusbrasil-clone em 2026-10-21 e só existe nesta linha)",
+      "descricao": "Uso interno do escritório: pipelines por departamento (inspirados no Bitrix24 da DAP), Kanban/Tabela, Drawer de detalhe, WhatsApp interno via Baileys (serviço separado no VPS), captura de lead Bitrix. Evolui separado; não deve ser mesclado com a linha de acompanhamento sem decisão explícita.",
+      "features": ["crm-juridico-reconsulta-noturna", "crm-juridico-kanban-bitrix", "integracao-bitrix-lead", "crm-proprio", "automacao-bitrix-funis"]
+    },
+    {
+      "nome": "feature/jusbrasil-clone",
+      "linha": "Consulta processual (base)",
+      "base": "main",
+      "descricao": "Cascata de fontes, varredura multi-tribunal, rebranding TechTie, auth hardening. Congelada como base; o trabalho novo segue em feature/acompanhamento-ia.",
+      "features": ["clone-jusbrasil-cascata-dados", "rebranding-techtie-login-animado", "autenticacao-hardening-recuperacao-senha-sso", "agente-langchain-andamento-processual"]
+    },
+    {
+      "nome": "main",
+      "linha": "Produção atual",
+      "base": "-",
+      "descricao": "Ainda contém o CRM e não tem o trabalho da jusbrasil-clone. Mesclar a linha de acompanhamento na main remove o CRM dela (por isso o ponteiro feature/crm-juridico).",
+      "features": []
+    }
+  ],
   "features": [
+    {
+      "id": "resumo-ia-alerta-andamento",
+      "titulo": "Resumo automático por IA, em linguagem simples, de cada movimentação nova (gerado no worker de alertas)",
+      "modelo": "Uma chamada ao LLM por processo com movimentação nova (não o agente ReAct — mais barato e previsível): JSON com resumo, significado, próximo passo e urgência. gpt-4o-mini com fallback claude-haiku-4-5, mesmo padrão de app/api/ai/summary. Gravado em ap_resumos_ia (compartilhado entre os usuários que monitoram o processo) e reaproveitado no e-mail, no WhatsApp e no app.",
+      "status": "Em andamento",
+      "prioridade": "P1",
+      "branch": "feature/acompanhamento-ia",
+      "log": [
+        "2026-10-23: novo lib/resumoAndamento.ts (gerarResumoAndamento): prompt para leigo, JSON {resumo, significado, proximoPasso, urgencia baixa/media/alta}, texto puro com limites de tamanho, gpt-4o-mini (response_format json_object) com fallback claude-haiku-4-5 (cada provedor com try próprio), null sem chave/falha. Cron gera 1 resumo por processo com novidade (movimentações novas + 5 anteriores de contexto) e grava em ap_resumos_ia (nova coluna urgencia). Testado com chamada real em dados sintéticos (intimação art. 523): resposta coerente, urgência 'alta', 630 tokens, ~3s. tsc limpo."
+      ]
+    },
+    {
+      "id": "worker-fila-alertas",
+      "titulo": "Worker de fila de alertas (ap_alertas_pendentes) com retry e status por canal",
+      "modelo": "Cron enfileira (1 linha por usuário x canal); o worker lê do banco o resumo e as últimas movimentações e envia. Falha transitória -> 'falhou' e nova tentativa até 3; canal não configurado / usuário sem contato -> 'ignorado'. Roda no fim do cron de reconsulta (Hobby: 1 cron/dia) e pode virar endpoint/fila própria (Vercel Queues ou pg_cron) depois.",
+      "status": "Em andamento",
+      "prioridade": "P1",
+      "branch": "feature/acompanhamento-ia",
+      "log": [
+        "2026-10-23: novo lib/filaAlertas.ts — enfileirarAlertas (1 linha por usuário x canal com snapshot em ap_alertas_pendentes.conteudo; grava ap_notificacoes para todos os que monitoram; alertas antigos não enviados do mesmo processo/usuário viram 'ignorado') e processarFilaAlertas (pendente + falhou com tentativas < 3, mais antigos primeiro, concorrência 5, até o prazo; canal sem credenciais fica 'pendente' sem contar tentativa; erro definitivo ou 3 tentativas -> 'ignorado'; > 3 dias -> expirado). Migration 20261023100000 (só aditiva: conteudo, ultima_tentativa_em, índice da fila, ap_resumos_ia.urgencia) aplicada via MCP como 'ap_alertas_conteudo_resumo_urgencia'.",
+        "2026-10-23: app/api/cron/reconsulta reescrito: (1) BUG — só exportava POST, mas a Vercel chama crons com GET (405, nunca rodaria); agora GET delega para POST. (2) Reconsulta só no DataJud (tribunaisSelecionados: []); RECONSULTA_USAR_INFOSIMPLES=true religa. (3) maxDuration 60 -> 300 (mesmo teto de app/api/processos), novos processos até 230s, worker de alertas até 285s; o worker roda também quando o teto de orçamento já foi atingido. (4) processarAlerta (envio inline, WhatsApp nunca enviado) substituído por resumo IA + enfileirarAlertas. Não executado contra o banco real (escreveria em ap_processos/ap_movimentacoes de produção); hoje não há usuários em ap_processos_monitorados (contas apagadas em 2026-10-22), então nenhum alerta sairia.",
+        "2026-10-23: FIX backoff — calcularProximaConsulta usava 'agora + N dias' com hora exata, então o processo tratado às 06:03 não estava elegível no cron do dia seguinte (06:00) e '+1 dia' virava +2 na prática; agora fixa 00:00 de Brasília (03:00 UTC) do dia alvo. Worker passou a ler processo_id da fila para gerar o link de descadastro de cada e-mail."
+      ]
+    },
+    {
+      "id": "whatsapp-cloud-api-alertas",
+      "titulo": "Alertas de andamento por WhatsApp via API oficial (WhatsApp Cloud API da Meta)",
+      "modelo": "Template de utilidade aprovado na Meta com parâmetros (nº do processo, tribunal, resumo, próximo passo); sem conexão persistente, então roda em função serverless. Baileys (não oficial, risco de banimento) fica restrito ao WhatsApp interno do CRM. No-op sem WHATSAPP_CLOUD_TOKEN/WHATSAPP_PHONE_NUMBER_ID/WHATSAPP_TEMPLATE_ANDAMENTO.",
+      "status": "Em andamento",
+      "prioridade": "P1",
+      "branch": "feature/acompanhamento-ia",
+      "log": [
+        "2026-10-23: novo lib/whatsapp.ts (enviarAlertaWhatsApp + normalizarTelefoneBr): POST graph.facebook.com/{WHATSAPP_GRAPH_VERSION=v23.0}/{WHATSAPP_PHONE_NUMBER_ID}/messages com template WHATSAPP_TEMPLATE_ANDAMENTO (4 variáveis: nº, tribunal, resumo, próximo passo; texto sugerido no cabeçalho do arquivo), parâmetros sem quebra de linha e com até 380 caracteres, timeout 15s, 5xx/429/limite de taxa = transitório, demais erros = definitivo. Sem resumo IA usa os títulos das movimentações. Telefone vem de ap_perfis.telefone; opt-in por processo em ap_processos_monitorados.notificar_whatsapp (default false, ainda sem UI). Testado: normalizador (5 casos) e no-op sem credenciais. Sem envio real (sem conta Meta). .env.example documentado."
+      ]
+    },
+    {
+      "id": "ativacao-monitoramento-producao",
+      "titulo": "Ativar o monitoramento em produção",
+      "modelo": "Ação do usuário: CRON_SECRET, RESEND_API_KEY, RESEND_FROM_EMAIL e as variáveis do WhatsApp na Vercel; verificação do negócio na Meta e aprovação do template; domínio de envio no Resend. Depois: validar 1 ciclo real do cron com um processo de teste.",
+      "status": "Pendente",
+      "prioridade": "P1",
+      "branch": "feature/acompanhamento-ia",
+      "log": []
+    },
+    {
+      "id": "opt-in-whatsapp-painel-alertas",
+      "titulo": "Opt-in de WhatsApp por processo + painel de alertas no app",
+      "modelo": "Em 'Meus processos': ligar/desligar e-mail e WhatsApp por processo (ap_processos_monitorados.notificar_*), telefone obrigatório para WhatsApp, central de notificações lendo ap_notificacoes (já gravada pelo worker) com o resumo IA. Opt-out/LGPD.",
+      "status": "Implementada",
+      "prioridade": "P1",
+      "branch": "feature/acompanhamento-ia",
+      "log": [
+        "2026-10-23: novas rotas app/api/monitoramento (GET: processos de ap_processos_monitorados + ap_processos, último resumo de ap_resumos_ia por processo e se o telefone do perfil serve para WhatsApp; PATCH: liga/desliga notificar_email/notificar_whatsapp, recusa WhatsApp sem celular válido com codigo 'sem_telefone') e app/api/notificacoes (GET: últimas 30 de ap_notificacoes + contagem de não lidas; PATCH: marcar como lidas por ids ou todas).",
+        "2026-10-23: novo components/AcompanhamentoProcessos.tsx no topo de 'Meus processos' (tabela antiga vira 'Processos pesquisados'): 'Alertas recentes' (não lidas em destaque, 'Marcar todos como lidos') e 'Acompanhamento' em cards (cabem no celular): nº, tribunal/classe, selo de urgência, resumo IA + próximo passo com aviso 'não substitui o advogado', últ. movimentação, próxima conferência e Switches E-mail/WhatsApp com atualização otimista e rollback + mensagem com link para o perfil quando falta celular. Validado em Chromium com as duas APIs interceptadas (1440px e 390px, sem rolagem horizontal, recusa do WhatsApp desfaz o switch) e as consultas das rotas executadas no banco real (só leitura).",
+        "2026-10-23: FIX encontrado na validação visual — datas de movimentação (AAAA-MM-DD gravado como meia-noite UTC) apareciam um dia antes no fuso de Brasília; formatação com timeZone UTC no card e também na tabela antiga de 'Meus processos' (mesmo bug, já existia).",
+        "2026-10-23: descadastro por e-mail (LGPD): lib/descadastro.ts (token HMAC-SHA256 com usuário/processo/canal/nº, sem expiração, chave DESCADASTRO_SECRET com fallback à service role), POST app/api/descadastro (token na query para o one-click RFC 8058 ou no JSON do botão; desliga o canal e marca os alertas ainda na fila como 'ignorado'; GET não descadastra por causa dos scanners de link), página pública app/descadastro (confirmação com botão, noindex, bloqueada no robots) e e-mail com link no rodapé + cabeçalhos List-Unsubscribe/List-Unsubscribe-Post. Testado: ida e volta do token, payload/assinatura adulterados e lixo rejeitados, GET 405, POST inválido 400, one-click e JSON 200 (usuário fictício, nenhuma linha afetada), página antes/depois em 1280px e 390px.",
+        "PENDENTE: validação com login real (não há contas desde 2026-10-22); contador de não lidas no item de menu; descadastro do WhatsApp por resposta 'SAIR' (exige webhook de entrada da Cloud API) — hoje é pelo switch no app."
+      ]
+    },
+    {
+      "id": "cobranca-planos-assinatura",
+      "titulo": "Cobrança e planos (assinatura mensal + avulso)",
+      "modelo": "Plano gratuito (consulta por número via DataJud) e pago (monitoramento + WhatsApp + resumo IA + busca por CPF); gateway com Pix e cartão; ap_perfis.plano já existe (travado por trigger, só service_role altera). Diferente de billing-uso-api-por-conta, que é o painel interno de custo.",
+      "status": "Pendente",
+      "prioridade": "P1",
+      "branch": "feature/acompanhamento-ia",
+      "log": []
+    },
+    {
+      "id": "paginas-publicas-processo-seo",
+      "titulo": "Páginas públicas /processo/{cnj} com ISR e SEO",
+      "modelo": "Item (c) do clone-jusbrasil-cascata-dados: só dados públicos, sem segredo de justiça, partes pessoa física mascaradas (LGPD), CTA 'acompanhar este processo'. É o canal de aquisição orgânica do Jusbrasil.",
+      "status": "Pendente",
+      "prioridade": "P1",
+      "branch": "feature/acompanhamento-ia",
+      "log": []
+    },
+    {
+      "id": "monitoramento-cpf-novos-processos",
+      "titulo": "Monitoramento por CPF/CNPJ: avisar quando aparecer processo novo",
+      "modelo": "Reconsulta periódica só com fontes baratas (Lemit/DataJud quando possível); varredura Infosimples completa é cara demais para recorrência. Respeita o filtro 'somente autor'.",
+      "status": "Pendente",
+      "prioridade": "P2",
+      "branch": "feature/acompanhamento-ia",
+      "log": []
+    },
+    {
+      "id": "diarios-oficiais-nome-oab",
+      "titulo": "Monitoramento de diários oficiais por nome/OAB",
+      "modelo": "Pesquisar fonte (Infosimples/DJEN/terceiros) e custo; intimações viram alerta com resumo IA.",
+      "status": "Pendente",
+      "prioridade": "P2",
+      "branch": "feature/acompanhamento-ia",
+      "log": []
+    },
+    {
+      "id": "prazos-agenda-lembretes",
+      "titulo": "Prazos e agenda com lembretes",
+      "modelo": "Reaproveita calcularPrazoProcessualTool (lib/agent/tools.ts); prazo detectado numa movimentação vira lembrete por WhatsApp/e-mail.",
+      "status": "Pendente",
+      "prioridade": "P2",
+      "branch": "feature/acompanhamento-ia",
+      "log": []
+    },
+    {
+      "id": "white-label-escritorios",
+      "titulo": "White-label para escritórios (marca e domínio próprios, alertas aos clientes do escritório)",
+      "modelo": "Depois de cobrança e opt-in prontos.",
+      "status": "Pendente",
+      "prioridade": "P3",
+      "branch": "feature/acompanhamento-ia",
+      "log": []
+    },
     {
       "id": "rebranding-techtie-login-animado",
       "titulo": "Rebranding Blindagem Financeira -> TechTie e coluna esquerda do login com T animado + copy de acompanhamento processual otimizado",
       "modelo": "Marca trocada em telas, prompts da IA, assinatura dos textos gerados e metadados; login com componente TechTieHero (SVG + CSS module, sem WebGL/biblioteca) no lugar do GhostFibers",
       "status": "Implementada",
       "log": [
+        "2026-10-23: 'Como você quer buscar?' (components/ProcessTracker.tsx) — as opções (número, pessoa ou empresa, nome da parte) agora ficam uma por linha (grid de 1 coluna).",
+        "2026-10-23: 'Simular conta' (components/DevMetrics.tsx) — o switch principal agora alterna Usuário comum / Advogado (novo lib/devVisao.ts, persistido em localStorage 'bf:devVisaoAdvogado' e compartilhado via evento) em vez de Não pagante / Pagante. ProcessTracker passa a ler a visão desse store (o 'Visualizar como' do formulário alterna o mesmo estado; ao voltar para usuário comum a busca volta para 'numero' via efeito). Pagante/Não pagante virou um 2º switch 'Assinatura', visível só na visão de advogado, para continuar liberando a busca por nome da parte. tsc limpo; não validado no navegador.",
+        "2026-10-23: formulário de consulta (components/ProcessTracker.tsx) — 'Nome completo' e 'CPF ou CNPJ' agora ficam cada um em sua própria linha (grid de 1 coluna em vez do auto-fit de 2 colunas).",
         "2026-10-22: 'Blindagem Financeira' -> 'TechTie' em app/(app)/painel, components/ProcessTracker.tsx (saudação do chat, cabeçalhos do assistente e FAQ), prompts de app/api/ai/chat, app/api/ai/summary e lib/agent/processAgent.ts, assinatura/sanitização 'Equipe TechTie' (lib/format.ts e summary), comentário de lib/theme.ts e para_entender_o_projeto.json. Mantidos de propósito: termos jurídicos 'blindagem patrimonial'/'estratégias de blindagem' (lib/agent/tools.ts, FAQ), histórico do roadmap, nome do pacote npm e o e-mail real admin@blindagemfinanceira.com.br do supabase/README.md.",
         "2026-10-22: metadados — nova imagem de compartilhamento public/techtie-og.png (1200x630, gerada do logo SVG via Chromium headless), twitter summary_large_image e logo do JSON-LD apontando para public/techtie-logo-horizontal-gold.svg. public/blindagem-logo.png e components/GhostFibers.tsx ficaram sem uso (não apagados).",
         "2026-10-22: a pedido do usuário, Infosimples como 2ª tentativa OPCIONAL na busca por número: quando só o DataJud foi usado e nada foi achado, a tela 'Nenhum processo localizado' oferece 'Buscar direto no portal do <tribunal> · R$ X' (ProcessTracker.tsx, estados infosimplesSegundaTentativa/refazerBusca/numeroTentadoNaInfosimples). A busca refeita consulta só a Infosimples do tribunal (sem repetir o DataJud), vale só para aquela busca e o botão não reaparece para o mesmo número.",
@@ -110,7 +274,8 @@
       "status": "Implementada",
       "log": [
         "2026-10-07: adicionada a rota /configuracoes em lib/nav.ts e criada a página app/(app)/configuracoes/page.tsx com suporte a salvamento de preferências no navegador (limite por tribunal, ordenação padrão, otimizador de varredura paralela, webhook externo, status das conexões DataJud/InfoSimples e controle de animações/fibras WebGL).",
-        "2026-10-07: rota adicionada ao disallow de app/robots.ts e integrada ao layout principal."
+        "2026-10-07: rota adicionada ao disallow de app/robots.ts e integrada ao layout principal.",
+        "2026-10-23: FIX visual de /configuracoes (app/(app)/configuracoes/page.tsx reescrita com Toggle/Secao/LinhaConfig/CampoSelect/CartaoFonte). (1) Toggle: o knob era um inline-block dentro do <button>, centralizado pelo text-align do botão — ligado estourava 10px para fora da trilha (medido em Chromium), desligado ficava no meio; agora é absoluto (4px de folga nos dois estados) e vira role=switch com aria-checked. (2) O Tailwind do projeto importa só theme+utilities (sem preflight), então h1/h2/p mantinham a margem padrão do navegador e abriam buracos entre título e descrição; zerado por [&_h1/h2/h3/p]:m-0 na raiz da página. (3) Paleta: todo amber-* (laranja saturado) trocado pelos tokens champagne/grafite; botão Salvar usa .bf-btn-ouro + gradiente champagne; status 'Operacional' usa --tt-success; selects/webhook usam .bf-input. Novo @theme inline em app/globals.css expõe --tt-* como utilitários (bg-tt-surface, text-tt-champagne-300, border-tt-line...). (4) Mobile: removido w-[80vw]; abas em faixa rolável (antes empilhavam ocupando meia tela); linhas mantêm o toggle ao lado do texto; descrições 12px -> 13px. Validado com tsc e em Chromium (harness estático com o CSS compilado, 1440x900 e 390x844, 4 abas). Pendente/observado: nada lê prosec_configuracoes_v1 fora desta página (as opções ainda não têm efeito); o toggle de fibras WebGL descreve um recurso removido do shell; app/(app)/perfil/page.tsx ainda usa amber-*."
       ]
     },
     {
@@ -470,18 +635,24 @@
       "id": "monitoramento-continuo",
       "titulo": "Monitoramento contínuo de processos (cron + diff de movimentações)",
       "modelo": "paga / ativação por processo para não-assinante",
-      "status": "pendente",
+      "status": "Em andamento",
+      "prioridade": "P1",
+      "branch": "feature/acompanhamento-ia",
       "log": [
-        "2026-09-30: UI de preview criada (toggle 'Avisar quando o processo andar' no Passo 3, botão 'Acompanhar este processo' na tela de resultado). Preferência é persistida em ap_preferencias_consulta, mas nenhum job/cron reconsulta processos de fato."
+        "2026-09-30: UI de preview criada (toggle 'Avisar quando o processo andar' no Passo 3, botão 'Acompanhar este processo' na tela de resultado). Preferência é persistida em ap_preferencias_consulta, mas nenhum job/cron reconsulta processos de fato.",
+        "2026-10-23: status corrigido para 'Em andamento' — o cron app/api/cron/reconsulta existe desde 2026-10-07 (backoff 1/3/7 dias, teto diário, e-mail via Resend), mas nunca rodou em produção (env vars não configuradas). Achado: ele chamava buscarProcessoPorNumero sem filtro de fontes, ou seja, TODOS os serviços Infosimples do tribunal toda noite (até ~R$ 0,80/processo no TJSP). 16 processos em ap_processos, todos com monitorar=true."
       ]
     },
     {
       "id": "alertas-andamento",
       "titulo": "Alertas de andamento (e-mail / push / WhatsApp)",
-      "modelo": "paga / ativação por processo para não-assinante (junto com monitoramento-continuo)",
-      "status": "pendente",
+      "modelo": "paga / ativação por processo para não-assinante (junto com monitoramento-continuo). Detalhado em worker-fila-alertas, whatsapp-cloud-api-alertas e resumo-ia-alerta-andamento.",
+      "status": "Em andamento",
+      "prioridade": "P1",
+      "branch": "feature/acompanhamento-ia",
       "log": [
-        "2026-09-30: UI de seleção de canal (E-mail/WhatsApp) criada no Passo 3 e persistida em ap_preferencias_consulta.canal_aviso, mas nenhum envio real é disparado."
+        "2026-09-30: UI de seleção de canal (E-mail/WhatsApp) criada no Passo 3 e persistida em ap_preferencias_consulta.canal_aviso, mas nenhum envio real é disparado.",
+        "2026-10-23: e-mail já tem envio real em código (lib/email.ts via Resend, chamado pelo cron), sem resumo; WhatsApp era só registrado como 'pendente' e nunca enviado. A seleção de canal do formulário foi removida em 2026-10-22; o canal por processo vive em ap_processos_monitorados.notificar_email (default true) / notificar_whatsapp (default false)."
       ]
     },
     {

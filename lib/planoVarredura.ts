@@ -83,7 +83,7 @@ export function decidirPrioridade(sinais: SinaisUf, disponivel: (tj: string) => 
     candidatos.push({ origem: 'manual', tribunais: [tribunalByUf(sinais.manualUf)].filter(Boolean) as string[], motivo: `estado escolhido manualmente (${sinais.manualUf})` });
   }
   if (sinais.lemitUf) {
-    candidatos.push({ origem: 'lemit', tribunais: [tribunalByUf(sinais.lemitUf)].filter(Boolean) as string[], motivo: `endereço mais recente na Lemit é em ${sinais.lemitUf}` });
+    candidatos.push({ origem: 'lemit', tribunais: [tribunalByUf(sinais.lemitUf)].filter(Boolean) as string[], motivo: `endereço cadastral mais recente é em ${sinais.lemitUf}` });
   }
   if (sinais.dddTj) {
     candidatos.push({ origem: 'ddd', tribunais: [sinais.dddTj], motivo: `DDD do telefone informado é de ${sinais.dddTj.replace(/^TJ/, '')}` });
@@ -111,6 +111,6 @@ export function decidirPrioridade(sinais: SinaisUf, disponivel: (tj: string) => 
     motivo:
       descartados.length > 0
         ? `Nenhum sinal aponta para um tribunal selecionado (${descartados.join('; ')}): todos consultados em paralelo.`
-        : 'Sem sinal de estado (Lemit, DDD ou região do CPF): todos os tribunais consultados em paralelo.'
+        : 'Sem sinal de estado (endereço cadastral, DDD ou região do CPF): todos os tribunais consultados em paralelo.'
   };
 }

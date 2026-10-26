@@ -426,7 +426,7 @@ export default function ProcessResultView({
             )}
             {conferidosDataJud > 0 && (
               <Chip color={BLUE}>
-                Conferido no DataJud (CNJ) · {conferidosDataJud} de {caseData.totalProcessos}
+                Base oficial conferida · {conferidosDataJud} de {caseData.totalProcessos}
               </Chip>
             )}
           </div>

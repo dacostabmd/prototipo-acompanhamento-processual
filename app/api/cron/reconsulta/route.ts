@@ -2,21 +2,24 @@ import { NextResponse } from 'next/server';
 import { createHash, timingSafeEqual } from 'crypto';
 import { getAdminClient, trackEvento } from '@/lib/track';
 import { buscarProcessoPorNumero } from '@/lib/motorConsulta';
-import { enviarAlertaMovimentacao } from '@/lib/email';
+import { gerarResumoAndamento } from '@/lib/resumoAndamento';
+import { enfileirarAlertas, processarFilaAlertas } from '@/lib/filaAlertas';
 import type { Movement } from '@/lib/mockProcesses';
 
-// Vercel Hobby: Route Handlers podem declarar maxDuration até 60s (o limite de 10s é só o default
-// das antigas Serverless Functions sem declaração explícita). 60s não é suficiente para processar
-// um dia inteiro de reconsultas de uma vez só — por isso o loop abaixo também para de INICIAR novos
-// processos a partir de ORCAMENTO_TEMPO_MS (conservador, abaixo do teto da function), deixando o
-// restante para a próxima invocação do cron (amanhã). Não há paginação entre invocações: o processo
-// que não coube hoje simplesmente continua com proxima_consulta_em <= now() e é pego de novo amanhã,
-// na frente da fila (ORDER BY ultima_consulta_em ASC), então nenhum processo fica permanentemente preterido.
-export const maxDuration = 60;
+// Mesmo teto de app/api/processos (300s, Fluid Compute). Um dia inteiro de reconsultas pode não
+// caber — por isso o loop para de INICIAR novos processos em ORCAMENTO_TEMPO_MS e o worker de alertas
+// usa o tempo até PRAZO_TOTAL_MS. O que não coube hoje continua com proxima_consulta_em <= now() e é
+// pego amanhã na frente da fila (ORDER BY ultima_consulta_em ASC); alerta não enviado fica na fila.
+export const maxDuration = 300;
 
-const ORCAMENTO_TEMPO_MS = 50_000; // margem de 10s abaixo do maxDuration para fechar a resposta com folga
+const ORCAMENTO_TEMPO_MS = 230_000; // DataJud leva 7-22s (até 60s) por consulta; o lote em andamento precisa terminar
+const PRAZO_TOTAL_MS = 285_000; // worker de alertas até aqui; 15s de margem para fechar a resposta
 const TAMANHO_LOTE = 8; // processos buscados em paralelo por rodada (Promise.allSettled)
 const LIMITE_SELECT = 200; // candidatos buscados do banco por invocação (bem acima do que cabe no orçamento de tempo)
+
+// Reconsulta só no DataJud (gratuito) por padrão. Com a Infosimples, cada processo custaria por noite
+// a soma de todos os serviços do tribunal (TJSP tem 4). RECONSULTA_USAR_INFOSIMPLES=true religa.
+const USAR_INFOSIMPLES = process.env.RECONSULTA_USAR_INFOSIMPLES === 'true';
 
 /** Data de "hoje" no fuso America/Sao_Paulo, formato YYYY-MM-DD — mesmo padrão de ap_eventos.dia (schema inicial). */
 function hojeSaoPaulo(): string {
@@ -30,11 +33,14 @@ function hojeSaoPaulo(): string {
  *   3-9 tentativas sem mudança  -> a cada 3 dias
  *   10+ tentativas sem mudança  -> a cada 7 dias
  * Quando HOUVE mudança (tentativas=0 logo após zerar), cai no primeiro caso (+1 dia) também.
+ * O horário é fixado à 00:00 de Brasília (03:00 UTC) do dia alvo: com "agora + N dias" exato, o
+ * processo tratado às 06:03 não estaria elegível no cron do dia seguinte (06:00) e pularia um dia.
  */
 function calcularProximaConsulta(tentativasConsecutivasSemMudanca: number): string {
   const dias = tentativasConsecutivasSemMudanca >= 10 ? 7 : tentativasConsecutivasSemMudanca >= 3 ? 3 : 1;
   const proxima = new Date();
   proxima.setUTCDate(proxima.getUTCDate() + dias);
+  proxima.setUTCHours(3, 0, 0, 0);
   return proxima.toISOString();
 }
 
@@ -53,7 +59,15 @@ async function lerOrcamentoDiario(db: NonNullable<ReturnType<typeof getAdminClie
 interface ProcessoElegivel {
   id: string;
   numero_cnj: string;
+  tribunal: string | null;
+  classe_processual: string | null;
+  assunto_principal: string | null;
   tentativas_consecutivas_sem_mudanca: number;
+}
+
+// A Vercel chama o cron com GET; POST continua para disparo manual (curl com o mesmo Bearer).
+export async function GET(request: Request) {
+  return POST(request);
 }
 
 export async function POST(request: Request) {
@@ -102,11 +116,13 @@ export async function POST(request: Request) {
 
   if (gastoHoje >= orcamentoDiario) {
     console.log(`[cron/reconsulta] Teto de orçamento diário já atingido (R$ ${gastoHoje.toFixed(2)} / R$ ${orcamentoDiario.toFixed(2)}) — encerrando sem consultar.`);
+    // A fila de alertas não gasta orçamento de consulta: continua rodando.
+    const alertas = await processarFilaAlertas(db, { ateMs: inicio + PRAZO_TOTAL_MS });
     await trackEvento(request, null, {
       tipo: 'reconsulta_noturna',
-      dados: { processados: 0, erros: 0, custoBatch: 0, gastoHoje, orcamentoDiario, motivoParada: 'orcamento_atingido_no_inicio' }
+      dados: { processados: 0, erros: 0, custoBatch: 0, gastoHoje, orcamentoDiario, motivoParada: 'orcamento_atingido_no_inicio', alertas }
     });
-    return NextResponse.json({ processados: 0, motivo: 'orcamento_atingido' });
+    return NextResponse.json({ processados: 0, motivo: 'orcamento_atingido', alertas });
   }
 
   // 3) Processos elegíveis, priorizando os há mais tempo sem reconsulta (nunca round-robin aleatório).
@@ -114,7 +130,7 @@ export async function POST(request: Request) {
   // avisado de cada processo está em ap_processos_monitorados (user_id+processo_id), não aqui.
   const { data: candidatos, error: erroSelect } = await db
     .from('ap_processos')
-    .select('id, numero_cnj, tentativas_consecutivas_sem_mudanca')
+    .select('id, numero_cnj, tribunal, classe_processual, assunto_principal, tentativas_consecutivas_sem_mudanca')
     .eq('monitorar', true)
     .eq('status', 'ativo')
     .or(`proxima_consulta_em.is.null,proxima_consulta_em.lte.${new Date().toISOString()}`)
@@ -130,6 +146,8 @@ export async function POST(request: Request) {
   let gastoAcumulado = gastoHoje;
   let processados = 0;
   let erros = 0;
+  let alertasEnfileirados = 0;
+  let resumosGerados = 0;
   let paradaPorOrcamento = false;
   let paradaPorTempo = false;
 
@@ -152,6 +170,8 @@ export async function POST(request: Request) {
       if (r.status === 'fulfilled') {
         processados++;
         gastoAcumulado += r.value.custoCobrado;
+        alertasEnfileirados += r.value.alertasEnfileirados;
+        if (r.value.resumoGerado) resumosGerados++;
       } else {
         erros++;
         console.error('[cron/reconsulta] falha ao processar item do lote:', r.reason);
@@ -162,28 +182,47 @@ export async function POST(request: Request) {
   const custoBatch = gastoAcumulado - gastoHoje;
   const motivoParada = paradaPorOrcamento ? 'orcamento_atingido' : paradaPorTempo ? 'tempo_esgotado' : 'fila_concluida';
 
+  // 4) Worker de alertas: envia o que acabou de entrar na fila e repete as falhas ainda válidas.
+  const alertas = await processarFilaAlertas(db, { ateMs: inicio + PRAZO_TOTAL_MS });
+
   console.log(
-    `[cron/reconsulta] Batch concluído: ${processados} processado(s), ${erros} erro(s), custo do batch R$ ${custoBatch.toFixed(2)} (motivo de parada: ${motivoParada}).`
+    `[cron/reconsulta] Batch concluído: ${processados} processado(s), ${erros} erro(s), custo do batch R$ ${custoBatch.toFixed(2)} (motivo de parada: ${motivoParada}). ` +
+      `Resumos IA: ${resumosGerados}. Alertas: ${alertasEnfileirados} enfileirado(s), ${alertas.enviados} enviado(s), ${alertas.falhas} falha(s), ` +
+      `${alertas.aguardandoConfiguracao} aguardando configuração, ${alertas.restantes} para a próxima execução.`
   );
 
   await trackEvento(request, null, {
     tipo: 'reconsulta_noturna',
-    dados: { processados, erros, custoBatch: Number(custoBatch.toFixed(2)), gastoHoje: Number(gastoAcumulado.toFixed(2)), orcamentoDiario, motivoParada, candidatosNaFila: fila.length }
+    dados: {
+      processados,
+      erros,
+      custoBatch: Number(custoBatch.toFixed(2)),
+      gastoHoje: Number(gastoAcumulado.toFixed(2)),
+      orcamentoDiario,
+      motivoParada,
+      candidatosNaFila: fila.length,
+      usarInfosimples: USAR_INFOSIMPLES,
+      resumosGerados,
+      alertasEnfileirados,
+      alertas
+    }
   });
 
-  return NextResponse.json({ processados, erros, custoBatch, motivoParada });
+  return NextResponse.json({ processados, erros, custoBatch, motivoParada, resumosGerados, alertasEnfileirados, alertas });
 }
 
 /**
  * Reconsulta um processo monitorado: busca via motorConsulta, grava movimentações novas (dedupe por
- * hash), atualiza contadores/backoff de ap_processos e, se algo novo apareceu, enfileira+processa o
- * alerta de e-mail do dono (se ele tiver optado por avisar_movimentacao).
+ * hash), atualiza contadores/backoff de ap_processos e, se algo novo apareceu, gera o resumo IA
+ * (uma vez por processo, compartilhado entre quem monitora) e enfileira os alertas. O envio fica com
+ * o worker (processarFilaAlertas), no fim da execução.
  */
 async function processarUmProcesso(
   db: NonNullable<ReturnType<typeof getAdminClient>>,
   processo: ProcessoElegivel
-): Promise<{ custoCobrado: number }> {
-  const resultado = await buscarProcessoPorNumero(processo.numero_cnj);
+): Promise<{ custoCobrado: number; alertasEnfileirados: number; resumoGerado: boolean }> {
+  // tribunaisSelecionados: [] desliga a Infosimples; undefined consulta todos os serviços do tribunal.
+  const resultado = await buscarProcessoPorNumero(processo.numero_cnj, USAR_INFOSIMPLES ? undefined : { tribunaisSelecionados: [] });
   const agora = new Date().toISOString();
 
   if (!resultado.processo) {
@@ -193,7 +232,7 @@ async function processarUmProcesso(
       .from('ap_processos')
       .update({ ultima_consulta_em: agora, erro_ultima_consulta: resultado.erro ?? 'Processo não encontrado nesta reconsulta.' })
       .eq('id', processo.id);
-    return { custoCobrado: resultado.custoCobrado };
+    return { custoCobrado: resultado.custoCobrado, alertasEnfileirados: 0, resumoGerado: false };
   }
 
   const movimentosDoProcesso = resultado.processo.movimentos ?? [];
@@ -243,83 +282,42 @@ async function processarUmProcesso(
     })
     .eq('id', processo.id);
 
-  if (houveMudanca) {
-    await processarAlerta(db, processo, resultado.processo.tribunal, movimentosNovos);
+  if (!houveMudanca) return { custoCobrado: resultado.custoCobrado, alertasEnfileirados: 0, resumoGerado: false };
+
+  const maisRecentesPrimeiro = (a: Movement, b: Movement) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0);
+  const novos = [...movimentosNovos].sort(maisRecentesPrimeiro);
+  const novosSet = new Set(movimentosNovos);
+  const historico = movimentosDoProcesso.filter(m => !novosSet.has(m)).sort(maisRecentesPrimeiro).slice(0, 5);
+  const tribunal = resultado.processo.tribunal?.split(' · ')[0] || processo.tribunal;
+
+  const resumo = await gerarResumoAndamento(
+    { numeroCnj: processo.numero_cnj, tribunal, classe: processo.classe_processual, assunto: processo.assunto_principal },
+    novos,
+    historico
+  );
+
+  if (resumo) {
+    const ins = await db.from('ap_resumos_ia').insert({
+      processo_id: processo.id,
+      resumo_simplificado: resumo.resumo,
+      status_atual_explicado: resumo.significado,
+      proximos_passos: resumo.proximoPasso,
+      pontos_atencao: resumo.urgencia === 'alta' ? 'Pode exigir ação rápida: fale com o advogado responsável.' : null,
+      urgencia: resumo.urgencia,
+      timeline_resumida: novos.slice(0, 10).map(m => ({ data: m.data, titulo: m.titulo })),
+      modelo_ia: resumo.modelo,
+      total_tokens: resumo.totalTokens ?? null,
+      ultima_movimentacao_coberta: novos[0]?.data ?? null
+    });
+    if (ins.error) console.error('[cron/reconsulta] falha ao gravar resumo IA:', ins.error.message);
   }
 
-  return { custoCobrado: resultado.custoCobrado };
-}
+  const alertasEnfileirados = await enfileirarAlertas(db, processo.id, {
+    numeroCnj: processo.numero_cnj,
+    tribunal,
+    movimentos: novos.slice(0, 10).map(m => ({ data: m.data, titulo: m.titulo, descricao: m.descricao || m.titulo })),
+    resumo: resumo ? { resumo: resumo.resumo, significado: resumo.significado, proximoPasso: resumo.proximoPasso, urgencia: resumo.urgencia } : null
+  });
 
-/**
- * ap_processos é compartilhado (numero_cnj único globalmente): vários usuários podem monitorar o
- * mesmo processo via ap_processos_monitorados (user_id+processo_id+notificar_email/notificar_whatsapp
- * — essa tabela já guarda a preferência de canal por usuário, não é preciso olhar
- * ap_preferencias_consulta aqui). Para cada monitoramento com algum canal ligado: grava o alerta em
- * ap_alertas_pendentes e já tenta processá-lo na mesma invocação (e-mail via Resend). WhatsApp fica só
- * registrado como pendente (fora de escopo nesta fase — depende do Baileys), nunca tentado, nunca
- * derruba o fluxo de e-mail dos demais usuários/canais.
- */
-async function processarAlerta(
-  db: NonNullable<ReturnType<typeof getAdminClient>>,
-  processo: ProcessoElegivel,
-  tribunal: string | undefined,
-  movimentosNovos: Movement[]
-) {
-  const { data: monitoramentos } = await db
-    .from('ap_processos_monitorados')
-    .select('user_id, notificar_email, notificar_whatsapp')
-    .eq('processo_id', processo.id);
-
-  for (const monitoramento of monitoramentos ?? []) {
-    const userId = monitoramento.user_id as string;
-    const canaisAEnfileirar: Array<'email' | 'whatsapp'> = [
-      ...(monitoramento.notificar_email ? (['email'] as const) : []),
-      ...(monitoramento.notificar_whatsapp ? (['whatsapp'] as const) : [])
-    ];
-    if (canaisAEnfileirar.length === 0) continue;
-
-    for (const canal of canaisAEnfileirar) {
-      const { data: alerta, error: erroInsert } = await db
-        .from('ap_alertas_pendentes')
-        .insert({ processo_id: processo.id, user_id: userId, canal, status: 'pendente' })
-        .select('id')
-        .single();
-
-      if (erroInsert || !alerta) {
-        console.error('[cron/reconsulta] falha ao enfileirar alerta:', erroInsert?.message);
-        continue;
-      }
-
-      if (canal === 'whatsapp') {
-        // Fora de escopo nesta fase (depende do Baileys, fase futura separada) — fica "pendente" de
-        // propósito, documentado aqui para não ser confundido com um alerta esquecido.
-        continue;
-      }
-
-      // canal === 'email': processa já, nesta mesma invocação. ap_perfis.email (citext, já preenchido no
-      // signup via trigger ap_handle_new_user) é a fonte primária — select direto, sem custo de chamada à
-      // API de admin; só cai em auth.users via admin API se o perfil não tiver e-mail por algum motivo.
-      const { data: perfil } = await db.from('ap_perfis').select('email').eq('id', userId).maybeSingle();
-      let email: string | null | undefined = perfil?.email;
-      if (!email) {
-        const { data: userData } = await db.auth.admin.getUserById(userId);
-        email = userData?.user?.email;
-      }
-
-      if (!email) {
-        await db.from('ap_alertas_pendentes').update({ status: 'falhou', erro: 'Usuário sem e-mail cadastrado.', tentativas: 1 }).eq('id', alerta.id);
-        continue;
-      }
-
-      const envio = await enviarAlertaMovimentacao(email, { numeroCnj: processo.numero_cnj, tribunal }, movimentosNovos);
-      await db
-        .from('ap_alertas_pendentes')
-        .update(
-          envio.enviado
-            ? { status: 'enviado', enviado_em: new Date().toISOString(), tentativas: 1 }
-            : { status: 'falhou', erro: envio.erro ?? 'Falha desconhecida ao enviar e-mail.', tentativas: 1 }
-        )
-        .eq('id', alerta.id);
-    }
-  }
+  return { custoCobrado: resultado.custoCobrado, alertasEnfileirados, resumoGerado: !!resumo };
 }

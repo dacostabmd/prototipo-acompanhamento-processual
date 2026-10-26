@@ -7,6 +7,25 @@
   --font-sans: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* Tokens --tt-* (definidos em :root, mais abaixo) expostos como utilitários: bg-tt-surface, text-tt-champagne-300, border-tt-line... */
+@theme inline {
+  --color-tt-ink: var(--tt-ink);
+  --color-tt-base: var(--tt-base);
+  --color-tt-surface: var(--tt-surface);
+  --color-tt-raised: var(--tt-raised);
+  --color-tt-active: var(--tt-active);
+  --color-tt-line: var(--tt-line);
+  --color-tt-text: var(--tt-text);
+  --color-tt-text-2: var(--tt-text-2);
+  --color-tt-text-3: var(--tt-text-3);
+  --color-tt-champagne-100: var(--tt-champagne-100);
+  --color-tt-champagne-300: var(--tt-champagne-300);
+  --color-tt-champagne-500: var(--tt-champagne-500);
+  --color-tt-champagne-700: var(--tt-champagne-700);
+  --color-tt-success: var(--tt-success);
+  --color-tt-danger: var(--tt-danger);
+}
+
 :root {
   --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

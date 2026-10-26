@@ -728,7 +728,8 @@ export async function POST(request: Request) {
               allProcesses.push(processo);
               // Resultado parcial para a tela, já respeitando o filtro "somente autor".
               if (!somenteAutor || pesquisadoEhAutor(fullName, processo.autor)) {
-                emit({ type: 'processo', processo: { numero: processo.numero, tribunal: processo.tribunal, tipo: processo.tipo, autor: processo.autor } });
+                // Vai completo: se o usuário encerrar e o 'done' não chegar, a tela monta o resultado com estes.
+                emit({ type: 'processo', processo });
               }
               // Dispara o DataJud já aqui, em paralelo com os outros tribunais ainda rodando.
               enriquecimentoPromises.push(enriquecerComDataJud(processo, target));

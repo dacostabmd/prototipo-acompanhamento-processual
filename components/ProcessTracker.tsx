@@ -49,6 +49,7 @@ import {
   parseCnj
 } from '@/lib/format';
 import { useDevPagante } from '@/lib/devPagante';
+import { setDevVisaoAdvogado, useDevVisaoAdvogado } from '@/lib/devVisao';
 import { extractDdd, prioritizeByTribunalOrDdd, tribunalByDdd, tribunalByUf, ESTADOS_BRASIL } from '@/lib/ddd';
 import { useSharedProfile } from '@/components/ProfileProvider';
 import { getAvgMs, recordSample } from '@/lib/tribunalTiming';
@@ -167,7 +168,12 @@ export default function ProcessTracker({
 
   // "Visualizar como": usuário comum vê o formulário enxuto (busca recomendada); advogado vê também busca por
   // nome, documentos extras, estado inicial e a escolha manual de fontes. Consultante é sempre usuário comum.
-  const [visaoAdvogado, setVisaoAdvogado] = useState(false);
+  // Compartilhada com o botão flutuante "Simular conta" (components/DevMetrics.tsx).
+  const visaoAdvogado = useDevVisaoAdvogado();
+  // Usuário comum só busca por número (gratuito); pessoa/empresa e nome são da visão de advogado.
+  useEffect(() => {
+    if (!visaoAdvogado && !isConsultante) setSearchMode('numero');
+  }, [visaoAdvogado, isConsultante]);
   const [ajustesAbertos, setAjustesAbertos] = useState(false);
   const [fontesManuaisAbertas, setFontesManuaisAbertas] = useState(false);
 
@@ -206,6 +212,10 @@ export default function ProcessTracker({
   // "Encerrar e ver resultados": interrompe os tribunais em andamento mas mostra o que já foi achado
   // (≠ cancelar, que descarta tudo e volta ao formulário).
   const buscaEncerradaRef = useRef(false);
+  // Leitor do stream em andamento: se o servidor não fechar a consulta logo após o "encerrar" (o pedido pode cair
+  // em outra instância, ou ele ainda espera DataJud/Lemit), a tela corta a leitura e mostra o que já chegou.
+  const readerAtualRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const timerEncerrarRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [processosParciais, setProcessosParciais] = useState<ProcessoParcial[]>([]);
   const [varreduraIniciadaEm, setVarreduraIniciadaEm] = useState<number | null>(null);
   const [planoVarredura, setPlanoVarredura] = useState<string | null>(null);
@@ -292,7 +302,7 @@ export default function ProcessTracker({
   const custoPrevistoLabel =
     tipoBusca === 'numero'
       ? custoPrevisto === 0
-        ? 'Gratuito (DataJud CNJ)'
+        ? 'Gratuito'
         : `${idsInfosimplesEfetivos.length > 1 ? 'até ' : ''}${formatarReais(custoPrevisto)}`
       : qtdDocumentosValidos > 1
       ? `${formatarReais(custoPrevisto)} (${qtdDocumentosValidos} documentos)`
@@ -469,9 +479,11 @@ export default function ProcessTracker({
 
     // Lê o NDJSON incrementalmente: uma linha "progress" por tribunal + uma linha "done" final.
     const reader = res.body.getReader();
+    readerAtualRef.current = reader;
     const decoder = new TextDecoder();
     let buffer = '';
     let data: any = null;
+    const processosRecebidos: any[] = [];
 
     try {
     while (true) {
@@ -502,6 +514,7 @@ export default function ProcessTracker({
             evt.motivo ? `${evt.motivo}${qtdSegunda > 0 ? ` Os outros ${qtdSegunda} tribunais só serão consultados se nada for encontrado.` : ''}` : null
           );
         } else if (evt.type === 'processo' && evt.processo?.numero) {
+          processosRecebidos.push(evt.processo);
           setProcessosParciais(prev => (prev.some(p => p.numero === evt.processo.numero) ? prev : [...prev, evt.processo]));
         } else if (evt.type === 'progress' && evt.fonte === 'lemit') {
           // Lemit não é um tribunal: fica num quadro próprio da tela de varredura, com o resumo e o custo.
@@ -581,13 +594,25 @@ export default function ProcessTracker({
     }
     } catch (streamErr) {
       if (buscaCanceladaRef.current) return null;
-      console.error('[ProcessTracker stream error]', streamErr);
-      const err = new Error('A conexão com o servidor foi interrompida durante a busca. Tente novamente em instantes.');
-      (err as any).streamInterrompida = true;
-      throw err;
+      if (!buscaEncerradaRef.current) {
+        console.error('[ProcessTracker stream error]', streamErr);
+        const err = new Error('A conexão com o servidor foi interrompida durante a busca. Tente novamente em instantes.');
+        (err as any).streamInterrompida = true;
+        throw err;
+      }
+    } finally {
+      readerAtualRef.current = null;
+      if (timerEncerrarRef.current) {
+        clearTimeout(timerEncerrarRef.current);
+        timerEncerrarRef.current = null;
+      }
     }
 
     if (buscaCanceladaRef.current) return null;
+    // Encerrada pelo usuário e o servidor não mandou o 'done' a tempo: resultado com os processos já recebidos.
+    if (!data && buscaEncerradaRef.current) {
+      data = { processes: processosRecebidos, notFound: processosRecebidos.length === 0, encerradaPeloUsuario: true };
+    }
     if (!data) {
       throw new Error('Falha ao processar resposta do servidor.');
     }
@@ -753,6 +778,10 @@ export default function ProcessTracker({
       resolverContinuarOndaRef.current = null;
       setPerguntaContinuarOnda(null);
     }
+    // Dá ao servidor alguns segundos para fechar com o resultado completo; depois disso corta a leitura.
+    timerEncerrarRef.current = setTimeout(() => {
+      void readerAtualRef.current?.cancel().catch(() => {});
+    }, 5000);
     const consultaId = consultaIdRef.current;
     if (!consultaId) return;
     void authFetch('/api/processos/cancelar', {
@@ -1055,12 +1084,12 @@ export default function ProcessTracker({
                 }}
               >
                 <h3 style={{ margin: '0 0 8px', fontSize: 18, color: TEXT, fontWeight: 600 }}>
-                  {searchMode === 'numero' ? 'Realizando nossa pesquisa...' : 'Varrendo bases judiciais...'}
+                  {searchMode === 'numero' ? 'Realizando nossa pesquisa...' : 'Consultando andamentos processuais...'}
                 </h3>
                 <p style={{ margin: '0 0 20px', fontSize: 13.5, color: MUTED }}>
                   {searchMode === 'numero'
-                    ? 'Cruzamos o DataJud (CNJ) e o tribunal de origem em paralelo para trazer o resultado completo.'
-                    : `Consultamos ${scanItems.length || 14} tribunais. Alguns levam até 4 minutos para responder, e a busca toda pode chegar a 5 minutos. Os processos aparecem abaixo assim que são encontrados.`}
+                    ? 'Consultando os sistemas judiciais para trazer o andamento completo e atualizado.'
+                    : `Consultamos os sistemas oficiais dos tribunais. Os processos aparecem abaixo assim que são identificados.`}
                 </p>
 
                 <div
@@ -1158,11 +1187,11 @@ export default function ProcessTracker({
                     const statusLabel = todasConcluidas
                       ? algumEncontrado
                         ? 'Processo localizado — consolidando os dados...'
-                        : 'Nenhuma das duas fontes localizou o processo...'
+                        : 'Nenhum registro encontrado para este processo...'
                       : dataJudPendente && tribunalPendente
-                      ? `Consultando a base pública do CNJ (DataJud) e o ${item?.label || 'tribunal'} em paralelo...`
+                      ? `Consultando os sistemas oficiais do ${item?.label || 'tribunal'}...`
                       : dataJudPendente
-                      ? 'Consultando a base pública do CNJ (DataJud)...'
+                      ? 'Consultando registros e andamentos oficiais...'
                       : tribunalPendente
                       ? `Aguardando resposta do ${item?.label}...`
                       : 'Consolidando os dados encontrados...';
@@ -1274,8 +1303,8 @@ export default function ProcessTracker({
                           }}
                         />
                         <span style={{ minWidth: 0 }}>
-                          <strong style={{ fontWeight: 600 }}>{e.label}</strong>
-                          {e.descoberto ? <span style={{ color: MUTED }}> (CPF achado nos processos)</span> : null}
+                          <strong style={{ fontWeight: 600 }}>{e.label.replace(/^Lemit ·\s*/i, 'Confirmação cadastral · ')}</strong>
+                          {e.descoberto ? <span style={{ color: MUTED }}> (documento identificado nos autos)</span> : null}
                           <span style={{ color: MUTED }}>
                             {' · '}
                             {e.status === 'loading'
@@ -1349,12 +1378,7 @@ export default function ProcessTracker({
                     <SegmentedControl
                       size="sm"
                       value={visaoAdvogado ? 'advogado' : 'comum'}
-                      onChange={v => {
-                        const advogado = v === 'advogado';
-                        setVisaoAdvogado(advogado);
-                        // Usuário comum só busca por número (gratuito); pessoa/empresa e nome são da visão de advogado.
-                        if (!advogado && searchMode !== 'numero') setSearchMode('numero');
-                      }}
+                      onChange={v => setDevVisaoAdvogado(v === 'advogado')}
                       data={[
                         { label: 'Usuário comum', value: 'comum' },
                         { label: 'Advogado', value: 'advogado' }
@@ -1400,7 +1424,7 @@ export default function ProcessTracker({
                   {!isConsultante && (
                     <motion.div variants={secaoEntradaVariants}>
                       <h3 style={tituloBlocoStyle}>Como você quer buscar?</h3>
-                      <div role="radiogroup" aria-label="Como você quer buscar" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                      <div role="radiogroup" aria-label="Como você quer buscar" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 10 }}>
                         <OpcaoBusca
                           ativa={searchMode === 'numero'}
                           onClick={() => setSearchMode('numero')}
@@ -1430,7 +1454,7 @@ export default function ProcessTracker({
                     </motion.div>
                   )}
 
-                  <motion.div variants={secaoEntradaVariants} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                  <motion.div variants={secaoEntradaVariants} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16 }}>
                     <Revelar aberto={!isConsultante && searchMode === 'numero'} style={{ gridColumn: '1 / -1' }}>
                         <CampoTexto
                           id="campo-cnj"
@@ -1676,7 +1700,7 @@ export default function ProcessTracker({
                                 ))}
                               </select>
                               <span style={{ display: 'block', marginTop: 6, fontSize: 11.5, color: MUTED }}>
-                                {estadoManual ? `Começa pelo ${tribunalByUf(estadoManual)}` : 'Pela Lemit, pelo DDD ou pela região do CPF'}
+                                {estadoManual ? `Começa pelo ${tribunalByUf(estadoManual)}` : 'Pelo endereço cadastral, DDD ou região do documento'}
                               </span>
                             </motion.div>
                           )}
@@ -1844,8 +1868,7 @@ export default function ProcessTracker({
                     {formatarReais(custoTotal(servicosDoNumero.map(s => s.service)))}
                   </button>
                   <span style={{ fontSize: 12, color: MUTED, textAlign: 'center', maxWidth: 420 }}>
-                    Opcional. A base do CNJ pode demorar a incluir processos ou ficar instável; esta consulta vai ao
-                    sistema do tribunal pela Infosimples e é cobrada.
+                    Opcional. Realize uma consulta aprofundada diretamente no sistema eletrônico do tribunal.
                   </span>
                 </div>
               )}
