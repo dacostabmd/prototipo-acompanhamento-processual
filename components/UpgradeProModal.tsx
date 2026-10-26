@@ -113,11 +113,11 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
         {/* Badge Superior */}
         <div className="inline-flex items-center gap-1.5 rounded-full border border-[#e8d5b0]/40 bg-[#e8d5b0]/10 px-3 py-1 text-xs font-semibold text-[#f6e7cc]">
           <Crown size={14} className="text-[#e8d5b0]" />
-          <span>TechTie Pro</span>
+          <span>JusConsulta Pro</span>
         </div>
 
         <h2 className="mt-3 text-2xl font-bold tracking-tight text-white">
-          Desbloqueie o Poder Máximo do Prosec
+          Desbloqueie o Poder Máximo do JusConsulta
         </h2>
 
         {motivo ? (

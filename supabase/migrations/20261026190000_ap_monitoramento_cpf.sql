@@ -1,4 +1,4 @@
--- Monitoramento contínuo de novas distribuições processuais por CPF/CNPJ (Fase 5 do Roadmap Prosec)
+-- Monitoramento contínuo de novas distribuições processuais por CPF/CNPJ (Fase 5 do Roadmap JusConsulta)
 -- Permite que clientes e bancas sejam alertados imediatamente no WhatsApp assim que uma nova ação
 -- judicial for distribuída contra ou a favor de um documento cadastrado em qualquer tribunal do país.
 

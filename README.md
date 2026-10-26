@@ -1,4 +1,4 @@
-# Prosec — Acompanhamento Processual Inteligente
+# JusConsulta — Acompanhamento Processual Inteligente
 
 Sistema completo de consulta, tradução e inteligência sobre processos judiciais brasileiros (Next.js 15, React 19, TypeScript, Supabase, Redis Upstash e integrações com IA / DataJud / Infosimples / Bitrix24).
 
@@ -6,7 +6,7 @@ Sistema completo de consulta, tradução e inteligência sobre processos judicia
 
 ## 📌 Visão Geral
 
-O **Prosec** resolve o problema da dispersão de dados processuais no Brasil. Em vez de consultar dezenas de sites de tribunais manualmente (cada um com layout, login e captcha distintos), o sistema:
+O **JusConsulta** resolve o problema da dispersão de dados processuais no Brasil. Em vez de consultar dezenas de sites de tribunais manualmente (cada um com layout, login e captcha distintos), o sistema:
 
 1. **Busca por Número CNJ (Direta e Gratuita)**: Identifica automaticamente a Justiça e Tribunal (27 TJs, TRFs 1–6, TRTs 1–24, STJ, STF, TST, TSE) via [`lib/cnj.ts`](file:///d:/projetos/Andamento%20Processual/Prosec/lib/cnj.ts) e consulta diretamente a API pública do **DataJud (CNJ)** sem custo por chamada.
 2. **Varredura Multi-Tribunal por CPF**: Consulta 14 bases judiciais em paralelo via **Infosimples** com streaming em tempo real (NDJSON) e cancelamento sob demanda.

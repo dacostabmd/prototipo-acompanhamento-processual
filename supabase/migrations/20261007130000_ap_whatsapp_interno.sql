@@ -2,7 +2,7 @@
 -- conversarem de dentro do CRM. NÃO é o alerta de movimentação ao cliente final (esse já existe por
 -- e-mail via Resend, Fases 2/3, e não usa Baileys). O serviço Baileys em si roda fora deste banco,
 -- em processo Node separado no VPS do escritório (ver whatsapp-service/ na raiz do repo) — esta
--- migration só cria o que o Next.js (Prosec) precisa para registrar e exibir o histórico de
+-- migration só cria o que o Next.js (JusConsulta) precisa para registrar e exibir o histórico de
 -- mensagens trocadas.
 --
 -- ATENÇÃO: ap_chat_mensagens JÁ EXISTE no banco e é o chat jurídico com IA (role user/assistant/

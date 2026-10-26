@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { getAdminClient } from '@/lib/track';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://prosec.com.br';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://jusconsulta.com.br';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const rotasEstaticas: MetadataRoute.Sitemap = [

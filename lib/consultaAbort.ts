@@ -10,9 +10,9 @@
  * Map — a rota de cancelar não achava a consulta (devolvia cancelado:false) e o botão não fazia nada.
  */
 const globalComRegistro = globalThis as typeof globalThis & {
-  __prosecRegistroConsultas?: Map<string, Map<string, AbortController>>;
+  __jusconsultaRegistroConsultas?: Map<string, Map<string, AbortController>>;
 };
-const registro = (globalComRegistro.__prosecRegistroConsultas ??= new Map<string, Map<string, AbortController>>());
+const registro = (globalComRegistro.__jusconsultaRegistroConsultas ??= new Map<string, Map<string, AbortController>>());
 
 /** Cria (ou reaproveita) o registro de controllers de uma consulta, indexado por label de tribunal. */
 export function criarRegistroConsulta(consultaId: string): Map<string, AbortController> {
@@ -29,8 +29,8 @@ export function limparRegistroConsulta(consultaId: string): void {
 
 // Consultas que o usuário mandou encerrar ("encerrar e ver resultados"): as fontes em andamento são
 // abortadas e nenhuma fonte nova começa (nem a 2ª onda), mas o stream termina normalmente com o que já achou.
-const globalComEncerradas = globalThis as typeof globalThis & { __prosecConsultasEncerradas?: Set<string> };
-const encerradas = (globalComEncerradas.__prosecConsultasEncerradas ??= new Set<string>());
+const globalComEncerradas = globalThis as typeof globalThis & { __jusconsultaConsultasEncerradas?: Set<string> };
+const encerradas = (globalComEncerradas.__jusconsultaConsultasEncerradas ??= new Set<string>());
 
 /** Encerra a consulta: aborta todas as fontes em andamento e impede que outras comecem. */
 export function encerrarConsulta(consultaId: string): boolean {

@@ -5,10 +5,10 @@
  * precisa distinguir os dois: tratar erro como "sem processos" esconde por que o processo não aparece.
  *
  * Em caso de erro há duas mensagens: `erro`, em linguagem simples para qualquer usuário (o que houve e
- * o que fazer, sem códigos), e `erroTecnico`, que diz ONDE falhou (Prosec, rede, Infosimples ou site do
+ * o que fazer, sem códigos), e `erroTecnico`, que diz ONDE falhou (JusConsulta, rede, Infosimples ou site do
  * tribunal) com o detalhe original (mensagem, código, tempo gasto e nº de tentativas) para logs e suporte.
  */
-export type OrigemFalha = 'prosec' | 'rede' | 'infosimples' | 'tribunal';
+export type OrigemFalha = 'jusconsulta' | 'rede' | 'infosimples' | 'tribunal';
 
 export interface DesfechoInfosimples {
   /** Preenchido só quando a fonte FALHOU (não quando apenas não achou processo). Texto para leigos. */
@@ -32,24 +32,24 @@ interface Causa {
   leigo: string;
 }
 
-/** Falhas geradas pelo próprio Prosec (lib/infosimplesClient.ts marca com `_motivo`). */
+/** Falhas geradas pelo próprio JusConsulta (lib/infosimplesClient.ts marca com `_motivo`). */
 const CAUSAS_LOCAIS: Record<string, Causa> = {
   circuito_aberto: {
-    origem: 'prosec',
-    categoria: 'Fonte pausada pelo Prosec',
+    origem: 'jusconsulta',
+    categoria: 'Fonte pausada pelo JusConsulta',
     explicacao: 'a fonte falhou várias vezes seguidas e foi pausada por alguns minutos para não gastar tempo nem dinheiro à toa',
     leigo: 'Este tribunal falhou várias vezes seguidas, então pausamos a busca nele por alguns minutos. Tente de novo em alguns minutos.'
   },
   timeout_local: {
-    origem: 'prosec',
-    categoria: 'Tempo limite do Prosec',
-    explicacao: 'a Infosimples não respondeu dentro do prazo e o Prosec desistiu da chamada',
+    origem: 'jusconsulta',
+    categoria: 'Tempo limite do JusConsulta',
+    explicacao: 'a Infosimples não respondeu dentro do prazo e o JusConsulta desistiu da chamada',
     leigo: 'O tribunal demorou demais para responder e paramos de esperar. Tente de novo mais tarde.'
   },
   rede: {
     origem: 'rede',
     categoria: 'Falha de rede',
-    explicacao: 'o servidor do Prosec não conseguiu se conectar à Infosimples (DNS, internet ou conexão recusada)',
+    explicacao: 'o servidor do JusConsulta não conseguiu se conectar à Infosimples (DNS, internet ou conexão recusada)',
     leigo: 'Não conseguimos nos conectar ao serviço de consulta agora. Tente de novo em alguns minutos.'
   },
   resposta_invalida: {
@@ -59,7 +59,7 @@ const CAUSAS_LOCAIS: Record<string, Causa> = {
     leigo: 'Recebemos uma resposta do tribunal que não conseguimos ler. Tente de novo em alguns minutos.'
   },
   cancelado: {
-    origem: 'prosec',
+    origem: 'jusconsulta',
     categoria: 'Cancelada',
     explicacao: 'a consulta foi cancelada pelo usuário',
     leigo: 'Você cancelou a busca neste tribunal.'
@@ -184,7 +184,7 @@ export function desfechoInfosimples(result: any): DesfechoInfosimples {
   if (!result) {
     return {
       erro: CAUSAS_LOCAIS.rede.leigo,
-      erroTecnico: 'Falha de rede: o Prosec não recebeu resposta nenhuma da Infosimples.',
+      erroTecnico: 'Falha de rede: o JusConsulta não recebeu resposta nenhuma da Infosimples.',
       origem: 'rede',
       categoria: 'Falha de rede'
     };

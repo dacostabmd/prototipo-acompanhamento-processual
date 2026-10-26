@@ -188,7 +188,7 @@ async function tentarUmaVez(
       return {
         corpo: {
           code: 504,
-          code_message: `Sem resposta da Infosimples em ${timeoutSegundos + MARGEM_TIMEOUT_MS / 1000}s; o Prosec abortou a chamada.`,
+          code_message: `Sem resposta da Infosimples em ${timeoutSegundos + MARGEM_TIMEOUT_MS / 1000}s; o JusConsulta abortou a chamada.`,
           _motivo: 'timeout_local' satisfies MotivoLocal
         },
         transitoria: true
@@ -241,7 +241,7 @@ export async function consultarInfosimples(
     return {
       code: 503,
       code_message:
-        `Fonte pausada pelo Prosec após ${circuito.falhas} falhas seguidas${circuito.ultimoMotivo ? ` (última: ${circuito.ultimoMotivo})` : ''}; ` +
+        `Fonte pausada pelo JusConsulta após ${circuito.falhas} falhas seguidas${circuito.ultimoMotivo ? ` (última: ${circuito.ultimoMotivo})` : ''}; ` +
         `a Infosimples não foi chamada nem cobrou. ${minutos ? `Volta a ser consultada em ~${minutos} min.` : 'Volta a ser consultada em alguns minutos.'}`,
       _motivo: 'circuito_aberto' satisfies MotivoLocal,
       _duracaoMs: 0

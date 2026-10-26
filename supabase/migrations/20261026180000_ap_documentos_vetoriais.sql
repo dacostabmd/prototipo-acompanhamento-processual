@@ -1,4 +1,4 @@
--- Ativação da extensão pgvector e tabela de documentos vetoriais (Fase 4 do Roadmap Prosec)
+-- Ativação da extensão pgvector e tabela de documentos vetoriais (Fase 4 do Roadmap JusConsulta)
 -- Permite busca semântica em petições, sentenças, decisões e intimações indexadas.
 
 create extension if not exists vector;

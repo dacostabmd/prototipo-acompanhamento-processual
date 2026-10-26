@@ -17,7 +17,7 @@ export interface PedidoDescadastro {
   numeroCnj: string;
 }
 
-const CONTEXTO = 'prosec:descadastro:v1:';
+const CONTEXTO = 'jusconsulta:descadastro:v1:';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
 function segredo(): string | null {

@@ -95,7 +95,7 @@ const FAQS = [
   },
   {
     pergunta: 'O Smart Digest substitui meu advogado?',
-    resposta: 'Não. O Prosec v2.0 traduz o andamento burocrático para linguagem didática e orienta seus próximos passos, mas nunca substitui o aconselhamento jurídico formal de um advogado devidamente inscrito na OAB.'
+    resposta: 'Não. O JusConsulta v2.0 traduz o andamento burocrático para linguagem didática e orienta seus próximos passos, mas nunca substitui o aconselhamento jurídico formal de um advogado devidamente inscrito na OAB.'
   },
   {
     pergunta: 'O sistema cobre todos os tribunais do Brasil?',

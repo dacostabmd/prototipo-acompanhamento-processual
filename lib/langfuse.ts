@@ -2,7 +2,7 @@ import { Langfuse } from 'langfuse';
 import { CallbackHandler } from 'langfuse-langchain';
 
 /**
- * Cliente de observabilidade e tracing Langfuse para o Prosec.
+ * Cliente de observabilidade e tracing Langfuse para o JusConsulta.
  * Monitora custos de tokens, latência de agentes LangChain e qualidade de respostas.
  *
  * Se as variáveis de ambiente LANGFUSE_PUBLIC_KEY ou LANGFUSE_SECRET_KEY não estiverem presentes,
@@ -64,7 +64,7 @@ export function getLangfuseCallbackHandler(options: LangfuseHandlerOptions = {})
       baseUrl,
       userId: options.userId,
       sessionId: options.sessionId,
-      tags: options.tags || ['prosec-v2', 'acompanhamento-ia'],
+      tags: options.tags || ['jusconsulta-v2', 'acompanhamento-ia'],
       metadata: options.metadata,
       release: options.release || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || 'v2.0.0'
     });

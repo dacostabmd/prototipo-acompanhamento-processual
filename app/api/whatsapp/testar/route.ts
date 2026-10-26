@@ -96,14 +96,14 @@ export async function POST(request: Request) {
     if (process.env.WHATSAPP_CLOUD_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) {
       envio = await enviarInterativoWhatsApp(
         telefoneNormalizado,
-        `[TESTE PROSEC IA]\n\n${resultadoAgente.textoFormatadoWhatsApp}`,
+        `[TESTE JUSCONSULTA IA]\n\n${resultadoAgente.textoFormatadoWhatsApp}`,
         resultadoAgente.botoesSugeridos.map((b, idx) => ({ id: `btn_test_${idx}`, title: b }))
       );
       if (!envio.enviado && envio.erro) {
         // Fallback para texto livre
         envio = await enviarTextoWhatsApp(
           telefoneNormalizado,
-          `[TESTE PROSEC IA]\n\n${resultadoAgente.textoFormatadoWhatsApp}`
+          `[TESTE JUSCONSULTA IA]\n\n${resultadoAgente.textoFormatadoWhatsApp}`
         );
       }
     } else {

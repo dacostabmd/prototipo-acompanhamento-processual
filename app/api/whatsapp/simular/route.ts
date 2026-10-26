@@ -114,7 +114,7 @@ export async function POST(request: Request) {
       });
 
       const promptInstrucao =
-        `Você é o Copiloto Jurídico da TechTie analisando um documento judicial ou foto de intimação/mandado enviado por um cliente.\n\n` +
+        `Você é o Copiloto Jurídico do JusConsulta analisando um documento judicial ou foto de intimação/mandado enviado por um cliente.\n\n` +
         `INSTRUÇÕES:\n` +
         `1. Transcreva e analise o documento.\n` +
         `2. Identifique o número CNJ do processo (formato NNNNNNN-DD.AAAA.J.TR.OOOO), se visível.\n` +

@@ -672,7 +672,7 @@ export async function POST(request: Request) {
           // Cada fonte tem todo o tempo que ainda resta do prazo da varredura (a 2ª onda herda o que sobrou da 1ª).
           const restanteSegundos = Math.floor((PRAZO_VARREDURA_MS - (Date.now() - inicioVarredura)) / 1000) - 10;
           if (restanteSegundos < 15) {
-            registros.push({ fonte: 'infosimples', servico: target.service, tribunal: target.label, onda, achou: false, custo: 0, erroOrigem: 'prosec', erroCategoria: 'Prazo da varredura esgotado' });
+            registros.push({ fonte: 'infosimples', servico: target.service, tribunal: target.label, onda, achou: false, custo: 0, erroOrigem: 'jusconsulta', erroCategoria: 'Prazo da varredura esgotado' });
             emit({ type: 'progress', label: target.label, fonte: 'infosimples', found: false, erro: `Prazo da varredura esgotado: a 1ª onda consumiu quase todo o limite de ${PRAZO_VARREDURA_MS / 1000}s da busca, e não sobrou tempo para esta fonte; a Infosimples não foi chamada nem cobrou.`, custo: 0 });
             return;
           }
@@ -692,7 +692,7 @@ export async function POST(request: Request) {
           abortControllers.delete(target.label);
 
           if (cancelado) {
-            registros.push({ fonte: 'infosimples', servico: target.service, tribunal: target.label, onda, achou: false, custo: custoDaFonte, duracaoMs: result?._duracaoMs, erroOrigem: 'prosec', erroCategoria: 'Cancelada' });
+            registros.push({ fonte: 'infosimples', servico: target.service, tribunal: target.label, onda, achou: false, custo: custoDaFonte, duracaoMs: result?._duracaoMs, erroOrigem: 'jusconsulta', erroCategoria: 'Cancelada' });
             emit({ type: 'progress', label: target.label, fonte: 'infosimples', found: false, cancelado: true, custo: custoDaFonte });
             return;
           }

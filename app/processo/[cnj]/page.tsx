@@ -24,7 +24,7 @@ interface PageProps {
   params: Promise<{ cnj: string }>;
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://prosec.com.br';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://jusconsulta.com.br';
 
 function fmtData(iso: string | null) {
   if (!iso) return '—';
@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const digits = cleanDigits(cnj);
   if (digits.length !== 20) {
     return {
-      title: 'Processo não encontrado | Prosec',
+      title: 'Processo não encontrado | JusConsulta',
       description: 'Consulta pública de andamentos processuais com tradução por IA e acompanhamento via WhatsApp.'
     };
   }
@@ -50,7 +50,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const cnjInfo = parseCnj(digits);
   const tribunal = cnjInfo?.tribunalLabel || cnjInfo?.tribunalNome || 'Tribunal de Justiça';
 
-  const title = `Processo ${cnjFormatado} · ${tribunal} · Andamento e Resumo IA | Prosec`;
+  const title = `Processo ${cnjFormatado} · ${tribunal} · Andamento e Resumo IA | JusConsulta`;
   const description = `Consulte o andamento processual atualizado do processo nº ${cnjFormatado} do ${tribunal}. Entenda os despachos em linguagem simples com Inteligência Artificial e ative alertas pelo WhatsApp.`;
 
   return {
@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       url: `${SITE_URL}/processo/${digits}`,
-      siteName: 'Prosec — Acompanhamento Processual Inteligente',
+      siteName: 'JusConsulta — Acompanhamento Processual Inteligente',
       locale: 'pt_BR',
       type: 'article'
     },
@@ -207,12 +207,12 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
     dateModified: processoDb?.ultimaMovimentacaoEm || new Date().toISOString(),
     author: {
       '@type': 'Organization',
-      name: 'Prosec',
+      name: 'JusConsulta',
       url: SITE_URL
     },
     publisher: {
       '@type': 'Organization',
-      name: 'Prosec — Acompanhamento Processual Inteligente',
+      name: 'JusConsulta — Acompanhamento Processual Inteligente',
       url: SITE_URL
     }
   };
@@ -229,7 +229,7 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#e8d5b0] to-[#b39968] text-[#15161a]">
               <Scale size={18} strokeWidth={2.2} />
             </span>
-            <span className="text-lg">Prosec</span>
+            <span className="text-lg">JusConsulta</span>
             <span className="rounded-full border border-[#e8d5b0]/30 bg-[#e8d5b0]/10 px-2 py-0.5 text-[10px] font-semibold text-[#f6e7cc]">
               Consulta Pública
             </span>
@@ -435,7 +435,7 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
               <p className="font-medium text-white/70">Conformidade com a LGPD e Lei de Acesso à Informação</p>
               <p className="leading-relaxed">
                 As informações deste processo são públicas conforme o art. 5º, inciso LX da Constituição Federal e a Lei nº 12.527/2011.
-                O Prosec não exibe dados de processos sob segredo de justiça, nem divulga telefones, e-mails ou dados bancários de partes.
+                O JusConsulta não exibe dados de processos sob segredo de justiça, nem divulga telefones, e-mails ou dados bancários de partes.
                 Se você é titular dos dados e deseja solicitar a ocultação do seu nome das buscas públicas,{' '}
                 <Link href="/descadastro" className="text-[#e8d5b0] underline underline-offset-2 hover:text-white">
                   clique aqui para solicitar o bloqueio

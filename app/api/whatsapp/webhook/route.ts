@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const challenge = searchParams.get('hub.challenge');
 
   const verifyToken =
-    process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || 'prosec_whatsapp_secret';
+    process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || 'jusconsulta_whatsapp_secret';
 
   if (mode === 'subscribe' && token === verifyToken) {
     console.log('[whatsapp-webhook] Verificação da Meta bem-sucedida.');

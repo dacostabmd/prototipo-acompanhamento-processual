@@ -241,7 +241,7 @@ async function processarUmProcesso(
   // seguem o schema REAL de ap_movimentacoes no banco (data_movimentacao/titulo/conteudo/tipo),
   // diferente do que supabase/migrations/20260929120000_ap_schema_inicial.sql descreve localmente
   // (data/descricao) — esse schema inicial nunca foi aplicado ao banco remoto; o que existe de fato
-  // é mais rico (ver ap_partes/ap_chat_mensagens/ap_resumos_ia, todos do próprio Prosec).
+  // é mais rico (ver ap_partes/ap_chat_mensagens/ap_resumos_ia, todos do próprio JusConsulta).
   const movRows = movimentosDoProcesso.map((m: Movement) => ({
     processo_id: processo.id,
     data_movimentacao: m.data,

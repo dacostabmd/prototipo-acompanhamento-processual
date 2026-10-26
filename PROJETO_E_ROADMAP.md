@@ -1,4 +1,4 @@
-# Prosec — Acompanhamento Processual Inteligente (v2.0)
+# JusConsulta — Acompanhamento Processual Inteligente (v2.0)
 ## Documento Mestre Unificado: Visão, Arquitetura, Estado Atual & Novo Roadmap
 
 > **Data de atualização**: 2026-10-26  
@@ -8,10 +8,10 @@
 
 ## 1. Visão de Produto & Posicionamento
 
-O **Prosec** resolve o problema da dispersão e incompreensibilidade dos dados processuais no Brasil. Em vez de obrigar o usuário a consultar dezenas de sites de tribunais com layouts e captchas distintos, o sistema centraliza a busca, traduz o juridiquês em linguagem humana e mantém o usuário informado no canal que ele mais usa: o **WhatsApp**.
+O **JusConsulta** resolve o problema da dispersão e incompreensibilidade dos dados processuais no Brasil. Em vez de obrigar o usuário a consultar dezenas de sites de tribunais com layouts e captchas distintos, o sistema centraliza a busca, traduz o juridiquês em linguagem humana e mantém o usuário informado no canal que ele mais usa: o **WhatsApp**.
 
-### 🎯 Como o Prosec Supera o JusBrasil
-| Critério | JusBrasil | Prosec v2.0 |
+### 🎯 Como o JusConsulta Supera o JusBrasil
+| Critério | JusBrasil | JusConsulta v2.0 |
 | :--- | :--- | :--- |
 | **Comunicação** | Alertas estéreis e frios de Diário Oficial. | **Tradução humana por IA**: explica o que houve, o impacto e o que fazer. |
 | **Canal** | E-mail/push passivo; WhatsApp com link bloqueado. | **WhatsApp conversacional bidirecional**: o usuário tira dúvidas respondendo à mensagem. |
@@ -154,7 +154,7 @@ LANGFUSE_BASE_URL=https://cloud.langfuse.com
 WHATSAPP_CLOUD_TOKEN=...
 WHATSAPP_PHONE_NUMBER_ID=...
 WHATSAPP_TEMPLATE_ANDAMENTO=...
-WHATSAPP_WEBHOOK_VERIFY_TOKEN=prosec_whatsapp_secret
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=jusconsulta_whatsapp_secret
 
 # Agendadores (Crons)
 CRON_SECRET=...

@@ -98,7 +98,7 @@ export default function Perfil() {
       const supabase = getSupabase();
       if (!supabase) {
         // Fallback demo
-        const demoUser = typeof window !== 'undefined' ? localStorage.getItem('bf-demo-user') || 'demo@prosec.com.br' : 'demo@prosec.com.br';
+        const demoUser = typeof window !== 'undefined' ? localStorage.getItem('bf-demo-user') || 'demo@jusconsulta.com.br' : 'demo@jusconsulta.com.br';
         const demoRole = typeof window !== 'undefined' ? localStorage.getItem('bf-demo-role') || 'advogado' : 'advogado';
         setD({
           nome: 'Usuário Homologação',

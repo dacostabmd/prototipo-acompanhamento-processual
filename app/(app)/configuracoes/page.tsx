@@ -47,7 +47,7 @@ interface ConfigState {
 
 type CampoBooleano = { [K in keyof ConfigState]: ConfigState[K] extends boolean ? K : never }[keyof ConfigState];
 
-const CONFIG_STORAGE_KEY = 'prosec_configuracoes_v1';
+const CONFIG_STORAGE_KEY = 'jusconsulta_configuracoes_v1';
 
 const DEFAULT_CONFIG: ConfigState = {
   autoSalvarConsultas: true,

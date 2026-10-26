@@ -157,7 +157,7 @@ export async function analisarDocumentoOuImagemIntimacao({
     .join('\n');
 
   const promptInstrucao =
-    `Você é o Perito em Leitura de Intimações e Documentos Judiciais da TechTie via WhatsApp.\n` +
+    `Você é o Perito em Leitura de Intimações e Documentos Judiciais do JusConsulta via WhatsApp.\n` +
     `O usuário enviou uma foto ou documento judicial recebido.\n\n` +
     `SUA MISSÃO:\n` +
     `1. Ler cuidadosamente o documento na imagem.\n` +

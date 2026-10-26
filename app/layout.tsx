@@ -17,19 +17,19 @@ const DESCRIPTION = 'Consulte processos judiciais vinculados ao seu CPF, acompan
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: 'TechTie | Acompanhamento de Processos', template: '%s | TechTie' },
+  title: { default: 'JusConsulta | Acompanhamento Processual Inteligente', template: '%s | JusConsulta' },
   description: DESCRIPTION,
-  applicationName: 'TechTie',
+  applicationName: 'JusConsulta',
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     locale: 'pt_BR',
-    siteName: 'TechTie',
-    title: 'TechTie | Acompanhamento de Processos',
+    siteName: 'JusConsulta',
+    title: 'JusConsulta | Acompanhamento Processual Inteligente',
     description: DESCRIPTION,
-    images: [{ url: '/techtie-og.png', width: 1200, height: 630, alt: 'TechTie' }]
+    images: [{ url: '/techtie-og.png', width: 1200, height: 630, alt: 'JusConsulta' }]
   },
-  twitter: { card: 'summary_large_image', title: 'TechTie', description: DESCRIPTION, images: ['/techtie-og.png'] },
+  twitter: { card: 'summary_large_image', title: 'JusConsulta', description: DESCRIPTION, images: ['/techtie-og.png'] },
   icons: { icon: '/favicon.svg' }
 };
 
@@ -42,7 +42,7 @@ export const viewport: Viewport = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'TechTie',
+  name: 'JusConsulta',
   url: SITE_URL,
   logo: `${SITE_URL}/techtie-logo-horizontal-gold.svg`
 };

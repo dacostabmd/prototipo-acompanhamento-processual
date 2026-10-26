@@ -59,7 +59,7 @@ export async function interpretarAndamentoComAgente({
     throw new Error('OPENAI_API_KEY não configurada no ambiente.');
   }
 
-  // 1. Pré-classificação determinística com o classificador de risco do Prosec
+  // 1. Pré-classificação determinística com o classificador de risco do JusConsulta
   const tagsDetectadas = movimentosNovos.map(m => classifyTag(`${m.titulo} ${m.descricao || ''}`));
   const temUrgente = tagsDetectadas.includes('urgente');
   const temPositivo = tagsDetectadas.includes('positivo');
@@ -171,7 +171,7 @@ export async function interpretarAndamentoComAgente({
 
   return {
     resumo: movimentosNovos.map(m => m.titulo).slice(0, 2).join('; '),
-    significado: 'Movimentação analisada e contextualizada pelo Agente Prosec.',
+    significado: 'Movimentação analisada e contextualizada pelo Agente JusConsulta.',
     proximoPasso: 'Acompanhar atualizações ou acionar suporte jurídico.',
     urgencia,
     textoFormatadoWhatsApp: textoFinal,
@@ -234,7 +234,7 @@ export async function responderDuvidaWhatsAppComAgente({
       : 'Você está conversando com um CLIENTE LEIGO no WhatsApp. Seja extremamente claro, empático, calmo e seguro. Não use jargões difíceis.';
 
   const systemPrompt =
-    `Você é o Copiloto Jurídico da TechTie atendendo o usuário diretamente no WhatsApp.\n` +
+    `Você é o Copiloto Jurídico do JusConsulta atendendo o usuário diretamente no WhatsApp.\n` +
     `${tomInstrucao}\n\n` +
     `REGRAS DE CONVERSA NO WHATSAPP:\n` +
     `- Seja direto e evite textos excessivamente longos (mensagens de WhatsApp devem ter de 1 a 3 parágrafos curtos).\n` +
