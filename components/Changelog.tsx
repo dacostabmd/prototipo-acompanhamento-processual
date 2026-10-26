@@ -4,7 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActionIcon, Modal, Textarea, TextInput, Tooltip, Button, Divider, ScrollArea, Text } from '@mantine/core';
 import { Sparkles, Plus } from 'lucide-react';
 import { authFetch } from '@/lib/authFetch';
-import type { ChangelogEntry } from '@/app/api/changelog/route';
+export interface ChangelogEntry {
+  id: string;
+  versao: string;
+  titulo: string;
+  corpo: string;
+  created_at: string;
+}
 
 const SEEN_KEY = 'bf:changelog:lastSeenId';
 

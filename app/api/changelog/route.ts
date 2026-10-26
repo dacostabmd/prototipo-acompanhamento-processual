@@ -3,7 +3,7 @@ import { getAdminClient, getUserId } from '@/lib/track';
 import { requireUser } from '@/lib/requireUser';
 import { requireOwner } from '@/lib/requireRole';
 
-export interface ChangelogEntry {
+interface ChangelogEntry {
   id: string;
   versao: string;
   titulo: string;

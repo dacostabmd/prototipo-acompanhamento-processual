@@ -3,7 +3,7 @@ import { getAdminClient, getUserId } from '@/lib/track';
 import { requireUser } from '@/lib/requireUser';
 import { getProcessosCache, setProcessosCache } from '@/lib/redis';
 
-export interface ProcessoPesquisado {
+interface ProcessoPesquisado {
   id: string;
   numero_cnj: string;
   tribunal: string | null;

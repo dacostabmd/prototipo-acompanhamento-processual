@@ -4,8 +4,6 @@ import { requireUser } from '@/lib/requireUser';
 import { normalizarTelefoneBr } from '@/lib/whatsapp';
 import type { ModoSensibilidade, ProcessoAcompanhado, RespostaMonitoramento, UrgenciaResumo } from '@/lib/types/monitoramento';
 
-export type { ModoSensibilidade, ProcessoAcompanhado, RespostaMonitoramento, UrgenciaResumo };
-
 interface LinhaMonitoramento {
   processo_id: string;
   notificar_email: boolean | null;

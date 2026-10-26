@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAdminClient, getUserId } from '@/lib/track';
 import { requireUser } from '@/lib/requireUser';
 
-export interface Notificacao {
+interface Notificacao {
   id: string;
   processoId: string;
   numeroCnj: string | null;
