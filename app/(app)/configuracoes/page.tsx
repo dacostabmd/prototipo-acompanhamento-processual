@@ -352,9 +352,9 @@ export default function ConfiguracoesPage() {
           disabled={salvando}
           className="bf-btn-ouro inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           style={{
-            background: 'linear-gradient(135deg, #1E7CF2 0%, #3FA0FF 100%)',
-            border: '1px solid rgba(201, 214, 238, 0.4)',
-            color: '#0B1730'
+            background: 'linear-gradient(135deg, #1E7CF2 0%, var(--tt-accent-2) 100%)',
+            border: '1px solid rgb(var(--bf-fg) / 0.4)',
+            color: 'var(--tt-base)'
           }}
         >
           {salvando ? (

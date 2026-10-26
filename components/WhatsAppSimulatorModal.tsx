@@ -137,7 +137,7 @@ export function WhatsAppSimulatorModal({ opened, onClose, processoIdPadrao }: Pr
       styles={{
         content: {
           backgroundColor: '#0d1117',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
+          border: '1px solid rgb(var(--bf-fg) / 0.12)',
           overflow: 'hidden'
         }
       }}
@@ -250,9 +250,9 @@ export function WhatsAppSimulatorModal({ opened, onClose, processoIdPadrao }: Pr
             className="flex-1"
             styles={{
               input: {
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                borderColor: 'rgba(255, 255, 255, 0.1)',
-                color: '#fff'
+                backgroundColor: 'rgb(var(--bf-fg) / 0.05)',
+                borderColor: 'rgb(var(--bf-fg) / 0.1)',
+                color: 'var(--tt-text)'
               }
             }}
           />

@@ -6,7 +6,7 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: radial-gradient(ellipse 85% 60% at 50% 32%, #19305F 0%, #0B1730 55%, #060F28 100%);
+  background: radial-gradient(ellipse 85% 60% at 50% 32%, var(--tt-raised) 0%, var(--tt-base) 55%, var(--tt-ink) 100%);
 }
 
 .brilho {
@@ -97,7 +97,7 @@
   left: 0;
   width: 26%;
   height: 150%;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 250, 240, 0.55) 50%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(90deg, rgb(var(--bf-fg) / 0) 0%, rgb(var(--bf-fg) / 0.55) 50%, rgb(var(--bf-fg) / 0) 100%);
   /* inclinada e bem fora da caixa nos dois extremos, para não aparecer parada sobre as pontas das asas */
   transform: translateX(-350%) rotate(18deg);
   animation: refletir 7s ease-in-out 1.6s infinite;
@@ -106,7 +106,7 @@
 .copy {
   max-width: 540px;
   text-align: center;
-  color: #FFFFFF;
+  color: var(--tt-text);
 }
 
 .eyebrow {
@@ -135,7 +135,7 @@
   margin: 0;
   font-size: clamp(13px, 1.1vw, 15px);
   line-height: 1.7;
-  color: rgba(243, 241, 236, 0.78);
+  color: rgb(var(--bf-fg) / 0.78);
   opacity: 0;
   animation: entrar 0.7s ease 1.3s forwards;
 }
@@ -156,7 +156,7 @@
   gap: 12px;
   font-size: 13.5px;
   line-height: 1.5;
-  color: rgba(243, 241, 236, 0.86);
+  color: rgb(var(--bf-fg) / 0.86);
   opacity: 0;
   animation: entrar 0.6s ease calc(1.45s + var(--i) * 0.12s) forwards;
 }
@@ -253,7 +253,7 @@
    recentrado na metade esquerda, atrás do T. */
 @media (min-width: 861px) {
   .fundo {
-    background: radial-gradient(ellipse 60% 70% at 25% 32%, #19305F 0%, #0B1730 55%, #060F28 100%);
+    background: radial-gradient(ellipse 60% 70% at 25% 32%, var(--tt-raised) 0%, var(--tt-base) 55%, var(--tt-ink) 100%);
   }
   .brilho {
     left: 25%;

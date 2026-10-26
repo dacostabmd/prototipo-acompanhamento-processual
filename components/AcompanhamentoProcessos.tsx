@@ -35,7 +35,7 @@ const fmtDataHora = (iso: string) =>
 
 const URGENCIA: Record<UrgenciaResumo, { rotulo: string; classe: string }> = {
   alta: { rotulo: 'Pode exigir ação rápida', classe: 'border-red-400/40 bg-red-400/10 text-red-200' },
-  media: { rotulo: 'Movimentação relevante', classe: 'border-[#1E7CF2]/40 bg-[#1E7CF2]/10 text-[#C9D6EE]' },
+  media: { rotulo: 'Movimentação relevante', classe: 'border-[#1E7CF2]/40 bg-[#1E7CF2]/10 text-[color:var(--tt-text-2)]' },
   baixa: { rotulo: 'Rotina', classe: 'border-white/15 bg-white/5 text-white/60' }
 };
 
@@ -224,7 +224,7 @@ export function AcompanhamentoProcessos() {
               {naoLidas > 0 ? <BellRing size={18} strokeWidth={1.8} className="text-[#1E7CF2]" /> : <Bell size={18} strokeWidth={1.8} className="text-white/50" />}
               Alertas recentes
               {naoLidas > 0 && (
-                <span className="rounded-full bg-[#1E7CF2] px-2 py-0.5 text-xs font-semibold text-[#060F28]">{naoLidas} novo(s)</span>
+                <span className="rounded-full bg-[#1E7CF2] px-2 py-0.5 text-xs font-semibold text-[#FFFFFF]">{naoLidas} novo(s)</span>
               )}
             </h2>
             {naoLidas > 0 && (
@@ -278,7 +278,7 @@ export function AcompanhamentoProcessos() {
             </button>
 
             {profile.plano === 'pro' ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-3 py-1 text-xs font-semibold text-[#C9D6EE]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-3 py-1 text-xs font-semibold text-[color:var(--tt-text-2)]">
                 <Crown size={13} className="text-[#1E7CF2]" />
                 Plano Pro Ativo
               </span>
@@ -289,7 +289,7 @@ export function AcompanhamentoProcessos() {
                   setMotivoPro(undefined);
                   setModalProAberto(true);
                 }}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-3 py-1 text-xs font-semibold text-[#C9D6EE] transition-all hover:bg-[#1E7CF2]/25"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-3 py-1 text-xs font-semibold text-[color:var(--tt-text-2)] transition-all hover:bg-[#1E7CF2]/25"
               >
                 <Crown size={13} />
                 <span>Upgrade Pro</span>
@@ -329,7 +329,7 @@ export function AcompanhamentoProcessos() {
                   const res = await authFetch('/api/processos/seed-demo', { method: 'POST' });
                   if (res.ok) window.location.reload();
                 }}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-4 py-2 text-xs font-semibold text-[#C9D6EE] transition-all hover:bg-[#1E7CF2]/25"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-4 py-2 text-xs font-semibold text-[color:var(--tt-text-2)] transition-all hover:bg-[#1E7CF2]/25"
               >
                 <Sparkles size={13} />
                 <span>Carregar Processos de Demonstração</span>
@@ -428,7 +428,7 @@ export function AcompanhamentoProcessos() {
                       type="button"
                       disabled={testandoWhatsapp[p.processoId]}
                       onClick={() => testarEnvioWhatsApp(p.processoId)}
-                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2.5 py-1 text-xs font-medium text-[#C9D6EE] transition-colors hover:bg-[#1E7CF2]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2.5 py-1 text-xs font-medium text-[color:var(--tt-text-2)] transition-colors hover:bg-[#1E7CF2]/20 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Send size={12} className={testandoWhatsapp[p.processoId] ? 'animate-pulse' : ''} />
                       {testandoWhatsapp[p.processoId] ? 'Enviando...' : 'Testar WhatsApp'}
@@ -457,7 +457,7 @@ export function AcompanhamentoProcessos() {
                         onClick={() => alterarSensibilidade(p, 'smart_digest')}
                         className={`inline-flex flex-col items-center justify-center gap-0.5 rounded-lg border py-1.5 px-2 text-center transition-all ${
                           p.sensibilidade === 'smart_digest'
-                            ? 'border-[#1E7CF2]/60 bg-[#1E7CF2]/15 text-[#C9D6EE] shadow-sm'
+                            ? 'border-[#1E7CF2]/60 bg-[#1E7CF2]/15 text-[color:var(--tt-text-2)] shadow-sm'
                             : 'border-white/5 bg-white/[0.02] text-white/50 hover:border-white/15 hover:text-white/80'
                         }`}
                       >
@@ -473,7 +473,7 @@ export function AcompanhamentoProcessos() {
                         onClick={() => alterarSensibilidade(p, 'todas')}
                         className={`inline-flex flex-col items-center justify-center gap-0.5 rounded-lg border py-1.5 px-2 text-center transition-all ${
                           p.sensibilidade === 'todas'
-                            ? 'border-[#1E7CF2]/60 bg-[#1E7CF2]/15 text-[#C9D6EE] shadow-sm'
+                            ? 'border-[#1E7CF2]/60 bg-[#1E7CF2]/15 text-[color:var(--tt-text-2)] shadow-sm'
                             : 'border-white/5 bg-white/[0.02] text-white/50 hover:border-white/15 hover:text-white/80'
                         }`}
                       >
@@ -489,7 +489,7 @@ export function AcompanhamentoProcessos() {
                         onClick={() => alterarSensibilidade(p, 'urgentes_apenas')}
                         className={`inline-flex flex-col items-center justify-center gap-0.5 rounded-lg border py-1.5 px-2 text-center transition-all ${
                           p.sensibilidade === 'urgentes_apenas'
-                            ? 'border-[#1E7CF2]/60 bg-[#1E7CF2]/15 text-[#C9D6EE] shadow-sm'
+                            ? 'border-[#1E7CF2]/60 bg-[#1E7CF2]/15 text-[color:var(--tt-text-2)] shadow-sm'
                             : 'border-white/5 bg-white/[0.02] text-white/50 hover:border-white/15 hover:text-white/80'
                         }`}
                       >

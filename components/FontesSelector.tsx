@@ -11,11 +11,11 @@ import { UFS, UFS_RAPIDAS, nomeDaUf, ufsDoAlias } from '@/lib/regioes';
 
 /* ── Tokens (mesma paleta dark/glass do ProcessTracker) ───────────────── */
 const BLUE = '#1E7CF2';
-const BLUE_LIGHT = '#C9D6EE';
-const BORDER = 'rgba(255,255,255,0.12)';
-const INPUT_BORDER = 'rgba(255,255,255,0.18)';
-const TEXT = '#FFFFFF';
-const MUTED = 'rgba(243, 241, 236,0.65)';
+const BLUE_LIGHT = 'var(--tt-text-2)';
+const BORDER = 'rgb(var(--bf-fg) / 0.12)';
+const INPUT_BORDER = 'rgb(var(--bf-fg) / 0.18)';
+const TEXT = 'var(--tt-text)';
+const MUTED = 'rgb(var(--bf-fg) / 0.65)';
 const GREEN = '#12A37A';
 
 export const IDS_TODOS_DATAJUD = FONTES_DATAJUD.map(f => f.id);
@@ -512,7 +512,7 @@ function Chip({ ativo, onClick, children }: { ativo: boolean; onClick: () => voi
         padding: '5px 11px',
         borderRadius: 16,
         border: `1px solid ${ativo ? BLUE_LIGHT : INPUT_BORDER}`,
-        background: ativo ? 'rgba(255,255,255,0.16)' : 'transparent',
+        background: ativo ? 'rgb(var(--bf-fg) / 0.16)' : 'transparent',
         color: ativo ? '#ffffff' : MUTED,
         fontSize: 11.5,
         fontWeight: ativo ? 700 : 500,
@@ -530,7 +530,7 @@ function cardStyle(destaque: boolean): React.CSSProperties {
     padding: '14px 16px',
     borderRadius: 4,
     border: `1px solid ${destaque ? BLUE : INPUT_BORDER}`,
-    background: destaque ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)'
+    background: destaque ? 'rgb(var(--bf-fg) / 0.06)' : 'rgb(var(--bf-fg) / 0.03)'
   };
 }
 
@@ -556,7 +556,7 @@ function Preset({ onClick, destaque, children }: { onClick: () => unknown; desta
         padding: '6px 12px',
         borderRadius: 16,
         border: `1px solid ${destaque ? BLUE_LIGHT : INPUT_BORDER}`,
-        background: destaque ? 'rgba(255,255,255,0.1)' : 'transparent',
+        background: destaque ? 'rgb(var(--bf-fg) / 0.1)' : 'transparent',
         color: TEXT,
         fontSize: 11.5,
         fontWeight: 600,
@@ -678,7 +678,7 @@ function ChipFonte({
         borderRadius: 18,
         border: `1px solid ${checked ? BLUE : INPUT_BORDER}`,
         background: checked ? BLUE : 'transparent',
-        color: checked ? '#1a1608' : TEXT,
+        color: checked ? '#FFFFFF' : TEXT,
         fontSize: 12,
         fontWeight: checked ? 700 : 500,
         cursor: 'pointer',
@@ -734,7 +734,7 @@ function CardProvedor({
         padding: '12px 14px',
         borderRadius: 4,
         border: `1px solid ${emFoco ? BLUE : INPUT_BORDER}`,
-        background: emFoco ? 'rgba(30, 124, 242,0.10)' : 'rgba(255,255,255,0.03)',
+        background: emFoco ? 'rgba(30, 124, 242,0.10)' : 'rgb(var(--bf-fg) / 0.03)',
         cursor: 'pointer',
         opacity: desabilitado && !emFoco ? 0.6 : 1,
         display: 'flex',

@@ -20,7 +20,7 @@ export default function PageLoader({ label = 'Carregando…' }: { label?: string
         alignItems: 'center',
         justifyContent: 'center',
         gap: 16,
-        color: 'rgba(229,231,235,0.85)'
+        color: 'rgb(var(--bf-fg) / 0.85)'
       }}
     >
       <div style={{ display: 'flex', gap: 8 }}>

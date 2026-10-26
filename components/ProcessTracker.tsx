@@ -58,16 +58,16 @@ import { fontesInfosimplesPara, IDS_PRINCIPAIS_INFOSIMPLES, type TipoBusca } fro
 
 /* ── Design tokens (tema dark/glass) ─────────────────────────────────── */
 const BLUE = '#1E7CF2';
-const BLUE_DARK = '#3FA0FF';
-const BLUE_LIGHT = '#C9D6EE';
-const PAPER = 'rgba(255,255,255,0.05)';
-const CREAM = 'rgba(255,255,255,0.06)';
-const CREAM_TEXT = '#FFFFFF';
-const BORDER = 'rgba(255,255,255,0.12)';
-const INPUT_BORDER = 'rgba(255,255,255,0.18)';
-const INPUT_BG = 'rgba(15,15,15,0.65)';
-const TEXT = '#FFFFFF';
-const MUTED = 'rgba(243, 241, 236,0.65)';
+const BLUE_DARK = 'var(--tt-accent-2)';
+const BLUE_LIGHT = 'var(--tt-text-2)';
+const PAPER = 'rgb(var(--bf-fg) / 0.05)';
+const CREAM = 'rgb(var(--bf-fg) / 0.06)';
+const CREAM_TEXT = 'var(--tt-text)';
+const BORDER = 'rgb(var(--bf-fg) / 0.12)';
+const INPUT_BORDER = 'rgb(var(--bf-fg) / 0.18)';
+const INPUT_BG = 'rgb(var(--bf-ink-rgb) / 0.65)';
+const TEXT = 'var(--tt-text)';
+const MUTED = 'rgb(var(--bf-fg) / 0.65)';
 const DANGER = '#e08a8a';
 const WHATSAPP = '#25603f';
 
@@ -341,7 +341,7 @@ export default function ProcessTracker({
       '#D5DEEE',
       '#4DA6FF',
       '#4DA6FF',
-      '#ecdcbd',
+      '#C9D6EE',
       '#FFFFFF'
     ];
 
@@ -740,7 +740,7 @@ export default function ProcessTracker({
         icon: <AlertTriangle size={16} />,
         autoClose: 7000,
         styles: {
-          root: { background: '#060F28', border: `1px solid ${BLUE}` },
+          root: { background: 'var(--tt-ink)', border: `1px solid ${BLUE}` },
           title: { color: BLUE_LIGHT },
           description: { color: TEXT },
           icon: { background: BLUE, color: '#FFFFFF' },
@@ -1027,7 +1027,7 @@ export default function ProcessTracker({
               <div
                 style={{
                   background: 'rgba(138,58,58,0.9)',
-                  color: '#ffffff',
+                  color: 'var(--tt-text)',
                   padding: '10px 16px',
                   borderRadius: 2,
                   marginBottom: 16,
@@ -1042,7 +1042,7 @@ export default function ProcessTracker({
             {searching && processandoResultado ? (
               <div
                 style={{
-                  background: 'rgba(21, 22, 26,0.88)',
+                  background: 'rgb(var(--bf-ink-rgb) / 0.88)',
                   backdropFilter: 'blur(20px)',
                   WebkitBackdropFilter: 'blur(20px)',
                   padding: '56px 32px',
@@ -1073,7 +1073,7 @@ export default function ProcessTracker({
             ) : searching ? (
               <div
                 style={{
-                  background: 'rgba(21, 22, 26,0.88)',
+                  background: 'rgb(var(--bf-ink-rgb) / 0.88)',
                   backdropFilter: 'blur(20px)',
                   WebkitBackdropFilter: 'blur(20px)',
                   padding: '48px 32px',
@@ -1208,7 +1208,7 @@ export default function ProcessTracker({
                           style={{
                             height: 6,
                             borderRadius: 3,
-                            background: 'rgba(255,255,255,0.08)',
+                            background: 'rgb(var(--bf-fg) / 0.08)',
                             overflow: 'hidden',
                             position: 'relative'
                           }}
@@ -1249,7 +1249,7 @@ export default function ProcessTracker({
                         style={{
                           height: 6,
                           borderRadius: 3,
-                          background: 'rgba(255,255,255,0.08)',
+                          background: 'rgb(var(--bf-fg) / 0.08)',
                           overflow: 'hidden'
                         }}
                       >
@@ -1285,7 +1285,7 @@ export default function ProcessTracker({
                       border: `1px solid ${BORDER}`,
                       borderRadius: 6,
                       padding: '10px 12px',
-                      background: 'rgba(255,255,255,0.03)',
+                      background: 'rgb(var(--bf-fg) / 0.03)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 6
@@ -1398,7 +1398,7 @@ export default function ProcessTracker({
                   if (formularioValido) void handleFinalStepCompleted();
                 }}
                 style={{
-                  background: 'rgba(28,28,30,0.92)',
+                  background: 'rgb(var(--bf-surface-rgb) / 0.92)',
                   backdropFilter: 'blur(20px)',
                   WebkitBackdropFilter: 'blur(20px)',
                   border: `1px solid ${BORDER}`,
@@ -1731,7 +1731,7 @@ export default function ProcessTracker({
                     flexWrap: 'wrap',
                     padding: '16px clamp(20px, 4vw, 26px)',
                     borderTop: `1px solid ${BORDER}`,
-                    background: 'rgba(255,255,255,0.02)'
+                    background: 'rgb(var(--bf-fg) / 0.02)'
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
@@ -1756,8 +1756,8 @@ export default function ProcessTracker({
                       ...(formularioValido
                         ? {}
                         : {
-                            background: 'rgba(255,255,255,0.03)',
-                            color: 'rgba(255,255,255,0.4)',
+                            background: 'rgb(var(--bf-fg) / 0.03)',
+                            color: 'rgb(var(--bf-fg) / 0.4)',
                             border: `1px solid ${INPUT_BORDER}`,
                             boxShadow: 'none',
                             cursor: 'not-allowed'
@@ -1813,7 +1813,7 @@ export default function ProcessTracker({
                   style={{
                     fontSize: 11,
                     color: MUTED,
-                    background: 'rgba(255,255,255,0.08)',
+                    background: 'rgb(var(--bf-fg) / 0.08)',
                     padding: '3px 8px',
                     letterSpacing: 0.5
                   }}
@@ -1853,7 +1853,7 @@ export default function ProcessTracker({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 8,
-                      background: 'rgba(255,255,255,0.06)',
+                      background: 'rgb(var(--bf-fg) / 0.06)',
                       border: `1px solid ${BORDER}`,
                       borderRadius: 4,
                       color: TEXT,
@@ -1884,10 +1884,10 @@ export default function ProcessTracker({
                   }}
                   className="bf-btn-sec"
                   style={{
-                    background: 'rgba(255,255,255,0.08)',
+                    background: 'rgb(var(--bf-fg) / 0.08)',
                     border: `1px solid ${BORDER}`,
                     borderRadius: 4,
-                    color: '#ffffff',
+                    color: 'var(--tt-text)',
                     fontSize: 12.5,
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -1973,7 +1973,7 @@ export default function ProcessTracker({
             aria-label="Continuar buscando nos demais tribunais?"
             style={{
               width: 'min(420px, 100%)',
-              background: '#060F28',
+              background: 'var(--tt-ink)',
               border: `1px solid ${BORDER}`,
               borderRadius: 8,
               padding: '24px 26px',
@@ -2020,9 +2020,9 @@ export default function ProcessTracker({
                 }}
                 className="bf-btn-ouro"
                 style={{
-                  background: 'linear-gradient(135deg, #1E7CF2 0%, #3FA0FF 100%)',
-                  border: '1px solid rgba(201, 214, 238,0.4)',
-                  color: '#0B1730',
+                  background: 'linear-gradient(135deg, #1E7CF2 0%, var(--tt-accent-2) 100%)',
+                  border: '1px solid rgb(var(--bf-fg) / 0.4)',
+                  color: 'var(--tt-base)',
                   fontWeight: 700,
                   padding: '9px 16px',
                   fontSize: 12.5,
@@ -2047,7 +2047,7 @@ export default function ProcessTracker({
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(14,36,56,0.6)',
+            background: 'rgb(var(--bf-surface-rgb) / 0.6)',
             zIndex: 60,
             display: 'flex',
             alignItems: 'center',
@@ -2108,7 +2108,7 @@ export default function ProcessTracker({
               </p>
               <div
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
+                  background: 'rgb(var(--bf-fg) / 0.04)',
                   borderTop: `1px solid ${BORDER}`,
                   borderRight: `1px solid ${BORDER}`,
                   borderBottom: `1px solid ${BORDER}`,
@@ -2131,7 +2131,7 @@ export default function ProcessTracker({
             <div
               style={{
                 padding: '20px 28px',
-                background: 'rgba(255,255,255,0.04)',
+                background: 'rgb(var(--bf-fg) / 0.04)',
                 borderTop: `1px solid ${BORDER}`,
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -2167,7 +2167,7 @@ export default function ProcessTracker({
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(14,36,56,0.6)',
+          background: 'rgb(var(--bf-surface-rgb) / 0.6)',
           zIndex: 70,
           display: 'flex',
           alignItems: 'center',
@@ -2269,7 +2269,7 @@ export default function ProcessTracker({
                     padding: '12px 18px',
                     fontSize: 13,
                     color: MUTED,
-                    background: 'rgba(255,255,255,0.05)',
+                    background: 'rgb(var(--bf-fg) / 0.05)',
                     border: `1px solid ${BORDER}`,
                     animation: 'bf-blink 1.4s ease-in-out infinite'
                   }}
@@ -2284,7 +2284,7 @@ export default function ProcessTracker({
             style={{
               padding: '16px 20px',
               borderTop: `1px solid ${BORDER}`,
-              background: 'rgba(255,255,255,0.04)',
+              background: 'rgb(var(--bf-fg) / 0.04)',
               display: 'flex',
               gap: 10
             }}
@@ -2356,7 +2356,7 @@ function DevStageSimulator({
           width: 44,
           height: 44,
           borderRadius: '50%',
-          background: 'rgba(21, 22, 26,0.92)',
+          background: 'rgb(var(--bf-ink-rgb) / 0.92)',
           border: `1px solid ${BORDER}`,
           color: BLUE_LIGHT,
           cursor: 'pointer',
@@ -2374,7 +2374,7 @@ function DevStageSimulator({
             bottom: 72,
             zIndex: 400,
             width: 260,
-            background: 'rgba(21, 22, 26,0.95)',
+            background: 'rgb(var(--bf-ink-rgb) / 0.95)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             border: `1px solid ${BORDER}`,
@@ -2397,7 +2397,7 @@ function DevStageSimulator({
                 }}
                 style={{
                   textAlign: 'left',
-                  background: 'rgba(255,255,255,0.05)',
+                  background: 'rgb(var(--bf-fg) / 0.05)',
                   border: `1px solid ${BORDER}`,
                   borderRadius: 6,
                   color: TEXT,
@@ -2586,7 +2586,7 @@ function ScanRow({ item }: { item: ScanItem }) {
     <div
       style={{
         padding: '7px 10px',
-        background: 'rgba(10,10,10,0.6)',
+        background: 'rgb(var(--bf-ink-rgb) / 0.6)',
         border: `1px solid ${statusGeral === 'error' ? 'rgba(30, 124, 242,0.35)' : BORDER}`,
         borderRadius: 4,
         animation: 'bf-fadein 0.35s ease both'
@@ -2609,7 +2609,7 @@ function ScanRow({ item }: { item: ScanItem }) {
       >
         {item.label}
       </span>
-      <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgb(var(--bf-fg) / 0.08)', overflow: 'hidden' }}>
         <div
           style={{
             height: '100%',
@@ -2671,8 +2671,8 @@ const inputStyle: React.CSSProperties = {
 };
 
 const primaryButtonStyle: React.CSSProperties = {
-  background: 'linear-gradient(135deg, #1E7CF2 0%, #3FA0FF 100%)',
-  color: '#0B1730',
+  background: 'linear-gradient(135deg, #1E7CF2 0%, var(--tt-accent-2) 100%)',
+  color: 'var(--tt-base)',
   border: 'none',
   padding: '13px 28px',
   fontFamily: 'inherit',
@@ -2715,7 +2715,7 @@ const rotuloCampoStyle: React.CSSProperties = {
   gap: 6,
   fontSize: 13,
   fontWeight: 500,
-  color: 'rgba(245,246,250,0.82)',
+  color: 'rgb(var(--bf-fg) / 0.82)',
   marginBottom: 7
 };
 
@@ -2725,7 +2725,7 @@ const painelStyle: React.CSSProperties = {
   border: `1px solid ${INPUT_BORDER}`,
   borderRadius: 10,
   padding: '14px 16px',
-  background: 'rgba(255,255,255,0.02)'
+  background: 'rgb(var(--bf-fg) / 0.02)'
 };
 
 const linkAcaoStyle: React.CSSProperties = {
@@ -2792,7 +2792,7 @@ function OpcaoBusca({
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: ativa ? 'rgba(30, 124, 242,0.22)' : 'rgba(255,255,255,0.06)',
+          background: ativa ? 'rgba(30, 124, 242,0.22)' : 'rgb(var(--bf-fg) / 0.06)',
           color: ativa ? BLUE_LIGHT : MUTED
         }}
       >
@@ -2994,7 +2994,7 @@ function LinhaSwitch({ titulo, descricao, checked, onChange }: { titulo: string;
         padding: '12px 14px',
         borderRadius: 8,
         border: `1px solid ${checked ? 'rgba(30, 124, 242,0.45)' : INPUT_BORDER}`,
-        background: checked ? 'rgba(30, 124, 242,0.07)' : 'rgba(255,255,255,0.03)',
+        background: checked ? 'rgba(30, 124, 242,0.07)' : 'rgb(var(--bf-fg) / 0.03)',
         cursor: 'pointer',
         transition: 'border-color 0.2s ease, background 0.2s ease'
       }}

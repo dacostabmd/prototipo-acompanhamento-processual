@@ -73,8 +73,8 @@ export default function AiSummaryLoadingBar() {
   return (
     <div
       style={{
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.12)',
+        background: 'rgb(var(--bf-fg) / 0.04)',
+        border: '1px solid rgb(var(--bf-fg) / 0.12)',
         borderRadius: 4,
         padding: '24px 26px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
@@ -108,7 +108,7 @@ export default function AiSummaryLoadingBar() {
               fontSize: 11,
               letterSpacing: 1.5,
               fontWeight: 700,
-              color: '#D5DEEE',
+              color: 'var(--tt-text-2)',
               textTransform: 'uppercase'
             }}
           >
@@ -118,12 +118,12 @@ export default function AiSummaryLoadingBar() {
 
         {/* Contador percentual */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'rgba(243, 241, 236,0.6)', letterSpacing: 0.5 }}>Progresso:</span>
+          <span style={{ fontSize: 11, color: 'rgb(var(--bf-fg) / 0.6)', letterSpacing: 0.5 }}>Progresso:</span>
           <span
             style={{
               fontSize: 20,
               fontWeight: 700,
-              color: '#FFFFFF',
+              color: 'var(--tt-text)',
               fontVariantNumeric: 'tabular-nums'
             }}
           >
@@ -137,7 +137,7 @@ export default function AiSummaryLoadingBar() {
         style={{
           width: '100%',
           height: 8,
-          background: 'rgba(255,255,255,0.1)',
+          background: 'rgb(var(--bf-fg) / 0.1)',
           borderRadius: 999,
           overflow: 'hidden',
           position: 'relative',
@@ -163,7 +163,7 @@ export default function AiSummaryLoadingBar() {
               right: 0,
               bottom: 0,
               background:
-                'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 50%, transparent 100%)',
+                'linear-gradient(90deg, transparent 0%, rgb(var(--bf-fg) / 0.45) 50%, transparent 100%)',
               animation: 'bf-wave-sweep 1.8s linear infinite'
             }}
           />
@@ -195,12 +195,12 @@ export default function AiSummaryLoadingBar() {
                   ? 'rgba(153, 153, 153, 0.08)'
                   : isDone
                   ? 'rgba(27, 107, 62, 0.08)'
-                  : 'rgba(255,255,255,0.03)',
+                  : 'rgb(var(--bf-fg) / 0.03)',
                 border: isActive
                   ? '1px solid rgba(153, 153, 153, 0.35)'
                   : isDone
                   ? '1px solid rgba(27, 107, 62, 0.3)'
-                  : '1px solid rgba(255,255,255,0.1)',
+                  : '1px solid rgb(var(--bf-fg) / 0.1)',
                 transition: 'all 0.3s ease'
               }}
             >
@@ -213,7 +213,7 @@ export default function AiSummaryLoadingBar() {
                       height: 22,
                       borderRadius: '50%',
                       background: '#1b6b3e',
-                      color: '#FFFFFF',
+                      color: 'var(--tt-text)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -231,8 +231,8 @@ export default function AiSummaryLoadingBar() {
                       width: 22,
                       height: 22,
                       borderRadius: '50%',
-                      background: 'rgba(255,255,255,0.1)',
-                      color: 'rgba(243, 241, 236,0.6)',
+                      background: 'rgb(var(--bf-fg) / 0.1)',
+                      color: 'rgb(var(--bf-fg) / 0.6)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -260,7 +260,7 @@ export default function AiSummaryLoadingBar() {
                     style={{
                       fontSize: 12.5,
                       fontWeight: isActive || isDone ? 600 : 500,
-                      color: isDone ? '#4fae7a' : isActive ? '#FFFFFF' : 'rgba(243, 241, 236,0.65)'
+                      color: isDone ? '#4fae7a' : isActive ? '#FFFFFF' : 'rgb(var(--bf-fg) / 0.65)'
                     }}
                   >
                     {stage.title}
@@ -271,7 +271,7 @@ export default function AiSummaryLoadingBar() {
                       style={{
                         fontSize: 9.5,
                         fontWeight: 600,
-                        color: '#FFFFFF',
+                        color: 'var(--tt-text)',
                         background: 'rgba(153, 153, 153, 0.2)',
                         padding: '2px 6px',
                         borderRadius: 3,
@@ -302,7 +302,7 @@ export default function AiSummaryLoadingBar() {
                     margin: 0,
                     fontSize: 11,
                     lineHeight: 1.4,
-                    color: isActive ? 'rgba(243, 241, 236,0.8)' : 'rgba(243, 241, 236,0.5)'
+                    color: isActive ? 'rgb(var(--bf-fg) / 0.8)' : 'rgb(var(--bf-fg) / 0.5)'
                   }}
                 >
                   {stage.description}
@@ -318,20 +318,20 @@ export default function AiSummaryLoadingBar() {
         style={{
           marginTop: 18,
           paddingTop: 14,
-          borderTop: '1px dashed rgba(255,255,255,0.15)',
+          borderTop: '1px dashed rgb(var(--bf-fg) / 0.15)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: 8,
           fontSize: 11,
-          color: 'rgba(243, 241, 236,0.55)'
+          color: 'rgb(var(--bf-fg) / 0.55)'
         }}
       >
         <span>
           Cruzando dados processuais com jurisprudência e estratégias de defesa patrimonial...
         </span>
-        <span style={{ fontWeight: 500, color: '#D5DEEE' }}>Sigilo Profissional Garantido</span>
+        <span style={{ fontWeight: 500, color: 'var(--tt-text-2)' }}>Sigilo Profissional Garantido</span>
       </div>
     </div>
   );

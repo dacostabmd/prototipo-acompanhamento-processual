@@ -389,11 +389,11 @@ export default function Perfil() {
                   onClick={() => trocarAba(item.id)}
                   className={`flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all text-left outline-none border ${
                     ativo
-                      ? 'border-[rgba(30, 124, 242,0.4)] bg-[rgba(30, 124, 242,0.14)] text-[#C9D6EE] shadow-sm'
+                      ? 'border-[rgba(30, 124, 242,0.4)] bg-[rgba(30, 124, 242,0.14)] text-[color:var(--tt-text-2)] shadow-sm'
                       : 'border-transparent bg-transparent text-white/70 hover:border-white/10 hover:bg-white/10 hover:text-white'
                   }`}
                 >
-                  <Icon size={17} strokeWidth={1.8} className={ativo ? 'text-[#C9D6EE]' : 'text-white/60'} />
+                  <Icon size={17} strokeWidth={1.8} className={ativo ? 'text-[color:var(--tt-text-2)]' : 'text-white/60'} />
                   <span>{item.label}</span>
                 </button>
               );
@@ -552,7 +552,7 @@ export default function Perfil() {
                   <button
                     type="submit"
                     disabled={salvandoDados}
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-5 py-2.5 text-sm font-semibold text-[#C9D6EE] shadow-md transition-all hover:bg-[#1E7CF2]/25 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-5 py-2.5 text-sm font-semibold text-[color:var(--tt-text-2)] shadow-md transition-all hover:bg-[#1E7CF2]/25 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {salvandoDados ? (
                       <>
@@ -662,7 +662,7 @@ export default function Perfil() {
                 <button
                   type="submit"
                   disabled={salvandoSenha || !senhaNova || !senhaAtual}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-5 py-2.5 text-sm font-semibold text-[#C9D6EE] shadow-md transition-all hover:bg-[#1E7CF2]/25 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-5 py-2.5 text-sm font-semibold text-[color:var(--tt-text-2)] shadow-md transition-all hover:bg-[#1E7CF2]/25 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {salvandoSenha ? (
                     <>
@@ -719,10 +719,10 @@ export default function Perfil() {
 
                 <Link
                   href="/consulta"
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#3FA0FF]/40 bg-gradient-to-r from-[#1B3FA8] via-[#1E7CF2] to-[#3FA0FF] py-3 text-sm font-semibold !text-white !no-underline shadow-md shadow-[#060F28]/30 transition-all hover:brightness-110 hover:shadow-[#1E7CF2]/30 active:scale-[0.99]"
-                  style={{ color: '#FFFFFF', textDecoration: 'none' }}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[color:var(--tt-accent-2)]/40 bg-gradient-to-r from-[#1B3FA8] via-[#1E7CF2] to-[color:var(--tt-accent-2)] py-3 text-sm font-semibold !text-[#FFFFFF] !no-underline shadow-md shadow-[color:var(--tt-ink)]/30 transition-all hover:brightness-110 hover:shadow-[#1E7CF2]/30 active:scale-[0.99]"
+                  style={{ color: 'var(--tt-text)', textDecoration: 'none' }}
                 >
-                  <Sparkles size={16} className="text-white" />
+                  <Sparkles size={16} className="text-[#FFFFFF]" />
                   <span className="font-semibold text-neutral-950" style={{ color: '#FFFFFF' }}>
                     Realizar Nova Consulta
                   </span>

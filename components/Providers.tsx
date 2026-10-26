@@ -12,7 +12,7 @@ const DevMetrics = dynamic(() => import('./DevMetrics'), { ssr: false });
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
-    <MantineProvider theme={theme} defaultColorScheme="light">
+    <MantineProvider theme={theme} defaultColorScheme="dark">
       <Notifications position="top-right" zIndex={300} />
       {children}
       <DevMetrics />

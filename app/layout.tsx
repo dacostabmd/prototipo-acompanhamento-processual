@@ -1,23 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter_Tight, Outfit } from 'next/font/google';
 import { ColorSchemeScript } from '@mantine/core';
 import '@mantine/core/styles.css';
 import './globals.css';
 import Providers from '@/components/Providers';
-
-// Briefing JusConsulta: Outfit em títulos/logotipo, Inter Tight em interface e texto corrido
-const interTight = Inter_Tight({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-inter-tight',
-  display: 'swap'
-});
-const outfit = Outfit({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-outfit',
-  display: 'swap'
-});
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 const DESCRIPTION = 'Consulte processos judiciais vinculados ao seu CPF, acompanhe atualizações e fale com um advogado.';
@@ -43,7 +28,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#0B1730'
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F1F4F9' },
+    { media: '(prefers-color-scheme: dark)', color: '#0B1730' }
+  ]
 };
 
 const jsonLd = {
@@ -56,12 +44,18 @@ const jsonLd = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${interTight.variable} ${outfit.variable}`} suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
-        <ColorSchemeScript defaultColorScheme="light" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap"
+        />
+        <ColorSchemeScript defaultColorScheme="dark" />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </head>
-      <body className={interTight.className} style={{ fontFamily: 'var(--font-inter-tight), "Inter Tight", sans-serif' }}>
+      <body style={{ fontFamily: 'var(--font-inter-tight), "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
         <Providers>{children}</Providers>
       </body>
     </html>

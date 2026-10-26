@@ -4,8 +4,8 @@ import React, { useState, useEffect, Children, useRef, useLayoutEffect, type HTM
 import { motion, AnimatePresence, type Variants } from 'motion/react';
 
 const GOLD = '#1E7CF2';
-const GOLD_DARK = '#3FA0FF';
-const GOLD_LIGHT = '#C9D6EE';
+const GOLD_DARK = 'var(--tt-accent-2)';
+const GOLD_LIGHT = 'var(--tt-text-2)';
 
 export interface StepperProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
@@ -111,12 +111,12 @@ export default function Stepper({
         style={{
           width: '100%',
           maxWidth: 680,
-          background: 'rgba(21, 22, 26,0.88)',
+          background: 'rgb(var(--bf-ink-rgb) / 0.88)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           borderRadius: 10,
           boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
-          border: '1px solid rgba(255,255,255,0.12)',
+          border: '1px solid rgb(var(--bf-fg) / 0.12)',
           overflow: 'hidden'
         }}
       >
@@ -128,8 +128,8 @@ export default function Stepper({
             width: '100%',
             alignItems: 'center',
             padding: '24px 32px 16px',
-            borderBottom: '1px solid rgba(255,255,255,0.1)',
-            background: 'rgba(255,255,255,0.03)'
+            borderBottom: '1px solid rgb(var(--bf-fg) / 0.1)',
+            background: 'rgb(var(--bf-fg) / 0.03)'
           }}
         >
           {stepsArray.map((_, index) => {
@@ -183,8 +183,8 @@ export default function Stepper({
             className={footerClassName}
             style={{
               padding: '16px 32px 24px',
-              borderTop: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(255,255,255,0.03)'
+              borderTop: '1px solid rgb(var(--bf-fg) / 0.1)',
+              background: 'rgb(var(--bf-fg) / 0.03)'
             }}
           >
             <div
@@ -200,8 +200,8 @@ export default function Stepper({
                   onClick={handleBack}
                   style={{
                     background: 'transparent',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    color: 'rgba(243, 241, 236,0.75)',
+                    border: '1px solid rgb(var(--bf-fg) / 0.18)',
+                    color: 'rgb(var(--bf-fg) / 0.75)',
                     padding: '10px 20px',
                     fontSize: 12,
                     letterSpacing: 1,
@@ -221,10 +221,10 @@ export default function Stepper({
                 className="bf-btn-ouro"
                 style={{
                   background: canAdvance
-                    ? 'linear-gradient(135deg, #1E7CF2 0%, #3FA0FF 100%)'
-                    : 'rgba(255,255,255,0.12)',
-                  color: canAdvance ? '#0B1730' : 'rgba(255,255,255,0.35)',
-                  border: canAdvance ? '1px solid rgba(201, 214, 238,0.4)' : '1px solid transparent',
+                    ? 'linear-gradient(135deg, #1E7CF2 0%, var(--tt-accent-2) 100%)'
+                    : 'rgb(var(--bf-fg) / 0.12)',
+                  color: canAdvance ? 'var(--tt-base)' : 'rgb(var(--bf-fg) / 0.35)',
+                  border: canAdvance ? '1px solid rgb(var(--bf-fg) / 0.4)' : '1px solid transparent',
                   padding: '12px 28px',
                   fontSize: 12.5,
                   letterSpacing: 1.5,
@@ -387,9 +387,9 @@ function StepIndicator({ step, currentStep, onClickStep, disableStepIndicators =
     >
       <motion.div
         variants={{
-          inactive: { scale: 1, backgroundColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' },
-          active: { scale: 1.08, backgroundColor: GOLD, color: '#0B1730' },
-          complete: { scale: 1, backgroundColor: GOLD_DARK, color: '#0B1730' }
+          inactive: { scale: 1, backgroundColor: 'rgb(var(--bf-fg) / 0.1)', color: 'rgb(var(--bf-fg) / 0.5)' },
+          active: { scale: 1.08, backgroundColor: GOLD, color: 'var(--tt-base)' },
+          complete: { scale: 1, backgroundColor: GOLD_DARK, color: 'var(--tt-base)' }
         }}
         transition={{ duration: 0.3 }}
         style={{
@@ -405,7 +405,7 @@ function StepIndicator({ step, currentStep, onClickStep, disableStepIndicators =
         }}
       >
         {status === 'complete' ? (
-          <CheckIcon style={{ width: 16, height: 16, color: '#0B1730' }} />
+          <CheckIcon style={{ width: 16, height: 16, color: 'var(--tt-base)' }} />
         ) : (
           <span>{step}</span>
         )}
@@ -432,7 +432,7 @@ function StepConnector({ isComplete }: StepConnectorProps) {
         height: 2,
         flex: 1,
         overflow: 'hidden',
-        background: 'rgba(255,255,255,0.14)'
+        background: 'rgb(var(--bf-fg) / 0.14)'
       }}
     >
       <motion.div

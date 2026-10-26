@@ -149,7 +149,7 @@ export default function PlanosPage() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-8 sm:px-10 sm:py-12">
       <header className="text-center">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-3.5 py-1 text-xs font-semibold text-[#C9D6EE]">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-3.5 py-1 text-xs font-semibold text-[color:var(--tt-text-2)]">
           <Sparkles size={13} className="text-[#1E7CF2]" />
           Planos Transparentes
         </span>
@@ -249,7 +249,7 @@ export default function PlanosPage() {
                 <Crown size={15} />
                 Plano Pro
               </span>
-              <span className="rounded-full border border-[#1E7CF2]/50 bg-[#1E7CF2]/20 px-3 py-0.5 text-xs font-semibold text-[#C9D6EE]">
+              <span className="rounded-full border border-[#1E7CF2]/50 bg-[#1E7CF2]/20 px-3 py-0.5 text-xs font-semibold text-[color:var(--tt-text-2)]">
                 {isPro ? 'Plano Ativo' : 'Mais Popular'}
               </span>
             </div>
@@ -258,7 +258,7 @@ export default function PlanosPage() {
               <span className="text-4xl font-bold tracking-tight text-white">R$ 79,90</span>
               <span className="text-sm text-white/50">/ mês</span>
             </div>
-            <p className="mt-2 text-xs text-[#C9D6EE]/80">Para clientes e advogados que exigem acompanhamento completo e sem ruído.</p>
+            <p className="mt-2 text-xs text-[color:var(--tt-text-2)]/80">Para clientes e advogados que exigem acompanhamento completo e sem ruído.</p>
 
             <ul className="mt-6 space-y-3 text-sm text-white">
               <li className="flex items-center gap-2.5">
@@ -302,7 +302,7 @@ export default function PlanosPage() {
 
           <div className="mt-8 pt-4 border-t border-white/10">
             {isPro ? (
-              <div className="flex items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/40 bg-[#1E7CF2]/20 py-2.5 text-center text-sm font-semibold text-[#C9D6EE]">
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/40 bg-[#1E7CF2]/20 py-2.5 text-center text-sm font-semibold text-[color:var(--tt-text-2)]">
                 <ShieldCheck size={16} className="text-[#1E7CF2]" />
                 Você já é assinante Pro
               </div>
@@ -310,7 +310,7 @@ export default function PlanosPage() {
               <button
                 type="button"
                 onClick={() => handleMudarPlano('pro')}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/80 bg-[#1E7CF2] py-3 text-center text-sm font-bold text-[#060F28] shadow-lg transition-all hover:bg-[#eddcb9]"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/80 bg-[#1E7CF2] py-3 text-center text-sm font-bold text-[#FFFFFF] shadow-lg transition-all hover:bg-[#eddcb9]"
               >
                 <span>Fazer Upgrade para Pro</span>
                 <ArrowRight size={16} />
@@ -351,7 +351,7 @@ export default function PlanosPage() {
                       <span>{r.free}</span>
                     )}
                   </td>
-                  <td className="py-3.5 text-center text-[#C9D6EE]">
+                  <td className="py-3.5 text-center text-[color:var(--tt-text-2)]">
                     {typeof r.pro === 'boolean' ? (
                       r.pro ? (
                         <Check size={16} className="mx-auto text-[#1E7CF2]" />

@@ -12,12 +12,12 @@ import AiSummaryLoadingBar from './AiSummaryLoadingBar';
 const GOLD = '#1E7CF2';
 const GOLD_SOFT = 'rgba(214,178,110,0.12)';
 const ORANGE = '#e0a052';
-const BLUE = '#3FA0FF';
-const TEXT = '#ffffff';
-const MUTED = 'rgba(229,231,235,0.7)';
-const BORDER = 'rgba(255,255,255,0.12)';
-const GLASS = 'rgba(20,20,22,0.55)';
-const INNER = 'rgba(255,255,255,0.035)';
+const BLUE = 'var(--tt-accent-2)';
+const TEXT = 'var(--tt-text)';
+const MUTED = 'rgb(var(--bf-fg) / 0.7)';
+const BORDER = 'rgb(var(--bf-fg) / 0.12)';
+const GLASS = 'rgb(var(--bf-ink-rgb) / 0.55)';
+const INNER = 'rgb(var(--bf-fg) / 0.035)';
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
@@ -29,7 +29,7 @@ type StatusProcesso = 'andamento' | 'pausado' | 'encerrado';
 const STATUS_META: Record<StatusProcesso, { label: string; color: string }> = {
   andamento: { label: 'Em andamento', color: BLUE },
   pausado: { label: 'Pausado', color: GOLD },
-  encerrado: { label: 'Encerrado', color: 'rgba(229,231,235,0.55)' }
+  encerrado: { label: 'Encerrado', color: 'rgb(var(--bf-fg) / 0.55)' }
 };
 
 const FASES = [
@@ -310,7 +310,7 @@ export default function ProcessResultView({
                 fontSize: grande ? 13.5 : 12.5,
                 lineHeight: 1.6,
                 borderRadius: 6,
-                background: msg.role === 'user' ? GOLD_SOFT : 'rgba(255,255,255,0.06)',
+                background: msg.role === 'user' ? GOLD_SOFT : 'rgb(var(--bf-fg) / 0.06)',
                 color: TEXT,
                 border: `1px solid ${msg.role === 'user' ? 'rgba(214,178,110,0.35)' : BORDER}`
               }}
@@ -620,7 +620,7 @@ export default function ProcessResultView({
                         Contra {item.p.parteContraria || 'parte não informada'}
                         {item.p.valorCausa ? ` · ${item.p.valorCausa}` : ''}
                       </div>
-                      <div style={{ fontSize: 10.5, color: 'rgba(229,231,235,0.5)', marginTop: 3, fontFamily: 'monospace', overflowWrap: 'anywhere' }}>
+                      <div style={{ fontSize: 10.5, color: 'rgb(var(--bf-fg) / 0.5)', marginTop: 3, fontFamily: 'monospace', overflowWrap: 'anywhere' }}>
                         {item.p.numero}
                       </div>
                     </button>
@@ -671,9 +671,9 @@ export default function ProcessResultView({
                   borderRadius: 16,
                   padding: 14,
                   background: monitorado
-                    ? 'linear-gradient(135deg, rgba(37, 211, 102, 0.1) 0%, rgba(20, 20, 22, 0.6) 100%)'
+                    ? 'linear-gradient(135deg, rgba(37, 211, 102, 0.1) 0%, rgb(var(--bf-ink-rgb) / 0.6) 100%)'
                     : 'linear-gradient(135deg, rgba(37, 211, 102, 0.06) 0%, rgba(30, 124, 242, 0.05) 100%)',
-                  border: monitorado ? '1px solid rgba(37, 211, 102, 0.35)' : '1px solid rgba(255, 255, 255, 0.1)',
+                  border: monitorado ? '1px solid rgba(37, 211, 102, 0.35)' : '1px solid rgb(var(--bf-fg) / 0.1)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -759,7 +759,7 @@ export default function ProcessResultView({
                         disabled={salvandoMonitoramento}
                         onClick={() => toggleMonitoramento(false)}
                         className="prv-btn bf-btn-sec"
-                        style={{ fontSize: 11.5, padding: '6px 9px', color: 'rgba(255,255,255,0.45)' }}
+                        style={{ fontSize: 11.5, padding: '6px 9px', color: 'rgb(var(--bf-fg) / 0.45)' }}
                       >
                         Desativar
                       </button>
@@ -811,7 +811,7 @@ export default function ProcessResultView({
                   const feito = i <= sel.fase;
                   return (
                     <div key={f.titulo} style={{ minWidth: 0 }}>
-                      <div style={{ height: 4, borderRadius: 2, background: feito ? GOLD : 'rgba(255,255,255,0.14)', marginBottom: 8 }} />
+                      <div style={{ height: 4, borderRadius: 2, background: feito ? GOLD : 'rgb(var(--bf-fg) / 0.14)', marginBottom: 8 }} />
                       <div style={{ fontSize: 12, fontWeight: 700, color: feito ? TEXT : MUTED }}>{f.titulo}</div>
                       <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.4 }}>{f.desc}</div>
                     </div>
@@ -946,7 +946,7 @@ export default function ProcessResultView({
         opened={modalTelefoneAberto}
         onClose={() => setModalTelefoneAberto(false)}
         title={
-          <span style={{ fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontWeight: 700, color: 'var(--tt-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <MessageCircle size={18} className="text-[#25d366]" />
             Ativar Acompanhamento no WhatsApp
           </span>
@@ -955,17 +955,17 @@ export default function ProcessResultView({
         radius="lg"
         styles={{
           content: {
-            backgroundColor: '#15161a',
-            border: '1px solid rgba(255,255,255,0.15)',
-            color: '#fff'
+            backgroundColor: 'var(--tt-ink)',
+            border: '1px solid rgb(var(--bf-fg) / 0.15)',
+            color: 'var(--tt-text)'
           },
           header: {
-            backgroundColor: '#15161a',
-            borderBottom: '1px solid rgba(255,255,255,0.08)'
+            backgroundColor: 'var(--tt-ink)',
+            borderBottom: '1px solid rgb(var(--bf-fg) / 0.08)'
           }
         }}
       >
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5, margin: '8px 0 16px' }}>
+        <p style={{ fontSize: 13, color: 'rgb(var(--bf-fg) / 0.7)', lineHeight: 1.5, margin: '8px 0 16px' }}>
           Informe seu número de celular com DDD. Nosso Copiloto Jurídico enviará resumos automáticos a cada movimentação relevante do processo.
         </p>
         <TextInput
@@ -975,12 +975,12 @@ export default function ProcessResultView({
           onChange={e => setTelefoneInput(e.currentTarget.value)}
           styles={{
             input: {
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              color: '#fff',
-              borderColor: 'rgba(255, 255, 255, 0.15)'
+              backgroundColor: 'rgb(var(--bf-fg) / 0.05)',
+              color: 'var(--tt-text)',
+              borderColor: 'rgb(var(--bf-fg) / 0.15)'
             },
             label: {
-              color: 'rgba(255, 255, 255, 0.8)',
+              color: 'rgb(var(--bf-fg) / 0.8)',
               fontSize: 12,
               marginBottom: 4
             }
@@ -1032,7 +1032,7 @@ function Chip({ children, color, destaque }: { children: React.ReactNode; color:
         fontWeight: 600,
         color,
         border: `1px solid ${destaque ? color : BORDER}`,
-        background: destaque ? GOLD_SOFT : 'rgba(255,255,255,0.03)',
+        background: destaque ? GOLD_SOFT : 'rgb(var(--bf-fg) / 0.03)',
         borderRadius: 4,
         padding: '4px 9px'
       }}
@@ -1187,11 +1187,11 @@ const CSS = `
 .prv-item-ativo { border-color: ${GOLD}; background: ${GOLD_SOFT}; }
 .prv-sugestao { text-align: left; background: ${INNER}; border: 1px solid ${BORDER}; border-radius: 6px; padding: 9px 12px; font-size: 12.5px; color: ${TEXT}; cursor: pointer; }
 .prv-sugestao:hover { border-color: ${GOLD}; }
-.prv-input { flex: 1; min-width: 0; padding: 9px 12px; font-size: 12.5px; border: 1px solid ${BORDER}; border-radius: 6px; background: rgba(255,255,255,0.06); color: ${TEXT}; outline: none; }
+.prv-input { flex: 1; min-width: 0; padding: 9px 12px; font-size: 12.5px; border: 1px solid ${BORDER}; border-radius: 6px; background: rgb(var(--bf-fg) / 0.06); color: ${TEXT}; outline: none; }
 .prv-input:focus { border-color: ${GOLD}; }
 .prv-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .prv-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 12px; }
-.prv-modal { background: #060F28; border: 1px solid ${BORDER}; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+.prv-modal { background: var(--tt-ink); border: 1px solid ${BORDER}; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
 .prv-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 18px; border-bottom: 1px solid ${BORDER}; font-size: 13px; font-weight: 700; color: ${TEXT}; flex-shrink: 0; }
 @media (max-width: 900px) {
   .prv-split { grid-template-columns: 1fr; }

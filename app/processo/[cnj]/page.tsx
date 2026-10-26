@@ -218,26 +218,26 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#060F28] text-white">
+    <div className="min-h-screen bg-[color:var(--tt-ink)] text-white">
       {/* Script JSON-LD */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* Header Público */}
-      <header className="border-b border-white/10 bg-[#060F28]/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-white/10 bg-[color:var(--tt-ink)]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3.5 sm:px-6">
           <Link href="/" className="inline-flex items-center gap-2 font-bold text-white tracking-tight">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E7CF2] to-[#b39968] text-[#060F28]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E7CF2] to-[#b39968] text-[color:var(--tt-ink)]">
               <Scale size={18} strokeWidth={2.2} />
             </span>
             <span className="text-lg">JusConsulta</span>
-            <span className="rounded-full border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C9D6EE]">
+            <span className="rounded-full border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2 py-0.5 text-[10px] font-semibold text-[color:var(--tt-text-2)]">
               Consulta Pública
             </span>
           </Link>
 
           <Link
             href={`/consulta?busca=${digits}`}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-3.5 py-1.5 text-xs font-medium text-[#C9D6EE] transition-colors hover:bg-[#1E7CF2]/25"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-3.5 py-1.5 text-xs font-medium text-[color:var(--tt-text-2)] transition-colors hover:bg-[#1E7CF2]/25"
           >
             <span>Monitorar no WhatsApp</span>
             <ArrowRight size={13} />
@@ -310,10 +310,10 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
         </section>
 
         {/* Banner CTA WhatsApp Conversacional */}
-        <section className="mt-6 overflow-hidden rounded-3xl border border-[#1E7CF2]/30 bg-gradient-to-br from-[#1E7CF2]/15 via-[#060F28] to-[#060F28] p-6 shadow-xl">
+        <section className="mt-6 overflow-hidden rounded-3xl border border-[#1E7CF2]/30 bg-gradient-to-br from-[#1E7CF2]/15 via-[color:var(--tt-ink)] to-[color:var(--tt-ink)] p-6 shadow-xl">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-xl">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2.5 py-0.5 text-xs font-semibold text-[#C9D6EE]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2.5 py-0.5 text-xs font-semibold text-[color:var(--tt-text-2)]">
                 <MessageCircle size={13} />
                 Acompanhamento WhatsApp 24h
               </span>
@@ -328,7 +328,7 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
             <div className="shrink-0">
               <Link
                 href={`/consulta?busca=${digits}`}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1E7CF2] px-6 py-3.5 text-sm font-bold text-[#060F28] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] sm:w-auto"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1E7CF2] px-6 py-3.5 text-sm font-bold text-[#FFFFFF] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] sm:w-auto"
               >
                 <MessageCircle size={17} />
                 <span>Ativar no WhatsApp</span>

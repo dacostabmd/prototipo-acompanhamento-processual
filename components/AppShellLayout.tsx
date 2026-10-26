@@ -3,10 +3,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { AppShell, Burger, Tooltip, UnstyledButton } from '@mantine/core';
+import { AppShell, Burger, Tooltip, UnstyledButton, useComputedColorScheme, useMantineColorScheme } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { motion } from 'motion/react';
-import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut, Moon, Sun } from 'lucide-react';
 import { NAV_ITEMS } from '@/lib/nav';
 import { getSupabase } from '@/lib/supabase';
 import { authFetch } from '@/lib/authFetch';
@@ -73,6 +73,10 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
       } catch {}
       return !v;
     });
+
+  const { setColorScheme } = useMantineColorScheme();
+  const modoEscuro = useComputedColorScheme('dark', { getInitialValueInEffect: true }) === 'dark';
+  const alternarTema = () => setColorScheme(modoEscuro ? 'light' : 'dark');
 
   const logout = async () => {
     await authFetch('/api/eventos', {
@@ -152,7 +156,7 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
                   <span className="bf-nav-icon relative">
                     <Icon size={ICON} strokeWidth={1.8} />
                     {temNaoLidas && !expanded && (
-                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-400 ring-2 ring-[#060F28]" />
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-400 ring-2 ring-[color:var(--tt-ink)]" />
                     )}
                   </span>
                   <span className="bf-nav-label flex items-center justify-between gap-2">
@@ -177,6 +181,15 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
               <span>Consulta</span>
             </span>
           </div>
+
+          <Tooltip label={modoEscuro ? 'Modo claro' : 'Modo noturno'} position="right" offset={14} withArrow disabled={expanded || mobileOpened}>
+            <UnstyledButton onClick={alternarTema} className="bf-nav-item" aria-label={modoEscuro ? 'Ativar modo claro' : 'Ativar modo noturno'}>
+              <span className="bf-nav-icon">
+                {modoEscuro ? <Sun size={ICON} strokeWidth={1.8} /> : <Moon size={ICON} strokeWidth={1.8} />}
+              </span>
+              <span className="bf-nav-label">{modoEscuro ? 'Modo claro' : 'Modo noturno'}</span>
+            </UnstyledButton>
+          </Tooltip>
 
           <Tooltip label="Sair" position="right" offset={14} withArrow disabled={expanded || mobileOpened}>
             <UnstyledButton onClick={logout} className="bf-nav-item">

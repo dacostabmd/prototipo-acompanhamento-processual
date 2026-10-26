@@ -121,7 +121,7 @@ export default function Changelog({ isOwner }: { isOwner: boolean }) {
                 height: 10,
                 borderRadius: '50%',
                 background: '#e0545f',
-                border: '2px solid rgba(21, 22, 26,0.9)'
+                border: '2px solid rgb(var(--bf-ink-rgb) / 0.9)'
               }}
             />
           )}

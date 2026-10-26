@@ -101,7 +101,7 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
       withCloseButton={false}
       styles={{
         content: {
-          backgroundColor: '#060F28',
+          backgroundColor: 'var(--tt-ink)',
           border: '1px solid rgba(30, 124, 242, 0.3)',
           borderRadius: '24px',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
@@ -111,7 +111,7 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
     >
       <div className="relative">
         {/* Badge Superior */}
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-3 py-1 text-xs font-semibold text-[#C9D6EE]">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-3 py-1 text-xs font-semibold text-[color:var(--tt-text-2)]">
           <Crown size={14} className="text-[#1E7CF2]" />
           <span>JusConsulta Pro</span>
         </div>
@@ -162,7 +162,7 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
             type="button"
             disabled={ativando}
             onClick={ativarPlanoPro}
-            className="mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#1E7CF2] to-[#c7b288] py-3 text-sm font-bold text-[#060F28] shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#1E7CF2] to-[#3FA0FF] py-3 text-sm font-bold text-[#FFFFFF] shadow-lg transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {ativando ? (
               <span className="inline-flex items-center gap-2">

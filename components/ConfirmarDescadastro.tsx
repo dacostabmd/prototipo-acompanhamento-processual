@@ -38,7 +38,7 @@ export default function ConfirmarDescadastro({ token }: { token: string }) {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-[#060F28] px-4 py-10">
+    <main className="flex min-h-dvh items-center justify-center bg-[color:var(--tt-ink)] px-4 py-10">
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-6 text-center shadow-sm backdrop-blur-md sm:p-8">
         {estado === 'concluido' ? (
           <>
@@ -68,7 +68,7 @@ export default function ConfirmarDescadastro({ token }: { token: string }) {
               type="button"
               onClick={confirmar}
               disabled={estado === 'enviando'}
-              className="bf-btn-ouro mt-6 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#1E7CF2] px-5 py-3 text-sm font-semibold text-[#060F28] disabled:cursor-wait disabled:opacity-70"
+              className="bf-btn-ouro mt-6 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#1E7CF2] px-5 py-3 text-sm font-semibold text-[#FFFFFF] disabled:cursor-wait disabled:opacity-70"
             >
               {estado === 'enviando' && <LoaderCircle size={16} className="animate-spin" />}
               Parar avisos por e-mail

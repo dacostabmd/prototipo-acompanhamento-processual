@@ -63,7 +63,7 @@ export default function UserChip() {
           size="sm"
           fw={600}
           style={{
-            color: '#ffffff',
+            color: 'var(--tt-text)',
             fontWeight: 600
           }}
         >
@@ -82,7 +82,7 @@ export default function UserChip() {
               padding: '1px 6px',
               fontSize: '10px',
               fontWeight: 700,
-              color: '#C9D6EE'
+              color: 'var(--tt-text-2)'
             }}
           >
             <Crown size={10} style={{ color: '#1E7CF2' }} />

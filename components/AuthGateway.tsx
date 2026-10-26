@@ -9,8 +9,8 @@ import { cleanDigits, formatDocumento, isValidCpf, isValidCnpj } from '@/lib/for
 
 // Cartão de vidro sobre o fundo escuro do login: texto claro e destaques no dourado da marca.
 const BLUE = '#1E7CF2';
-const TEXT = '#FFFFFF';
-const MUTED = 'rgba(243, 241, 236,0.65)';
+const TEXT = 'var(--tt-text)';
+const MUTED = 'rgb(var(--bf-fg) / 0.65)';
 
 type Mode = 'login' | 'signup' | 'forgot';
 type Perfil = 'advogado' | 'broker' | 'cliente';
@@ -29,7 +29,7 @@ const linkButton: CSSProperties = {
   fontSize: 13
 };
 
-const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(243, 241, 236,0.88)', margin: '0 0 8px' };
+const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'rgb(var(--bf-fg) / 0.88)', margin: '0 0 8px' };
 
 export default function AuthGateway() {
   const router = useRouter();
@@ -305,9 +305,9 @@ export default function AuthGateway() {
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '20px 0', color: MUTED, fontSize: 13 }}>
-            <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.14)' }} />
+            <span style={{ flex: 1, height: 1, background: 'rgb(var(--bf-fg) / 0.14)' }} />
             ou com e-mail e senha
-            <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.14)' }} />
+            <span style={{ flex: 1, height: 1, background: 'rgb(var(--bf-fg) / 0.14)' }} />
           </div>
 
           <form onSubmit={handleSubmit} noValidate style={{ display: 'grid', gap: 16 }}>
