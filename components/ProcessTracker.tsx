@@ -49,7 +49,7 @@ import {
   parseCnj
 } from '@/lib/format';
 import { useDevPagante } from '@/lib/devPagante';
-import { setDevVisaoAdvogado, useDevVisaoAdvogado } from '@/lib/devVisao';
+import { useDevVisaoAdvogado } from '@/lib/devVisao';
 import { extractDdd, prioritizeByTribunalOrDdd, tribunalByDdd, tribunalByUf, ESTADOS_BRASIL } from '@/lib/ddd';
 import { useSharedProfile } from '@/components/ProfileProvider';
 import { getAvgMs, recordSample } from '@/lib/tribunalTiming';
@@ -1372,21 +1372,6 @@ export default function ProcessTracker({
               </div>
             ) : (
               <>
-                {!isConsultante && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 12.5, color: MUTED }}>Visualizar como</span>
-                    <SegmentedControl
-                      size="sm"
-                      value={visaoAdvogado ? 'advogado' : 'comum'}
-                      onChange={v => setDevVisaoAdvogado(v === 'advogado')}
-                      data={[
-                        { label: 'Usuário comum', value: 'comum' },
-                        { label: 'Advogado', value: 'advogado' }
-                      ]}
-                    />
-                  </div>
-                )}
-
               <MotionConfig reducedMotion="user">
               <motion.form
                 initial="oculto"
