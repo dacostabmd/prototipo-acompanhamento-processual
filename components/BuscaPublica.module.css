@@ -1,0 +1,249 @@
+/* Busca pública da coluna escura do login (components/BuscaPublica.tsx). */
+
+.wrap {
+  width: 100%;
+  max-width: 540px;
+  margin: 22px auto 0;
+  text-align: left;
+}
+
+.form {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 42px;
+  border-radius: 14px;
+  background: rgb(var(--bf-fg) / 0.08);
+  border: 1px solid rgb(var(--bf-fg) / 0.18);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.form:focus-within {
+  border-color: #1e7cf2;
+  background: rgb(var(--bf-fg) / 0.11);
+}
+
+.iconeBusca {
+  position: absolute;
+  left: 14px;
+  color: rgb(var(--bf-fg) / 0.6);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--tt-text);
+  font-size: 15px;
+}
+
+.input::placeholder {
+  color: rgb(var(--bf-fg) / 0.5);
+}
+
+.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 84px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #1e7cf2;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.botao:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.girando {
+  animation: girar 0.8s linear infinite;
+}
+
+.dica {
+  margin: 8px 2px 0;
+  font-size: 12px;
+  color: rgb(var(--bf-fg) / 0.55);
+}
+
+.aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgb(var(--bf-fg) / 0.06);
+  border: 1px solid rgb(var(--bf-fg) / 0.14);
+  color: rgb(var(--bf-fg) / 0.85);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.aviso span {
+  flex: 1;
+  min-width: 200px;
+}
+
+.link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #4da6ff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.resumo {
+  margin: 16px 2px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(var(--bf-fg) / 0.75);
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0 4px 0 0;
+  display: grid;
+  gap: 10px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.item {
+  padding: 14px;
+  border-radius: 12px;
+  background: rgb(var(--bf-fg) / 0.06);
+  border: 1px solid rgb(var(--bf-fg) / 0.12);
+}
+
+.itemTopo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.cnj {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tt-text);
+  word-break: break-all;
+}
+
+.tribunal {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(30, 124, 242, 0.18);
+  color: #8cc4ff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.classe {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(var(--bf-fg) / 0.9);
+}
+
+/* Partes/órgão/data desfocados até o login: texto fictício borrado + selo com cadeado por cima. */
+.bloqueado {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 6px 0 0;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.borrado {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgb(var(--bf-fg) / 0.65);
+  filter: blur(5px);
+  user-select: none;
+  pointer-events: none;
+}
+
+.cadeado {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e7cf2;
+}
+
+.bloqueado:hover .cadeado {
+  text-decoration: underline;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.acaoSecundaria,
+.acaoPrimaria {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.acaoSecundaria {
+  border: 1px solid rgb(var(--bf-fg) / 0.2);
+  background: transparent;
+  color: var(--tt-text);
+}
+
+.acaoPrimaria {
+  border: none;
+  background: #1e7cf2;
+  color: #fff;
+}
+
+@media (max-width: 480px) {
+  .acaoSecundaria,
+  .acaoPrimaria {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}

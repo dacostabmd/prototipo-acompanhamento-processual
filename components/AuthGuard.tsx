@@ -21,14 +21,14 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
         demo = Boolean(localStorage.getItem('bf-demo-user'));
       } catch {}
       if (demo) setReady(true);
-      else router.replace('/');
+      else router.replace('/login');
       return;
     }
 
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       if (!data.session) {
-        router.replace('/');
+        router.replace('/login');
       } else {
         setReady(true);
         // Tracking de login: uma vez por sessão do navegador
@@ -49,7 +49,7 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
       if (!mounted) return;
       if (event === 'SIGNED_OUT' || (event === 'USER_UPDATED' && !session)) {
         setReady(false);
-        router.replace('/');
+        router.replace('/login');
       } else if (session) {
         setReady(true);
       }

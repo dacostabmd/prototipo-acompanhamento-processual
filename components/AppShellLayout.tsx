@@ -15,6 +15,9 @@ import PageTransition from './PageTransition';
 import UserChip from './UserChip';
 import ZoomControls from './ZoomControls';
 import Changelog from './Changelog';
+import RodapeGlobal from './RodapeGlobal';
+
+const ROTAS_SEM_RODAPE = ['/painel'];
 
 const RAIL = 80;
 const EXPANDED = 250;
@@ -89,7 +92,7 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
       sessionStorage.removeItem('bf-login-tracked');
     } catch {}
     await getSupabase()?.auth.signOut();
-    router.replace('/');
+    router.replace('/login');
   };
 
   return (
@@ -175,7 +178,7 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
 
         <div className="bf-side-foot">
           <div className="bf-side-logo">
-            <img src="/jusconsulta-mark.png" alt="JusConsulta" width={28} height={31} />
+            <img src="/jusconsulta-mark.svg" alt="JusConsulta" width={28} height={31} />
             <span className="bf-side-wordmark" aria-hidden>
               <strong>Jus</strong>
               <span>Consulta</span>
@@ -204,6 +207,8 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
 
       <AppShell.Main className="bf-main">
         <PageTransition>{children}</PageTransition>
+        {/* Visão geral sem rodapé: a tela é só um atalho, e a sidebar já assina a marca */}
+        {!ROTAS_SEM_RODAPE.includes(pathname) && <RodapeGlobal />}
       </AppShell.Main>
       <Changelog isOwner={profile.role === 'owner'} />
     </AppShell>

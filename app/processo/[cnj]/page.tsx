@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   ArrowRight,
   ShieldCheck,
-  Scale,
   FileText,
   HelpCircle,
   Lock
@@ -226,9 +225,7 @@ export default async function ProcessoPublicoPage({ params }: PageProps) {
       <header className="border-b border-white/10 bg-[color:var(--tt-ink)]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3.5 sm:px-6">
           <Link href="/" className="inline-flex items-center gap-2 font-bold text-white tracking-tight">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E7CF2] to-[#b39968] text-[color:var(--tt-ink)]">
-              <Scale size={18} strokeWidth={2.2} />
-            </span>
+            <img src="/jusconsulta-mark.svg" alt="JusConsulta" width={28} height={31} />
             <span className="text-lg">JusConsulta</span>
             <span className="rounded-full border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2 py-0.5 text-[10px] font-semibold text-[color:var(--tt-text-2)]">
               Consulta Pública

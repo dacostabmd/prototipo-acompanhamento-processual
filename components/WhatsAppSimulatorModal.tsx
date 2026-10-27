@@ -259,7 +259,7 @@ export function WhatsAppSimulatorModal({ opened, onClose, processoIdPadrao }: Pr
           <button
             type="submit"
             disabled={!entrada.trim() || carregando}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#25d366] text-[#0d1117] transition hover:bg-[#20ba59] disabled:cursor-not-allowed disabled:opacity-40"
+            className="bf-btn-sec bf-btn-whats-cheio flex h-9 w-9 items-center justify-center rounded-xl bg-[#25d366] text-[#0d1117] transition hover:bg-[#20ba59] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Send size={15} />
           </button>

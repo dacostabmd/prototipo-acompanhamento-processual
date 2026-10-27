@@ -193,7 +193,7 @@ export function MonitoramentoCpfSection() {
             <button
               type="button"
               onClick={() => setModalProAberto(true)}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-3 py-1 text-xs font-semibold text-[color:var(--tt-text-2)] transition-all hover:bg-[#1E7CF2]/25"
+              className="bf-btn-sec inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-3 py-1 text-xs font-semibold text-[color:var(--tt-text-2)] transition-all hover:bg-[#1E7CF2]/25"
             >
               <Crown size={13} className="text-[#1E7CF2]" />
               Recurso Pro
@@ -267,7 +267,7 @@ export function MonitoramentoCpfSection() {
               <button
                 type="submit"
                 disabled={salvando}
-                className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-4 py-2 text-sm font-semibold text-[color:var(--tt-text-2)] transition-all hover:bg-[#1E7CF2]/25 disabled:cursor-not-allowed disabled:opacity-50"
+                className="bf-btn-sec inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-4 py-2 text-sm font-semibold text-[color:var(--tt-text-2)] transition-all hover:bg-[#1E7CF2]/25 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {salvando ? (
                   <>

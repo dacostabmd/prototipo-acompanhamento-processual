@@ -310,7 +310,7 @@ export default function PlanosPage() {
               <button
                 type="button"
                 onClick={() => handleMudarPlano('pro')}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/80 bg-[#1E7CF2] py-3 text-center text-sm font-bold text-[#FFFFFF] shadow-lg transition-all hover:bg-[#eddcb9]"
+                className="bf-btn-ouro flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/80 bg-[#1E7CF2] py-3 text-center text-sm font-bold text-[#FFFFFF] shadow-lg"
               >
                 <span>Fazer Upgrade para Pro</span>
                 <ArrowRight size={16} />

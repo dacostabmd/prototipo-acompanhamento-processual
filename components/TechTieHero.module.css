@@ -19,6 +19,7 @@
   border-radius: 50%;
   /* sem filter: blur — o gradiente já é suave, e um filtro animado é recalculado pela GPU a cada quadro */
   background: radial-gradient(circle, rgba(30, 124, 242, 0.28) 0%, rgba(30, 124, 242, 0.08) 45%, transparent 70%);
+  will-change: transform, opacity;
   animation: pulsar 6s ease-in-out 1.2s infinite both;
 }
 
@@ -46,10 +47,13 @@
 
 /* A flutuação fica no contêiner (e a entrada num filho): a marca, com as sombras, é rasterizada uma vez e a GPU
    só a desloca. */
+/* will-change + translate3d: a flutuação vira uma camada própria da GPU desde o início (sem promoção tardia nem
+   recálculo no thread principal a cada quadro). */
 .marcaWrap {
   position: relative;
   display: grid;
   place-items: center;
+  will-change: transform;
   animation: flutuar 7s ease-in-out 1.4s infinite;
 }
 
@@ -65,6 +69,9 @@
   height: clamp(170px, 30vh, 280px);
   width: auto;
   filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 26px rgba(30, 124, 242, 0.18));
+  /* camada própria: marca + as duas sombras (o desfoque mais caro da tela) são rasterizadas uma vez só; o reflexo,
+     que anda por cima, fica em outra camada e não obriga a redesenhar a marca */
+  will-change: transform;
   user-select: none;
   -webkit-user-drag: none;
 }
@@ -87,8 +94,10 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  -webkit-mask: url('/jusconsulta-mark.png') center / 100% 100% no-repeat;
-  mask: url('/jusconsulta-mark.png') center / 100% 100% no-repeat;
+  -webkit-mask: url('/jusconsulta-mark.svg') center / 100% 100% no-repeat;
+  mask: url('/jusconsulta-mark.svg') center / 100% 100% no-repeat;
+  /* máscara como camada do compositor: a faixa desliza por baixo dela sem repintar a área mascarada */
+  will-change: transform;
 }
 
 .reflexo {
@@ -99,7 +108,8 @@
   height: 150%;
   background: linear-gradient(90deg, rgb(var(--bf-fg) / 0) 0%, rgb(var(--bf-fg) / 0.55) 50%, rgb(var(--bf-fg) / 0) 100%);
   /* inclinada e bem fora da caixa nos dois extremos, para não aparecer parada sobre as pontas das asas */
-  transform: translateX(-350%) rotate(18deg);
+  transform: translate3d(-350%, 0, 0) rotate(18deg);
+  will-change: transform;
   animation: refletir 7s ease-in-out 1.6s infinite;
 }
 
@@ -209,20 +219,20 @@
 @keyframes flutuar {
   0%,
   100% {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
   50% {
-    transform: translateY(-4px);
+    transform: translate3d(0, -4px, 0);
   }
 }
 
 @keyframes refletir {
   0% {
-    transform: translateX(-350%) rotate(18deg);
+    transform: translate3d(-350%, 0, 0) rotate(18deg);
   }
   30%,
   100% {
-    transform: translateX(600%) rotate(18deg);
+    transform: translate3d(600%, 0, 0) rotate(18deg);
   }
 }
 
@@ -230,11 +240,11 @@
   0%,
   100% {
     opacity: 0.7;
-    transform: translate(-50%, -50%) scale(1);
+    transform: translate3d(-50%, -50%, 0) scale(1);
   }
   50% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.06);
+    transform: translate3d(-50%, -50%, 0) scale(1.06);
   }
 }
 
@@ -251,12 +261,14 @@
 
 /* Desktop: o fundo cobre a tela inteira do login (ver .bf-auth em app/globals.css), então o brilho é
    recentrado na metade esquerda, atrás do T. */
+/* Login em 2 linhas (busca em cima, cartão embaixo): o fundo cobre a página toda, então o halo fica em px atrás da
+   marca, e não em % da altura (que o jogaria no meio da busca). */
 @media (min-width: 861px) {
   .fundo {
-    background: radial-gradient(ellipse 60% 70% at 25% 32%, var(--tt-raised) 0%, var(--tt-base) 55%, var(--tt-ink) 100%);
+    background: radial-gradient(ellipse 70% 900px at 50% 220px, var(--tt-raised) 0%, var(--tt-base) 55%, var(--tt-ink) 100%);
   }
   .brilho {
-    left: 25%;
+    top: 200px;
   }
 }
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createHash, timingSafeEqual } from 'crypto';
 import { getAdminClient, trackEvento } from '@/lib/track';
 import { buscarProcessoPorNumero } from '@/lib/motorConsulta';
+import { listarMovimentosDjen } from '@/lib/djen';
 import { gerarResumoAndamento } from '@/lib/resumoAndamento';
 import { enfileirarAlertas, processarFilaAlertas } from '@/lib/filaAlertas';
 import type { Movement } from '@/lib/mockProcesses';
@@ -20,6 +21,9 @@ const LIMITE_SELECT = 200; // candidatos buscados do banco por invocação (bem 
 // Reconsulta só no DataJud (gratuito) por padrão. Com a Infosimples, cada processo custaria por noite
 // a soma de todos os serviços do tribunal (TJSP tem 4). RECONSULTA_USAR_INFOSIMPLES=true religa.
 const USAR_INFOSIMPLES = process.env.RECONSULTA_USAR_INFOSIMPLES === 'true';
+
+// Publicações do DJEN mais antigas que isso, vistas pela primeira vez, entram no histórico sem gerar alerta.
+const JANELA_ALERTA_DJEN_DIAS = 7;
 
 /** Data de "hoje" no fuso America/Sao_Paulo, formato YYYY-MM-DD — mesmo padrão de ap_eventos.dia (schema inicial). */
 function hojeSaoPaulo(): string {
@@ -222,10 +226,17 @@ async function processarUmProcesso(
   processo: ProcessoElegivel
 ): Promise<{ custoCobrado: number; alertasEnfileirados: number; resumoGerado: boolean }> {
   // tribunaisSelecionados: [] desliga a Infosimples; undefined consulta todos os serviços do tribunal.
-  const resultado = await buscarProcessoPorNumero(processo.numero_cnj, USAR_INFOSIMPLES ? undefined : { tribunaisSelecionados: [] });
+  // O DJEN (grátis) roda junto: falha ou 429 nele só deixa o processo com o DataJud nesta rodada.
+  const [resultado, movimentosDjen] = await Promise.all([
+    buscarProcessoPorNumero(processo.numero_cnj, USAR_INFOSIMPLES ? undefined : { tribunaisSelecionados: [] }),
+    listarMovimentosDjen(processo.numero_cnj).catch(e => {
+      console.warn(`[cron/reconsulta] DJEN indisponível para ${processo.numero_cnj}:`, e instanceof Error ? e.message : e);
+      return [] as Movement[];
+    })
+  ]);
   const agora = new Date().toISOString();
 
-  if (!resultado.processo) {
+  if (!resultado.processo && movimentosDjen.length === 0) {
     // Não encontrado/erro nesta rodada: não mexe no backoff de "sem mudança" (não é a mesma coisa que
     // "sem mudança" — pode ser instabilidade temporária da fonte), só registra o erro e a tentativa.
     await db
@@ -235,7 +246,8 @@ async function processarUmProcesso(
     return { custoCobrado: resultado.custoCobrado, alertasEnfileirados: 0, resumoGerado: false };
   }
 
-  const movimentosDoProcesso = resultado.processo.movimentos ?? [];
+  const movimentosDoProcesso = [...(resultado.processo?.movimentos ?? []), ...movimentosDjen];
+  const djenSet = new Set(movimentosDjen);
 
   // Busca os hashes já conhecidos para este processo (dedupe) e insere só os novos. Nomes de coluna
   // seguem o schema REAL de ap_movimentacoes no banco (data_movimentacao/titulo/conteudo/tipo),
@@ -282,13 +294,18 @@ async function processarUmProcesso(
     })
     .eq('id', processo.id);
 
-  if (!houveMudanca) return { custoCobrado: resultado.custoCobrado, alertasEnfileirados: 0, resumoGerado: false };
+  // Publicação antiga do DJEN que só agora entrou no banco (primeira leitura do processo no DJEN) vai para o
+  // histórico sem alerta: sem esse corte, ligar o DJEN dispararia intimações de meses atrás para todo mundo.
+  const limiteDjen = new Date(Date.now() - JANELA_ALERTA_DJEN_DIAS * 86_400_000).toISOString().slice(0, 10);
+  const novosParaAlerta = movimentosNovos.filter(m => !djenSet.has(m) || m.data >= limiteDjen);
+
+  if (novosParaAlerta.length === 0) return { custoCobrado: resultado.custoCobrado, alertasEnfileirados: 0, resumoGerado: false };
 
   const maisRecentesPrimeiro = (a: Movement, b: Movement) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0);
-  const novos = [...movimentosNovos].sort(maisRecentesPrimeiro);
+  const novos = [...novosParaAlerta].sort(maisRecentesPrimeiro);
   const novosSet = new Set(movimentosNovos);
   const historico = movimentosDoProcesso.filter(m => !novosSet.has(m)).sort(maisRecentesPrimeiro).slice(0, 5);
-  const tribunal = resultado.processo.tribunal?.split(' · ')[0] || processo.tribunal;
+  const tribunal = resultado.processo?.tribunal?.split(' · ')[0] || processo.tribunal;
 
   const resumo = await gerarResumoAndamento(
     { numeroCnj: processo.numero_cnj, tribunal, classe: processo.classe_processual, assunto: processo.assunto_principal },

@@ -100,7 +100,7 @@ export default function ResetPasswordForm() {
             <div role="alert" style={{ background: '#fef2f2', color: '#b42318', padding: '12px 14px', borderRadius: 12, fontSize: 14, margin: '8px 0 20px' }}>
               Este link é inválido, expirou ou já foi utilizado. Solicite um novo link na tela de login.
             </div>
-            <button type="button" className="bf-btn-primary" onClick={() => router.replace('/')}>
+            <button type="button" className="bf-btn-primary" onClick={() => router.replace('/login')}>
               Voltar para o login
             </button>
           </>

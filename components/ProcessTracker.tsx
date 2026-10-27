@@ -1133,6 +1133,7 @@ export default function ProcessTracker({
                   <button
                     type="button"
                     onClick={handleCancelarBuscaInteira}
+                    className="bf-btn-sec bf-btn-perigo"
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -2125,6 +2126,7 @@ export default function ProcessTracker({
             >
               <button
                 onClick={() => setInfoModalOpen(false)}
+                className="bf-btn-sec"
                 style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: TEXT, padding: '10px 20px', fontSize: 12, cursor: 'pointer' }}
               >
                 FECHAR
@@ -2284,6 +2286,7 @@ export default function ProcessTracker({
             />
             <button
               onClick={() => void sendChatMessage()}
+              className="bf-btn-ouro"
               style={{
                 background: BLUE,
                 color: CREAM_TEXT,

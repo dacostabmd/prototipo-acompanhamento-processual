@@ -231,7 +231,7 @@ export function AcompanhamentoProcessos() {
               <button
                 type="button"
                 onClick={marcarTodasComoLidas}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:border-[#1E7CF2]/50 hover:text-white"
+                className="bf-btn-sec inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:border-[#1E7CF2]/50 hover:text-white"
               >
                 <CheckCheck size={14} />
                 Marcar todos como lidos
@@ -271,7 +271,7 @@ export function AcompanhamentoProcessos() {
             <button
               type="button"
               onClick={() => setModalSimulatorAberto(true)}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#25d366]/40 bg-[#25d366]/10 px-3 py-1 text-xs font-semibold text-[#25d366] transition-all hover:bg-[#25d366]/20"
+              className="bf-btn-sec bf-btn-whats inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#25d366]/40 bg-[#25d366]/10 px-3 py-1 text-xs font-semibold text-[#25d366] transition-all hover:bg-[#25d366]/20"
             >
               <MessageCircle size={13} />
               <span>Simulador Copiloto WhatsApp</span>
@@ -337,7 +337,7 @@ export function AcompanhamentoProcessos() {
               <button
                 type="button"
                 onClick={() => setModalSimulatorAberto(true)}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#25d366]/40 bg-[#25d366]/10 px-4 py-2 text-xs font-semibold text-[#25d366] transition-all hover:bg-[#25d366]/20"
+                className="bf-btn-sec bf-btn-whats inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#25d366]/40 bg-[#25d366]/10 px-4 py-2 text-xs font-semibold text-[#25d366] transition-all hover:bg-[#25d366]/20"
               >
                 <MessageCircle size={13} />
                 <span>Testar no Simulador WhatsApp</span>

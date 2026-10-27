@@ -23,3 +23,6 @@ scratch/
 
 # seed com credenciais
 supabase/seed_admin.sql
+
+# resultados locais da avaliação do agente
+evals/agente-whatsapp/resultados/

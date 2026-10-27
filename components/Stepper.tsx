@@ -198,6 +198,7 @@ export default function Stepper({
                 <button
                   type="button"
                   onClick={handleBack}
+                  className="bf-btn-sec"
                   style={{
                     background: 'transparent',
                     border: '1px solid rgb(var(--bf-fg) / 0.18)',

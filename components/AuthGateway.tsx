@@ -4,6 +4,9 @@ import { useState, useEffect, type CSSProperties, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedControl } from '@mantine/core';
 import TechTieHero from './TechTieHero';
+import BuscaPublica from './BuscaPublica';
+import ParticulasOuro from './ParticulasOuro';
+import type { ProcessoDjenPublico } from '@/lib/djen';
 import { getSupabase } from '@/lib/supabase';
 import { cleanDigits, formatDocumento, isValidCpf, isValidCnpj } from '@/lib/format';
 
@@ -31,7 +34,8 @@ const linkButton: CSSProperties = {
 
 const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'rgb(var(--bf-fg) / 0.88)', margin: '0 0 8px' };
 
-export default function AuthGateway() {
+/** `busca`: home pública (marca + busca DJEN). `login`: só o cartão de acesso, em /login. */
+export default function AuthGateway({ variante }: { variante: 'busca' | 'login' }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('login');
   const [perfil, setPerfil] = useState<Perfil>('advogado');
@@ -216,16 +220,45 @@ export default function AuthGateway() {
     setInfo('');
   };
 
+  // Busca pública (modelo Jusbrasil) na home; o cartão de login mora em /login. A busca manda para lá com o modo e o
+  // processo na URL, e o cartão lê isso ao abrir.
+  const irParaLogin = (novoModo: Mode, processo?: string) => {
+    const qs = new URLSearchParams({ modo: novoModo, ...(processo ? { processo } : {}) });
+    router.push(`/login?${qs}`);
+  };
+
+  useEffect(() => {
+    if (variante !== 'login') return;
+    const params = new URLSearchParams(window.location.search);
+    const modo = params.get('modo');
+    if (modo === 'signup' || modo === 'login') setMode(modo);
+    const processo = params.get('processo');
+    if (processo) setInfo(`Entre ou crie uma conta grátis para ver as partes e os andamentos do processo ${processo}.`);
+  }, [variante]);
+
+  if (variante === 'busca') {
+    return (
+      <main className="bf-auth">
+        {/* T da TechTie animado, copy e busca pública (o fundo dele cobre a tela inteira) */}
+        <section className="bf-auth-left">
+          <TechTieHero>
+            <BuscaPublica
+              onEntrar={(p: ProcessoDjenPublico) => irParaLogin('login', p.numeroFormatado)}
+              onCriarConta={() => irParaLogin('signup')}
+            />
+          </TechTieHero>
+        </section>
+      </main>
+    );
+  }
 
   return (
-    <main className="bf-auth">
-      {/* T da TechTie animado e copy (o fundo dele cobre a tela inteira) */}
-      <section className="bf-auth-left">
-        <TechTieHero />
-      </section>
-
+    <main className="bf-auth bf-auth--login">
       {/* Gateway de login em cartão de vidro */}
-      <section className="bf-auth-right">
+      <section className="bf-auth-right" id="bf-auth-cartao">
+        {/* partículas só nas laterais do cartão: nada anima atrás do vidro (o backdrop-filter seria recalculado a cada quadro) */}
+        <ParticulasOuro className="bf-auth-particulas bf-auth-particulas--esq" />
+        <ParticulasOuro className="bf-auth-particulas bf-auth-particulas--dir" />
         <div className="bf-auth-card">
           <h2 style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.6, color: TEXT, margin: '0 0 8px' }}>
             {mode === 'login' ? 'Acesse sua conta' : mode === 'signup' ? 'Crie sua conta' : 'Recuperar senha'}
@@ -255,12 +288,12 @@ export default function AuthGateway() {
                 />
               </div>
               {error && (
-                <div role="alert" style={{ background: 'rgba(180,82,95,0.18)', color: '#f3b4bd', border: '1px solid rgba(180,82,95,0.4)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
+                <div role="alert" style={{ background: 'transparent', color: '#f3b4bd', border: '1px solid rgba(180,82,95,0.4)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
                   {error}
                 </div>
               )}
               {info && (
-                <div style={{ background: 'rgba(143,185,154,0.15)', color: '#b9dcc3', border: '1px solid rgba(143,185,154,0.4)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
+                <div style={{ background: 'transparent', color: 'var(--tt-success)', border: '1px solid color-mix(in srgb, var(--tt-success) 45%, transparent)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
                   {info}
                 </div>
               )}
@@ -385,12 +418,12 @@ export default function AuthGateway() {
             </div>
 
             {error && (
-              <div role="alert" style={{ background: 'rgba(180,82,95,0.18)', color: '#f3b4bd', border: '1px solid rgba(180,82,95,0.4)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
+              <div role="alert" style={{ background: 'transparent', color: '#f3b4bd', border: '1px solid rgba(180,82,95,0.4)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
                 {error}
               </div>
             )}
             {info && (
-              <div style={{ background: 'rgba(143,185,154,0.15)', color: '#b9dcc3', border: '1px solid rgba(143,185,154,0.4)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
+              <div style={{ background: 'transparent', color: 'var(--tt-success)', border: '1px solid color-mix(in srgb, var(--tt-success) 45%, transparent)', padding: '12px 14px', borderRadius: 12, fontSize: 14 }}>
                 {info}
               </div>
             )}

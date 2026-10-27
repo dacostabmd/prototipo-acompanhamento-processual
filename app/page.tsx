@@ -1,5 +1,11 @@
 import AuthGateway from '@/components/AuthGateway';
+import NavbarPublica from '@/components/NavbarPublica';
 
 export default function Home() {
-  return <AuthGateway />;
+  return (
+    <>
+      <NavbarPublica />
+      <AuthGateway variante="busca" />
+    </>
+  );
 }

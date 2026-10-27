@@ -200,7 +200,7 @@ export default function Changelog({ isOwner }: { isOwner: boolean }) {
               {erro}
             </Text>
           )}
-          <Button onClick={criarEntrada} loading={salvando} fullWidth>
+          <Button onClick={criarEntrada} loading={salvando} fullWidth className="bf-btn-ouro">
             Publicar
           </Button>
         </Modal>

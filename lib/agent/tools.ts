@@ -22,16 +22,32 @@ export const consultarDataJudTool = tool(
       }
 
       const tribunalLabel = cnjInfo.tribunalLabel || cnjInfo.tribunalNome;
-      const res = await consultarDataJud(tribunalLabel, digits);
+      // 20s em vez dos 60s padrão: no WhatsApp é melhor dizer que não conseguiu agora do que deixar o usuário esperando
+      const limite = AbortSignal.timeout(20_000);
+      const res = await consultarDataJud(tribunalLabel, digits, null, limite);
 
+      // consultarDataJud devolve null tanto para "não existe" quanto para timeout: sem esta distinção o agente dizia
+      // ao usuário que um processo real não foi encontrado
+      if (!res && limite.aborted) {
+        return (
+          `A consulta do processo ${formatProcessNumber(digits)} ao DataJud demorou demais e foi interrompida (a API do CNJ está lenta).\n` +
+          `Isso NÃO significa que o processo não existe: diga ao usuário que não foi possível consultar agora e que ele pode tentar de novo em alguns minutos.`
+        );
+      }
       if (!res) {
         return (
-          `Processo ${formatProcessNumber(digits)} identificado no tribunal ${tribunalLabel}.\n` +
-          `No momento a consulta direta ao DataJud não retornou novos andamentos (pode estar sem chave DATAJUD_API_KEY ou tribunal indisponível na API pública CNJ).`
+          `Processo ${formatProcessNumber(digits)} (tribunal ${tribunalLabel}) NÃO foi encontrado na base pública do DataJud.\n` +
+          `Causas prováveis: número digitado errado, processo em segredo de justiça, ainda não enviado ao DataJud ou instabilidade da API do CNJ.\n` +
+          `Não há andamentos para informar: peça ao usuário para conferir o número e não invente dados.`
         );
       }
 
-      const movimentosResumo = res.movimentos.slice(0, 5).map(m => `- [${m.data}] ${m.titulo}: ${m.descricao}`).join('\n');
+      // o DataJud devolve do mais antigo para o mais novo: ordena antes de cortar, senão os "últimos" seriam os primeiros
+      const movimentosResumo = [...res.movimentos]
+        .sort((a, b) => b.data.localeCompare(a.data))
+        .slice(0, 8)
+        .map(m => `- [${m.data}] ${m.titulo}: ${m.descricao}`)
+        .join('\n');
 
       return (
         `Dados obtidos do DataJud para o processo ${formatProcessNumber(digits)}:\n` +
@@ -40,7 +56,7 @@ export const consultarDataJudTool = tool(
         `- Assuntos: ${res.assuntos.length > 0 ? res.assuntos.join(', ') : 'Não informados'}\n` +
         `- Grau: ${res.grau || '1º Grau'}\n` +
         `- Data de Ajuizamento: ${res.dataAjuizamento || 'Não informada'}\n\n` +
-        `Últimos andamentos judiciais registrados:\n${movimentosResumo || 'Nenhuma movimentação detalhada encontrada.'}`
+        `Últimos andamentos, do MAIS RECENTE para o mais antigo (datas AAAA-MM-DD; repita-as exatamente, sem deduzir datas que não estão aqui):\n${movimentosResumo || 'Nenhuma movimentação detalhada encontrada.'}`
       );
     } catch (error) {
       return `Erro ao consultar o DataJud: ${(error as Error).message}`;
@@ -126,7 +142,8 @@ export const analisarRiscoPenhoraTool = tool(
  */
 export const explicarTermoJuridicoTool = tool(
   async ({ termo }) => {
-    const termoLower = termo.toLowerCase().trim();
+    // sem acento: "trânsito em julgado" precisa casar com a chave 'transito em julgado'
+    const termoLower = termo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
     const glossario: Record<string, { explicacao: string; impacto: string }> = {
       'concluso para despacho': {
@@ -160,12 +177,48 @@ export const explicarTermoJuridicoTool = tool(
       'sisbajud': {
         explicacao: 'Sistema eletrônico que interliga a Justiça ao Banco Central para rastreamento e bloqueio automatizado de dinheiro em contas correntes e investimentos.',
         impacto: 'Caso atinja valores impenhoráveis (salários, proventos, quantia até 40 salários mínimos em caderneta de poupança), cabe pedido de desbloqueio urgente.'
+      },
+      'hasta publica': {
+        explicacao: 'É o leilão judicial: o bem penhorado (imóvel, veículo etc.) é oferecido publicamente para pagar a dívida do processo.',
+        impacto: 'Situação URGENTE, mas não definitiva: ainda é possível pagar ou parcelar a dívida, alegar bem de família (Lei 8.009/90) ou nulidades antes da arrematação. Procure o advogado imediatamente.'
+      },
+      'leilao': {
+        explicacao: 'Venda pública de um bem penhorado, determinada pelo juiz, para pagar a dívida cobrada no processo (arts. 879 a 903 do CPC).',
+        impacto: 'Situação URGENTE, mas ainda reversível até a arrematação: pagamento, acordo, bem de família e nulidades podem suspender o leilão. Procure o advogado imediatamente.'
+      },
+      'renajud': {
+        explicacao: 'Sistema que liga a Justiça ao Detran para registrar restrição sobre veículos do devedor (impedir venda, licenciamento ou circulação).',
+        impacto: 'O veículo pode ser depois penhorado. Cabe defesa se for instrumento de trabalho (art. 833, V do CPC) ou se houver excesso de penhora.'
+      },
+      'penhora': {
+        explicacao: 'Ato do juiz que separa bens ou valores do devedor para garantir o pagamento da dívida.',
+        impacto: 'Salário, aposentadoria e poupança até 40 salários mínimos são, em regra, impenhoráveis (art. 833 do CPC), salvo dívida de pensão alimentícia ou ganhos acima de 50 salários mínimos.'
+      },
+      'liminar': {
+        explicacao: 'Decisão rápida e provisória do juiz, dada antes do fim do processo, para evitar um prejuízo urgente (tutela de urgência, art. 300 do CPC).',
+        impacto: 'Vale de imediato, mas pode ser revista depois. Contra ela cabe agravo de instrumento.'
+      },
+      'citacao': {
+        explicacao: 'É o aviso oficial de que existe um processo contra a pessoa, chamando-a para se defender.',
+        impacto: 'A partir dela começam a correr prazos importantes (como o de contestação). Não ignore: procure um advogado.'
+      },
+      'intimacao': {
+        explicacao: 'Comunicação oficial da Justiça sobre um ato do processo (decisão, audiência, prazo para fazer algo).',
+        impacto: 'Em processo cível, intimação não é ordem de prisão (a única prisão civil possível é por dívida de pensão alimentícia). Pode abrir prazo, então mostre ao advogado.'
+      },
+      'precatorio': {
+        explicacao: 'Ordem de pagamento de dívida do governo (União, Estado ou Município) reconhecida pela Justiça.',
+        impacto: 'O pagamento segue uma fila anual definida pela Constituição (art. 100) e pode levar anos; idosos e doentes graves têm prioridade.'
+      },
+      'gratuidade da justica': {
+        explicacao: 'O juiz isentou a parte de pagar custas e despesas do processo por não ter condições financeiras (art. 98 do CPC).',
+        impacto: 'É uma decisão positiva: o processo segue sem custos para quem recebeu o benefício.'
       }
     };
 
     // Busca exata ou por palavra-chave
     for (const [key, val] of Object.entries(glossario)) {
-      if (termoLower.includes(key) || key.includes(termoLower)) {
+      if (termoLower.includes(key) || (termoLower.length >= 4 && key.includes(termoLower))) {
         return (
           `Termo Jurídico: "${termo}"\n` +
           `- Significado Prático: ${val.explicacao}\n` +
@@ -176,7 +229,7 @@ export const explicarTermoJuridicoTool = tool(
 
     return (
       `Termo Jurídico: "${termo}"\n` +
-      `Este é um ato formal do procedimento judicial. Em linhas gerais, faz parte da tramitação regular dos autos entre as partes e a secretaria da vara. Se estiver atrelado a prazo com intimação, deve ser respondido no prazo legal pelo advogado responsável.`
+      `Termo fora do glossário interno. Explique com base no seu conhecimento do CPC, em linguagem simples, sem presumir que seja um ato de rotina; se puder gerar prazo ou risco ao patrimônio, recomende falar com o advogado.`
     );
   },
   {
@@ -216,6 +269,12 @@ export const calcularPrazoProcessualTool = tool(
       prazoDiasUteis = 15;
       baseLegal = 'Art. 523 do CPC';
       descricao = 'Prazo para pagamento voluntário da condenação sem aplicação de multa de 10% e honorários de 10%. Após os 15 dias, iniciam-se mais 15 dias para Impugnação.';
+    } else if (/juiz|magistrad|despacho|excesso de prazo|demora|concluso/.test(ato)) {
+      prazoDiasUteis = 5;
+      baseLegal = 'Art. 226 e 235 do CPC';
+      descricao =
+        'Prazos do juiz: 5 dias para despachos, 10 dias para decisões interlocutórias e 30 dias para sentenças (art. 226). ' +
+        'Excedidos sem justificativa, a parte pode peticionar pedindo impulso e, persistindo a demora, representar ao corregedor do tribunal ou ao CNJ (art. 235).';
     } else if (/embargos [aà] execu[cç][aã]o/.test(ato)) {
       prazoDiasUteis = 15;
       baseLegal = 'Art. 915 do CPC';
@@ -234,7 +293,7 @@ export const calcularPrazoProcessualTool = tool(
   {
     name: 'calcular_prazo_processual',
     description:
-      'Informa os prazos legais em dias úteis do Código de Processo Civil (CPC) para contestações, recursos, embargos e pagamento voluntário.',
+      'Informa os prazos legais em dias úteis do Código de Processo Civil (CPC) para contestações, recursos, embargos, pagamento voluntário e prazos do próprio juiz (despachos, decisões, sentença e excesso de prazo).',
     schema: z.object({
       tipoAto: z.string().describe('O tipo de ato ou manifestação processual (ex: contestação, apelação, pagamento art. 523, embargos à execução)')
     })

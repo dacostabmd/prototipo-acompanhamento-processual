@@ -1,10 +1,10 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import Image from 'next/image';
 import { LayoutDashboard, Search, Sparkles, Zap } from 'lucide-react';
 import ParticulasOuro from './ParticulasOuro';
 import styles from './TechTieHero.module.css';
 
-const MARCA = '/jusconsulta-mark.png';
+const MARCA = '/jusconsulta-mark.svg';
 
 const DIFERENCIAIS = [
   { icon: Search, texto: 'Busca unificada em tribunais estaduais, federais e na base nacional do CNJ.' },
@@ -15,8 +15,9 @@ const DIFERENCIAIS = [
 
 const v = (vars: Record<string, string | number>) => vars as CSSProperties;
 
-/** Coluna esquerda do login: marca TechTie (PNG 3D) com entrada, reflexo e flutuação + copy. Só CSS. */
-export default function TechTieHero() {
+/** Coluna esquerda do login: marca TechTie (PNG 3D) com entrada, reflexo e flutuação + copy. Só CSS.
+ *  `children` entra logo abaixo do texto de apoio (a busca pública do login). */
+export default function TechTieHero({ children }: { children?: ReactNode }) {
   return (
     <>
       <div className={styles.fundo} aria-hidden>
@@ -30,7 +31,7 @@ export default function TechTieHero() {
         <div className={styles.marcaWrap}>
           <span className={styles.anel} aria-hidden />
           <div className={styles.marcaEntrada}>
-            <Image src={MARCA} alt="TechTie" width={512} height={512} priority className={styles.marca} />
+            <Image src={MARCA} alt="TechTie" width={1070} height={1190} priority className={styles.marca} />
             {/* reflexo que atravessa a marca, recortado pela própria silhueta do PNG */}
             <div className={styles.reflexoMascara} aria-hidden>
               <span className={styles.reflexo} />
@@ -45,6 +46,7 @@ export default function TechTieHero() {
             Consulte processos por CPF, CNPJ ou número CNJ, entenda cada movimentação em linguagem clara e mantenha tudo o que
             importa em um só lugar.
           </p>
+          {children}
           <ul className={styles.diferenciais}>
             {DIFERENCIAIS.map(({ icon: Icon, texto }, i) => (
               <li key={texto} className={styles.diferencial} style={v({ '--i': i })}>

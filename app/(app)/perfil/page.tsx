@@ -552,7 +552,7 @@ export default function Perfil() {
                   <button
                     type="submit"
                     disabled={salvandoDados}
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-5 py-2.5 text-sm font-semibold text-[color:var(--tt-text-2)] shadow-md transition-all hover:bg-[#1E7CF2]/25 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                    className="bf-btn-sec inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-5 py-2.5 text-sm font-semibold text-[color:var(--tt-text-2)] shadow-md transition-all hover:bg-[#1E7CF2]/25 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {salvandoDados ? (
                       <>
@@ -598,7 +598,7 @@ export default function Perfil() {
                 <button
                   type="button"
                   onClick={() => setMostrarSenhas(prev => !prev)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+                  className="bf-btn-sec inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
                 >
                   {mostrarSenhas ? <EyeOff size={14} /> : <Eye size={14} />}
                   {mostrarSenhas ? 'Ocultar' : 'Exibir'}
@@ -662,7 +662,7 @@ export default function Perfil() {
                 <button
                   type="submit"
                   disabled={salvandoSenha || !senhaNova || !senhaAtual}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-5 py-2.5 text-sm font-semibold text-[color:var(--tt-text-2)] shadow-md transition-all hover:bg-[#1E7CF2]/25 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="bf-btn-sec inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1E7CF2]/50 bg-[#1E7CF2]/15 px-5 py-2.5 text-sm font-semibold text-[color:var(--tt-text-2)] shadow-md transition-all hover:bg-[#1E7CF2]/25 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {salvandoSenha ? (
                     <>

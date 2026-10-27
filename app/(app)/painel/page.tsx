@@ -21,7 +21,7 @@ export default function Painel() {
       </header>
       <section aria-label="Atalhos" className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map(({ href, title, text, icon: Icon }) => (
-          <SpotlightCard key={href} href={href}>
+          <SpotlightCard key={title} href={href}>
             <span className="bf-spot-icon">
               <Icon size={24} strokeWidth={1.7} />
             </span>
