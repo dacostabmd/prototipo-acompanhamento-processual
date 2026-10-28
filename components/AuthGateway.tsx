@@ -54,6 +54,15 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
     documentoDigits.length === 11 ? isValidCpf(documentoDigits) : documentoDigits.length === 14 ? isValidCnpj(documentoDigits) : false;
 
   const finish = () => {
+    try {
+      const cnjPendente = sessionStorage.getItem('ap_processo_pendente');
+      if (cnjPendente && cleanDigits(cnjPendente).length === 20) {
+        sessionStorage.removeItem('ap_processo_pendente');
+        router.replace(`/consulta?busca=${cleanDigits(cnjPendente)}`);
+        router.refresh();
+        return;
+      }
+    } catch {}
     router.replace('/painel');
     router.refresh();
   };
@@ -222,8 +231,13 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
 
   // Busca pública (modelo Jusbrasil) na home; o cartão de login mora em /login. A busca manda para lá com o modo e o
   // processo na URL, e o cartão lê isso ao abrir.
-  const irParaLogin = (novoModo: Mode, processo?: string) => {
-    const qs = new URLSearchParams({ modo: novoModo, ...(processo ? { processo } : {}) });
+  const irParaLogin = (novoModo: Mode, processo?: string, cnj?: string) => {
+    const qs = new URLSearchParams({ modo: novoModo, ...(processo ? { processo } : {}), ...(cnj ? { cnj } : {}) });
+    if (cnj) {
+      try {
+        sessionStorage.setItem('ap_processo_pendente', cnj);
+      } catch {}
+    }
     router.push(`/login?${qs}`);
   };
 
@@ -233,6 +247,12 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
     const modo = params.get('modo');
     if (modo === 'signup' || modo === 'login') setMode(modo);
     const processo = params.get('processo');
+    const cnj = params.get('cnj');
+    if (cnj) {
+      try {
+        sessionStorage.setItem('ap_processo_pendente', cnj);
+      } catch {}
+    }
     if (processo) setInfo(`Entre ou crie uma conta grátis para ver as partes e os andamentos do processo ${processo}.`);
   }, [variante]);
 
@@ -243,7 +263,7 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
         <section className="bf-auth-left">
           <TechTieHero>
             <BuscaPublica
-              onEntrar={(p: ProcessoDjenPublico) => irParaLogin('login', p.numeroFormatado)}
+              onEntrar={(p: ProcessoDjenPublico) => irParaLogin('login', p.numeroFormatado, p.numeroCnj)}
               onCriarConta={() => irParaLogin('signup')}
             />
           </TechTieHero>

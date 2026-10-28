@@ -1173,10 +1173,10 @@ const CSS = `
 .prv-fases { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
 .prv-mov { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-top: 1px solid ${BORDER}; }
 .prv-mov:first-of-type { border-top: none; }
-.prv-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid ${BORDER}; color: ${TEXT}; padding: 9px 14px; font-size: 12.5px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: border-color .2s, background .2s; }
-.prv-btn:hover { border-color: ${GOLD}; }
-.prv-btn-gold { background: ${GOLD}; border-color: ${GOLD}; color: #FFFFFF; }
-.prv-btn-gold:hover { background: #1E7CF2; }
+.prv-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid ${BORDER}; color: ${TEXT}; padding: 9px 14px; font-size: 12.5px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+.prv-btn:hover { border-color: ${GOLD}; color: ${GOLD}; background: transparent; }
+.prv-btn-gold { background: ${GOLD}; border: 1px solid ${GOLD}; color: #FFFFFF; }
+.prv-btn-gold:hover { background: transparent !important; color: ${GOLD} !important; border-color: ${GOLD} !important; }
 .prv-btn-ativo { border-color: ${GOLD}; background: ${GOLD_SOFT}; color: ${GOLD}; }
 .prv-link { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; padding: 0; color: ${GOLD}; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .prv-link:disabled { cursor: not-allowed; opacity: .6; }

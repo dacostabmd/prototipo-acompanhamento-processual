@@ -112,102 +112,89 @@ a:hover {
   }
 }
 
-/* Hover padrão de TODOS os botões: uma camada desliza da esquerda para a direita com a cor do texto do botão, e o
-   texto passa para a cor do fundo (cores invertidas). Cada família só declara as duas cores:
-     --inv-camada = cor do texto original (vira o fundo)   --inv-texto = cor do fundo original (vira o texto)
-   O padrão usa os tokens --tt-text/--tt-base, que trocam com o modo claro/noturno, então a inversão acompanha o modo.
-   O !important vence a cor do style inline. Links de texto (sublinhados) e ícones soltos ficam de fora. */
+/* Hover padrão dos botões: o fundo torna-se transparente (e não branco),
+   com borda definida e texto nítido na cor da ação para máximo contraste e elegância. */
 .bf-btn-ouro,
 .bf-btn-sec,
 .bf-btn-primary,
 .bf-btn-google,
 .prv-btn {
-  --inv-camada: var(--tt-text);
-  --inv-texto: var(--tt-base);
-  /* largura da borda do botão: a camada avança por cima dela, senão sobra um filete com a cor de trás */
-  --inv-borda: 1px;
   position: relative;
-  isolation: isolate;
-  transition: color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease, transform 0.1s;
+  transition: color 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease, transform 0.1s ease;
 }
+
+/* Desativa qualquer camada pseudo-element sólida que preenchia o botão de branco */
 .bf-btn-ouro::before,
 .bf-btn-sec::before,
 .bf-btn-primary::before,
 .bf-btn-google::before,
 .prv-btn::before {
-  content: '';
-  position: absolute;
-  /* +1px além da borda: na quina arredondada o antialias deixaria o fundo original vazar como um filete */
-  inset: calc(-1 * var(--inv-borda) - 1px);
-  border-radius: inherit;
-  background: var(--inv-camada);
-  /* slide da esquerda para a direita por recorte (e não scaleX): os cantos arredondados não deformam */
-  clip-path: inset(0 100% 0 0);
-  transition: clip-path 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: -1;
-  pointer-events: none;
-}
-:is(.bf-btn-ouro, .bf-btn-sec, .bf-btn-primary, .bf-btn-google, .prv-btn):not(:disabled):is(:hover, :focus-visible)::before {
-  clip-path: inset(0 0 0 0);
-}
-/* Sem borda e sem sombra colorida no hover: só o bloco invertido. */
-:is(.bf-btn-ouro, .bf-btn-sec, .bf-btn-primary, .bf-btn-google, .prv-btn):not(:disabled):is(:hover, :focus-visible) {
-  color: var(--inv-texto) !important;
-  border-color: transparent !important;
-  box-shadow: none !important;
-}
-@media (prefers-reduced-motion: reduce) {
-  .bf-btn-ouro::before,
-  .bf-btn-sec::before,
-  .bf-btn-primary::before,
-  .bf-btn-google::before,
-  .prv-btn::before {
-    transition: none;
-  }
+  content: none !important;
+  display: none !important;
 }
 
-/* .bf-btn-primary fora do login não tem borda (border: none). */
-.bf-btn-primary {
-  --inv-borda: 0px;
-}
-.bf-auth .bf-btn-primary {
-  --inv-borda: 1px;
-}
-
-/* Botões preenchidos de azul (ações principais): a camada é o fundo da página (marinho no noturno, porcelana no
-   claro) e o texto fica azul. Bordas sempre transparentes no hover (pedido de design); a sombra do botão já o
-   destaca do fundo. Sem borda no ouro: o azul do fundo vazaria em volta da camada. */
+/* Botões com preenchimento azul (ações principais / Nova busca / Entrar / Continuar):
+   No hover, o fundo torna-se transparente e o texto/borda ganham o azul #1E7CF2. */
 .bf-btn-ouro,
 .prv-btn-gold,
 .bf-auth .bf-btn-primary {
-  --inv-camada: var(--tt-base);
-  --inv-texto: #1e7cf2;
+  border: 1px solid #1e7cf2;
 }
-.bf-btn-ouro:not(:disabled) {
-  border: none !important;
-  --inv-borda: 0px;
+
+:is(.bf-btn-ouro, .prv-btn-gold, .bf-auth .bf-btn-primary):not(:disabled):is(:hover, :focus-visible) {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #1e7cf2 !important;
+  border-color: #1e7cf2 !important;
+  box-shadow: none !important;
 }
-/* Google fora do login (cartão claro da redefinição de senha): texto escuro fixo sobre branco, borda de 1,5px. */
-.bf-btn-google {
-  --inv-camada: #060f28;
-  --inv-texto: #ffffff;
-  --inv-borda: 1.5px;
+
+/* Botões secundários e neutros (.bf-btn-sec, .prv-btn):
+   No hover, o fundo torna-se transparente e destacam a borda e o texto em azul. */
+:is(.bf-btn-sec, .prv-btn):not(:disabled):is(:hover, :focus-visible) {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: #1e7cf2 !important;
+  color: #1e7cf2 !important;
+  box-shadow: none !important;
 }
-.bf-auth .bf-btn-google {
-  --inv-camada: var(--tt-text);
-  --inv-texto: var(--tt-base);
-  --inv-borda: 1px;
+
+/* Botão Google: no hover mantém o fundo transparente e reforça a borda */
+.bf-btn-google:not(:disabled):is(:hover, :focus-visible) {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: rgb(var(--bf-fg) / 0.35) !important;
+  color: var(--tt-text) !important;
+  box-shadow: none !important;
 }
-/* Variações por cor do próprio botão (o texto original vira a camada). */
-.bf-btn-whats {
-  --inv-camada: #25d366;
+
+/* Variações especiais: WhatsApp e Perigo tornam-se transparentes na respectiva cor */
+.bf-btn-whats-cheio:not(:disabled):is(:hover, :focus-visible) {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: #25d366 !important;
+  color: #25d366 !important;
+  box-shadow: none !important;
 }
-.bf-btn-whats-cheio {
-  --inv-camada: var(--tt-base);
-  --inv-texto: #25d366;
+
+.bf-btn-whats:not(:disabled):is(:hover, :focus-visible) {
+  background: rgba(37, 211, 102, 0.12) !important;
+  border-color: #25d366 !important;
+  color: #25d366 !important;
+  box-shadow: none !important;
 }
-.bf-btn-perigo {
-  --inv-camada: var(--tt-danger, #e5484d);
+
+.bf-btn-perigo:not(:disabled):is(:hover, :focus-visible) {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: var(--tt-danger, #e5484d) !important;
+  color: var(--tt-danger, #e5484d) !important;
+  box-shadow: none !important;
+}
+
+/* Feedback tátil ao clicar */
+:is(.bf-btn-ouro, .bf-btn-sec, .bf-btn-primary, .bf-btn-google, .prv-btn):not(:disabled):active {
+  transform: scale(0.98);
 }
 
 /* Campos do formulário de pesquisa (CampoTexto em components/ProcessTracker.tsx): ícone à esquerda,

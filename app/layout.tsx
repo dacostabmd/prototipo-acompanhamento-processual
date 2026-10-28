@@ -19,10 +19,9 @@ export const metadata: Metadata = {
     locale: 'pt_BR',
     siteName: 'JusConsulta',
     title: 'JusConsulta | Acompanhamento Processual Inteligente',
-    description: DESCRIPTION,
-    images: [{ url: '/techtie-og.png', width: 1200, height: 630, alt: 'JusConsulta' }]
+    description: DESCRIPTION
   },
-  twitter: { card: 'summary_large_image', title: 'JusConsulta', description: DESCRIPTION, images: ['/techtie-og.png'] },
+  twitter: { card: 'summary_large_image', title: 'JusConsulta', description: DESCRIPTION },
   icons: { icon: '/jusconsulta-mark.svg', apple: '/jusconsulta-mark.png' }
 };
 

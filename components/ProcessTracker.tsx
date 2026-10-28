@@ -155,6 +155,24 @@ export default function ProcessTracker({
     }
   }, [isConsultante, profile.documento, profile.nome]);
 
+  // Pré-preenche o CNJ vindo da busca pública ou URL (/consulta?busca=... ou ap_processo_pendente)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const buscaUrl = params.get('busca') || params.get('processo');
+      const buscaStorage = sessionStorage.getItem('ap_processo_pendente');
+      const valor = buscaUrl || buscaStorage;
+      if (valor) {
+        const digitos = cleanDigits(valor);
+        if (digitos.length === 20) {
+          setSearchMode('numero');
+          setProcessNumberInput(formatProcessNumber(digitos));
+          sessionStorage.removeItem('ap_processo_pendente');
+        }
+      }
+    } catch {}
+  }, []);
+
   // Onde procurar. Por CPF/CNPJ/nome: ids das fontes Infosimples (começa nas principais) e
   // endpoints DataJud (começa em todos, são gratuitos). Por número CNJ: só liga/desliga as 2 fontes.
   const [infosimplesSel, setInfosimplesSel] = useState<string[]>(IDS_PRINCIPAIS_INFOSIMPLES);

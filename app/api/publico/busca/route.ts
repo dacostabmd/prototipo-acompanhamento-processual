@@ -10,6 +10,8 @@ import {
   paraPublico,
   type ProcessoDjen
 } from '@/lib/djen';
+import { buscarProcessoDiretoDataJud } from '@/lib/datajud';
+import { formatProcessNumber } from '@/lib/cnj';
 
 /**
  * Busca pública da tela de login (sem conta), no modelo Jusbrasil: qualquer pessoa vê a prévia dos processos por
@@ -105,8 +107,43 @@ export async function GET(request: Request) {
   try {
     let processos: ProcessoDjen[];
     if (ehNumero) {
-      const p = await buscarProcessoPorNumeroDjen(digitos);
-      processos = p ? [p] : [];
+      let p: ProcessoDjen | null = null;
+      try {
+        p = await buscarProcessoPorNumeroDjen(digitos);
+      } catch (errDjen) {
+        console.warn('[busca-publica] DJEN falhou ou atingiu timeout, acionando fallback DataJud:', (errDjen as Error).message);
+      }
+
+      if (p) {
+        processos = [p];
+      } else {
+        // Fallback: se o DJEN não tiver publicação ou falhou por timeout/instabilidade,
+        // consulta diretamente a API oficial do DataJud (CNJ) sem custo.
+        try {
+          const pDatajud = await buscarProcessoDiretoDataJud(digitos);
+          if (pDatajud) {
+            processos = [
+              {
+                numeroCnj: digitos,
+                numeroFormatado: formatProcessNumber(digitos),
+                tribunal: pDatajud.tribunal,
+                classe: pDatajud.tipo || 'Processo judicial',
+                orgao: pDatajud.orgaoJulgadorDataJud || pDatajud.varaForo || 'Órgão julgador sob consulta',
+                ultimaPublicacao: pDatajud.movimentos[0]?.data || new Date().toISOString().slice(0, 10),
+                tipoUltimaPublicacao: pDatajud.movimentos[0]?.titulo || 'Movimentação processual',
+                totalPublicacoes: pDatajud.movimentos.length || 1,
+                autores: pDatajud.autor ? [pDatajud.autor] : [],
+                reus: pDatajud.reu || pDatajud.parteContraria ? [pDatajud.reu || pDatajud.parteContraria] : []
+              }
+            ];
+          } else {
+            processos = [];
+          }
+        } catch (errDatajud) {
+          console.error('[busca-publica] Erro no fallback DataJud:', errDatajud);
+          processos = [];
+        }
+      }
     } else {
       processos = await buscarProcessosPorNomeDjen(q);
     }

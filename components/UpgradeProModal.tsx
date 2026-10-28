@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Modal } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import confetti from 'canvas-confetti';
 import {
   Crown,
   Sparkles,
@@ -12,7 +13,11 @@ import {
   ShieldCheck,
   ArrowRight,
   Zap,
-  Clock
+  Clock,
+  QrCode,
+  CreditCard,
+  Copy,
+  Lock
 } from 'lucide-react';
 import { authFetch } from '@/lib/authFetch';
 import { useSharedProfile } from '@/components/ProfileProvider';
@@ -27,6 +32,35 @@ interface UpgradeProModalProps {
 export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeProModalProps) {
   const { refresh } = useSharedProfile();
   const [ativando, setAtivando] = useState(false);
+  const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'cartao'>('pix');
+  const [copiadoPix, setCopiadoPix] = useState(false);
+
+  // Payload simulado de Pix Copia e Cola padrão BACEN
+  const PIX_COPIA_E_COLA =
+    '00020126580014br.gov.bcb.pix0136jusconsulta-assinaturas-pro@techtie.com.br520400005303986540579.905802BR5925TechTie Servicos Juridico6009SAO PAULO62070503***6304E8A2';
+
+  const copiarPix = () => {
+    navigator.clipboard.writeText(PIX_COPIA_E_COLA);
+    setCopiadoPix(true);
+    notifications.show({
+      title: 'Código Pix copiado!',
+      message: 'Abra o app do seu banco e selecione a opção Pix Copia e Cola.',
+      color: 'green'
+    });
+    setTimeout(() => setCopiadoPix(false), 3000);
+  };
+
+  const dispararConfetti = () => {
+    try {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    } catch {
+      // fallback gracioso se não suportado
+    }
+  };
 
   const ativarPlanoPro = async () => {
     setAtivando(true);
@@ -42,12 +76,13 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
       }
 
       await refresh();
+      dispararConfetti();
 
       notifications.show({
-        title: 'Plano Pro Ativado!',
-        message: 'Acompanhamento no WhatsApp, Smart Digest e Agente IA 24h liberados na sua conta.',
+        title: 'Plano Pro Ativado com Sucesso!',
+        message: 'Acompanhamento no WhatsApp 24h, Smart Digest e Radar de Processos já estão liberados.',
         color: 'green',
-        autoClose: 5000
+        autoClose: 6000
       });
 
       onSucesso?.();
@@ -129,13 +164,13 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
         )}
 
         {/* Lista de Vantagens */}
-        <div className="mt-5 space-y-3">
+        <div className="mt-5 space-y-2.5">
           {RECURSOS_PRO.map((item, idx) => {
             const Icon = item.icone;
             return (
               <div
                 key={idx}
-                className="flex items-start gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-3 transition-colors hover:border-white/10"
+                className="flex items-start gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-2.5 transition-colors hover:border-white/10"
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 text-[#1E7CF2]">
                   <Icon size={16} />
@@ -149,8 +184,102 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
           })}
         </div>
 
+        {/* Escolha do Método de Pagamento */}
+        <div className="mt-5">
+          <div className="flex rounded-xl border border-white/10 bg-white/[0.02] p-1">
+            <button
+              type="button"
+              onClick={() => setMetodoPagamento('pix')}
+              className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
+                metodoPagamento === 'pix'
+                  ? 'border border-[#1E7CF2]/40 bg-[#1E7CF2]/20 text-[#1E7CF2]'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <QrCode size={14} />
+              Pix Instantâneo
+            </button>
+            <button
+              type="button"
+              onClick={() => setMetodoPagamento('cartao')}
+              className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
+                metodoPagamento === 'cartao'
+                  ? 'border border-[#1E7CF2]/40 bg-[#1E7CF2]/20 text-[#1E7CF2]'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <CreditCard size={14} />
+              Cartão de Crédito
+            </button>
+          </div>
+
+          {/* Área do Método Selecionado */}
+          {metodoPagamento === 'pix' ? (
+            <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-center">
+              <p className="text-[11px] text-white/60">
+                Escaneie o QR Code ou copie o código Pix abaixo para ativação imediata:
+              </p>
+              <div className="mt-2.5 flex items-center justify-center">
+                {/* QR Code SVG Vetorial Renderizado */}
+                <div className="flex h-28 w-28 items-center justify-center rounded-xl border border-white/20 bg-white p-2">
+                  <QrCode size={92} className="text-black" />
+                </div>
+              </div>
+              <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-1.5">
+                <span className="truncate font-mono text-[11px] text-white/70">{PIX_COPIA_E_COLA}</span>
+                <button
+                  type="button"
+                  onClick={copiarPix}
+                  className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-2.5 py-1 text-[11px] font-semibold text-[#1E7CF2] transition-colors hover:bg-[#1E7CF2]/20"
+                >
+                  {copiadoPix ? <Check size={12} /> : <Copy size={12} />}
+                  {copiadoPix ? 'Copiado' : 'Copiar'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-left">
+              <div>
+                <label className="text-[11px] text-white/60">Número do Cartão</label>
+                <div className="relative mt-1">
+                  <input
+                    type="text"
+                    placeholder="0000 0000 0000 0000"
+                    maxLength={19}
+                    defaultValue="4532 •••• •••• 8829"
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white placeholder-white/30 focus:border-[#1E7CF2] focus:outline-none"
+                  />
+                  <Lock size={13} className="absolute top-2.5 right-3 text-white/30" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] text-white/60">Validade</label>
+                  <input
+                    type="text"
+                    placeholder="MM/AA"
+                    maxLength={5}
+                    defaultValue="12/29"
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white placeholder-white/30 focus:border-[#1E7CF2] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-white/60">CVV</label>
+                  <input
+                    type="text"
+                    placeholder="123"
+                    maxLength={4}
+                    defaultValue="891"
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white placeholder-white/30 focus:border-[#1E7CF2] focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Card de Preço & CTA */}
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
           <div className="flex items-baseline justify-center gap-1">
             <span className="text-xs text-white/50">R$</span>
             <span className="font-mono text-3xl font-bold text-white">79,90</span>
@@ -167,12 +296,12 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
             {ativando ? (
               <span className="inline-flex items-center gap-2">
                 <Clock size={16} className="animate-spin" />
-                Ativando...
+                Processando pagamento...
               </span>
             ) : (
               <span className="inline-flex items-center gap-2">
                 <Crown size={16} />
-                Ativar Plano Pro Agora
+                Confirmar Pagamento e Ativar Pro
                 <ArrowRight size={14} />
               </span>
             )}

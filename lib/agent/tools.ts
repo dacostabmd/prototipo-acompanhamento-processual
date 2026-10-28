@@ -2,8 +2,9 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { cleanDigits } from '@/lib/format';
 import { parseCnj, formatProcessNumber } from '@/lib/cnj';
-import { consultarDataJud } from '@/lib/datajud';
+import { consultarDataJud, type DataJudResultado } from '@/lib/datajud';
 import { buscarTrechosProcessuais } from '@/lib/ragDocumentos';
+import { getRedis } from '@/lib/redis';
 
 /**
  * 1. Ferramenta para buscar e enriquecer dados de processo judicial no DataJud (CNJ).
@@ -22,9 +23,33 @@ export const consultarDataJudTool = tool(
       }
 
       const tribunalLabel = cnjInfo.tribunalLabel || cnjInfo.tribunalNome;
-      // 20s em vez dos 60s padrão: no WhatsApp é melhor dizer que não conseguiu agora do que deixar o usuário esperando
+
+      // 1. Tenta recuperar do cache Redis (TTL 6 horas) para evitar a latência da API pública do CNJ
+      const redis = getRedis();
+      const chaveCache = `ap:datajud:proc:${digits}`;
+      let res: DataJudResultado | null = null;
+
+      if (redis) {
+        try {
+          res = await redis.get<DataJudResultado>(chaveCache);
+        } catch (e) {
+          console.error('[agent-tools] Falha ao ler cache DataJud:', e);
+        }
+      }
+
+      // 2. Se não estiver no cache, consulta a API pública oficial com timeout de 20s
+      // (no WhatsApp é melhor responder rápido do que deixar o usuário esperando)
       const limite = AbortSignal.timeout(20_000);
-      const res = await consultarDataJud(tribunalLabel, digits, null, limite);
+      if (!res) {
+        res = await consultarDataJud(tribunalLabel, digits, null, limite);
+        if (res && redis) {
+          try {
+            await redis.set(chaveCache, res, { ex: 6 * 3600 });
+          } catch (e) {
+            console.error('[agent-tools] Falha ao gravar cache DataJud:', e);
+          }
+        }
+      }
 
       // consultarDataJud devolve null tanto para "não existe" quanto para timeout: sem esta distinção o agente dizia
       // ao usuário que um processo real não foi encontrado
@@ -112,6 +137,11 @@ export const analisarRiscoPenhoraTool = tool(
       recomendacoes.push('Contestar a desconsideração comprovando a ausência de fraude, desvio de finalidade ou confusão patrimonial (art. 50 do Código Civil).');
     }
 
+    if (/sal[aá]rio|remunera[cç][aã]o|proventos|aposentadoria|poupan[cç]a/.test(texto)) {
+      riscosDetectados.push('PENHORA DE SALÁRIO OU PROVENTOS: Análise de impenhorabilidade de verbas alimentares.');
+      recomendacoes.push('Em regra geral, salário, proventos de aposentadoria e quantias até 40 salários mínimos em poupança são impenhoráveis (art. 833, IV e X, do CPC). Exceções legais: dívida de pensão alimentícia ou valores que excedam 50 salários mínimos mensais (o STJ também admite mitigação excepcional caso seja preservada a subsistência digna do devedor e sua família).');
+    }
+
     const nivelRisco = riscosDetectados.length >= 2 ? 'CRÍTICO / URGENTE' : riscosDetectados.length === 1 ? 'ALTO / ATENÇÃO' : 'MODERADO / INFORMATIVO';
 
     return (
@@ -130,9 +160,9 @@ export const analisarRiscoPenhoraTool = tool(
   {
     name: 'analisar_risco_penhora_e_bloqueio',
     description:
-      'Analisa movimentações judiciais em busca de ordens de penhora, bloqueio financeiro no Sisbajud, constrição de veículos (Renajud), leilão ou execução forçada, gerando diagnóstico de risco patrimonial e linhas de defesa.',
+      'Analisa ordens de penhora, bloqueio financeiro no Sisbajud, restrição veicular (Renajud), leilão OU dúvidas sobre penhorabilidade de salário, aposentadoria e contas bancárias, gerando diagnóstico de risco patrimonial, fundamentação legal (art. 833 CPC) e defesas.',
     schema: z.object({
-      textoOuAndamentos: z.string().describe('Texto do andamento, despacho ou resumo dos processos para identificação de ameaças patrimoniais.')
+      textoOuAndamentos: z.string().describe('Texto do andamento OU pergunta/dúvida do usuário sobre penhora, bloqueio de bens, salário ou Sisbajud.')
     })
   }
 );
@@ -269,12 +299,12 @@ export const calcularPrazoProcessualTool = tool(
       prazoDiasUteis = 15;
       baseLegal = 'Art. 523 do CPC';
       descricao = 'Prazo para pagamento voluntário da condenação sem aplicação de multa de 10% e honorários de 10%. Após os 15 dias, iniciam-se mais 15 dias para Impugnação.';
-    } else if (/juiz|magistrad|despacho|excesso de prazo|demora|concluso/.test(ato)) {
+    } else if (/juiz|magistrad|despacho|excesso de prazo|demora|concluso|atraso/.test(ato)) {
       prazoDiasUteis = 5;
-      baseLegal = 'Art. 226 e 235 do CPC';
+      baseLegal = 'Art. 226 e Art. 235 do CPC';
       descricao =
-        'Prazos do juiz: 5 dias para despachos, 10 dias para decisões interlocutórias e 30 dias para sentenças (art. 226). ' +
-        'Excedidos sem justificativa, a parte pode peticionar pedindo impulso e, persistindo a demora, representar ao corregedor do tribunal ou ao CNJ (art. 235).';
+        'Prazos do juiz: 5 dias úteis para despachos, 10 dias úteis para decisões interlocutórias e 30 dias úteis para sentenças (art. 226 do CPC). ' +
+        'Havendo excesso de prazo injustificado (como 90 dias concluso para despacho), a parte pode peticionar requerendo providências de impulso oficial ao juízo e, persistindo a omissão após 10 dias, representar ao corregedor do tribunal ou ao Conselho Nacional de Justiça (CNJ) por excesso de prazo, nos termos expressos do art. 235 do CPC.';
     } else if (/embargos [aà] execu[cç][aã]o/.test(ato)) {
       prazoDiasUteis = 15;
       baseLegal = 'Art. 915 do CPC';
@@ -293,9 +323,9 @@ export const calcularPrazoProcessualTool = tool(
   {
     name: 'calcular_prazo_processual',
     description:
-      'Informa os prazos legais em dias úteis do Código de Processo Civil (CPC) para contestações, recursos, embargos, pagamento voluntário e prazos do próprio juiz (despachos, decisões, sentença e excesso de prazo).',
+      'Informa prazos legais em dias úteis do CPC (contestações, recursos, embargos, art. 523) E regras de excesso de prazo do magistrado / demora processual / processo concluso há muitos dias (arts. 226 e 235 do CPC). OBRIGATÓRIA para dúvidas de prazos, atraso do processo ou concluso há dias.',
     schema: z.object({
-      tipoAto: z.string().describe('O tipo de ato ou manifestação processual (ex: contestação, apelação, pagamento art. 523, embargos à execução)')
+      tipoAto: z.string().describe('O tipo de ato ou manifestação processual (ex: contestação, apelação, pagamento art. 523, excesso de prazo / conclusos para despacho)')
     })
   }
 );
