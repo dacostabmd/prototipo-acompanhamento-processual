@@ -53,8 +53,6 @@
   position: relative;
   display: grid;
   place-items: center;
-  will-change: transform;
-  animation: flutuar 7s ease-in-out 1.4s infinite;
 }
 
 /* backwards (e não forwards): terminada a entrada, a animação deixa de valer. Com forwards o filtro (blur) seguia
@@ -213,16 +211,6 @@
   100% {
     opacity: 0;
     transform: scale(1.45);
-  }
-}
-
-@keyframes flutuar {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(0, -4px, 0);
   }
 }
 

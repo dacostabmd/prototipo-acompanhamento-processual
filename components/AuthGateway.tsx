@@ -38,6 +38,7 @@ const label: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, 
 export default function AuthGateway({ variante }: { variante: 'busca' | 'login' }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('login');
+  const [buscando, setBuscando] = useState(false); // busca pública em andamento: o hero troca a marca pela logo "digitando"
   const [perfil, setPerfil] = useState<Perfil>('advogado');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -261,8 +262,9 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
       <main className="bf-auth">
         {/* T da TechTie animado, copy e busca pública (o fundo dele cobre a tela inteira) */}
         <section className="bf-auth-left">
-          <TechTieHero>
+          <TechTieHero carregando={buscando}>
             <BuscaPublica
+              onCarregando={setBuscando}
               onEntrar={(p: ProcessoDjenPublico) => irParaLogin('login', p.numeroFormatado, p.numeroCnj)}
               onCriarConta={() => irParaLogin('signup')}
             />

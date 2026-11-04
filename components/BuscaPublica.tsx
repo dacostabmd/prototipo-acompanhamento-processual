@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { AlertCircle, ArrowRight, Loader2, Lock, Search } from 'lucide-react';
+import { AlertCircle, ArrowRight, Lock, Search } from 'lucide-react';
 import styles from './BuscaPublica.module.css';
 import type { ProcessoDjenPublico } from '@/lib/djen';
 
@@ -11,15 +11,21 @@ interface Props {
   onEntrar: (processo: ProcessoDjenPublico) => void;
   /** Busca por CPF/CNPJ é paga (Infosimples): só com conta. */
   onCriarConta: () => void;
+  /** Avisa o hero quando a busca começa/termina, para ele trocar a marca pela logo "digitando". */
+  onCarregando?: (carregando: boolean) => void;
 }
 
 /**
  * Busca pública do login no modelo Jusbrasil: prévia grátis por nome ou CNJ (DJEN) com número, tribunal e classe;
  * partes e andamento ficam desfocados até o login (a API pública nem envia esses campos).
  */
-export default function BuscaPublica({ onEntrar, onCriarConta }: Props) {
+export default function BuscaPublica({ onEntrar, onCriarConta, onCarregando }: Props) {
   const [q, setQ] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoadingState] = useState(false);
+  const setLoading = (v: boolean) => {
+    setLoadingState(v);
+    onCarregando?.(v);
+  };
   const [erro, setErro] = useState<{ codigo: string; mensagem: string } | null>(null);
   const [processos, setProcessos] = useState<ProcessoDjenPublico[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -61,7 +67,7 @@ export default function BuscaPublica({ onEntrar, onCriarConta }: Props) {
         <button type="submit" className={`${styles.botao} bf-btn-ouro`} disabled={loading || !q.trim()}>
           {/* texto sempre dentro de <span>: trocar nó de texto solto por <svg> quebra o React ("removeChild ... null")
               quando o tradutor do navegador ou uma extensão já envolveu esse texto em outra tag */}
-          {loading ? <Loader2 size={16} className={styles.girando} /> : <span>Buscar</span>}
+          <span>Buscar</span>
         </button>
       </form>
       <p className={styles.dica}>Consulta grátis nos diários oficiais. Sem cadastro.</p>
@@ -123,7 +129,7 @@ export default function BuscaPublica({ onEntrar, onCriarConta }: Props) {
                   </span>
                 </button>
                 <div className={styles.acoes}>
-                  <Link href={`/processo/${p.numeroCnj}`} className={`${styles.acaoSecundaria} bf-btn-sec`}>
+                  <Link href={`/processo/${p.numeroCnj}`} className={styles.acaoSecundaria}>
                     Ver andamento <ArrowRight size={14} />
                   </Link>
                 </div>

@@ -65,9 +65,6 @@
   cursor: not-allowed;
 }
 
-.girando {
-  animation: girar 0.8s linear infinite;
-}
 
 .dica {
   margin: 8px 2px 0;
@@ -207,6 +204,20 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
+  justify-content: center;
+}
+
+.acoes .acaoSecundaria {
+  position: relative;
+  transition: transform 0.25s ease, background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+.acoes .acaoSecundaria:hover {
+  background: transparent;
+  border-color: #fff;
+  color: #fff;
+  transform: scale(1.375);
+  z-index: 5;
 }
 
 .acaoSecundaria,
@@ -242,8 +253,3 @@
   }
 }
 
-@keyframes girar {
-  to {
-    transform: rotate(360deg);
-  }
-}

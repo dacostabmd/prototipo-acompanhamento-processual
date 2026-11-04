@@ -5,6 +5,7 @@ import ParticulasOuro from './ParticulasOuro';
 import styles from './TechTieHero.module.css';
 
 const MARCA = '/jusconsulta-mark.svg';
+const MARCA_DIGITANDO = '/logo-j-digitando.svg';
 
 const DIFERENCIAIS = [
   { icon: Search, texto: 'Busca unificada em tribunais estaduais, federais e na base nacional do CNJ.' },
@@ -17,7 +18,7 @@ const v = (vars: Record<string, string | number>) => vars as CSSProperties;
 
 /** Coluna esquerda do login: marca TechTie (PNG 3D) com entrada, reflexo e flutuação + copy. Só CSS.
  *  `children` entra logo abaixo do texto de apoio (a busca pública do login). */
-export default function TechTieHero({ children }: { children?: ReactNode }) {
+export default function TechTieHero({ children, carregando = false }: { children?: ReactNode; carregando?: boolean }) {
   return (
     <>
       <div className={styles.fundo} aria-hidden>
@@ -31,11 +32,19 @@ export default function TechTieHero({ children }: { children?: ReactNode }) {
         <div className={styles.marcaWrap}>
           <span className={styles.anel} aria-hidden />
           <div className={styles.marcaEntrada}>
-            <Image src={MARCA} alt="TechTie" width={1070} height={1190} priority className={styles.marca} />
-            {/* reflexo que atravessa a marca, recortado pela própria silhueta do PNG */}
-            <div className={styles.reflexoMascara} aria-hidden>
-              <span className={styles.reflexo} />
-            </div>
+            {carregando ? (
+              /* <img> comum (e não next/image): a animação "digitando" está dentro do próprio SVG */
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={MARCA_DIGITANDO} alt="Carregando" width={252} height={282} className={styles.marca} />
+            ) : (
+              <>
+                <Image src={MARCA} alt="TechTie" width={1070} height={1190} priority className={styles.marca} />
+                {/* reflexo que atravessa a marca, recortado pela própria silhueta do PNG */}
+                <div className={styles.reflexoMascara} aria-hidden>
+                  <span className={styles.reflexo} />
+                </div>
+              </>
+            )}
           </div>
         </div>
 

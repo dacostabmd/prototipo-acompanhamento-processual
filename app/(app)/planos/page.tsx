@@ -29,19 +29,19 @@ const RECURSOS_COMPARATIVOS = [
     destaque: true
   },
   {
-    nome: 'Agente Jurídico 24/7 no WhatsApp (LangChain)',
+    nome: 'Agente Jurídico 24/7 no WhatsApp',
     free: false,
     pro: true,
     destaque: true
   },
   {
-    nome: 'Smart Digest Anti-Spam (Sexta-feira)',
+    nome: 'Smart Digest Anti-Spam',
     free: false,
     pro: true,
     destaque: true
   },
   {
-    nome: 'Leitura Multimodal de Intimações e Fotos (Vision OCR)',
+    nome: 'Leitura Multimodal de Intimações e Fotos',
     free: false,
     pro: true,
     destaque: true
@@ -59,19 +59,13 @@ const RECURSOS_COMPARATIVOS = [
     destaque: false
   },
   {
-    nome: 'Detecção de Risco Patrimonial e Sisbajud',
-    free: true,
-    pro: true,
-    destaque: false
-  },
-  {
     nome: 'Notificações por E-mail',
     free: true,
     pro: true,
     destaque: false
   },
   {
-    nome: 'Observabilidade & Tracing (Langfuse v3)',
+    nome: 'Observabilidade & Tracing',
     free: false,
     pro: true,
     destaque: false
