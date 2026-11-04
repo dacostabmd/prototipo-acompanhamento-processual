@@ -11,12 +11,29 @@ export interface RegrasPlano {
   leituraDocumentosOcr: boolean;
   monitoramentoCpf: boolean;
   suportePrioritario: boolean;
+  /** Franquia mensal (R$) de consultas pagas em APIs de terceiros (Infosimples/Lemit). Renova todo mês. */
+  franquiaMensalReais: number;
 }
+
+export interface ConsumoCiclo {
+  franquiaReais: number;
+  usadoReais: number;
+  restanteReais: number;
+  percentualUsado: number;
+  inicioCiclo: string;
+  renovaEm: string;
+}
+
+const numeroEnv = (valor: string | undefined, padrao: number) => {
+  const n = Number(valor);
+  return Number.isFinite(n) && n >= 0 ? n : padrao;
+};
 
 export const REGRAS_PLANOS: Record<PlanoTipo, RegrasPlano> = {
   free: {
     nome: 'Gratuito',
     valorMensalReais: 0,
+    franquiaMensalReais: numeroEnv(process.env.FRANQUIA_MENSAL_FREE_REAIS, 5),
     limiteProcessosMonitorados: 2,
     whatsappConversacional: false,
     smartDigestSemanal: false,
@@ -27,6 +44,7 @@ export const REGRAS_PLANOS: Record<PlanoTipo, RegrasPlano> = {
   pro: {
     nome: 'Pro',
     valorMensalReais: 79.9,
+    franquiaMensalReais: numeroEnv(process.env.FRANQUIA_MENSAL_PRO_REAIS, 40),
     limiteProcessosMonitorados: 50,
     whatsappConversacional: true,
     smartDigestSemanal: true,
@@ -72,6 +90,44 @@ export async function obterStatusPlanoUsuario(userId: string): Promise<{
     totalProcessosMonitorados: totalProcessos,
     podeAdicionarProcesso: totalProcessos < regras.limiteProcessosMonitorados,
     podeUsarWhatsapp: regras.whatsappConversacional
+  };
+}
+
+/**
+ * Consumo da franquia no ciclo atual (mês-calendário, horário de Brasília): soma do que as consultas
+ * pagas do usuário custaram (ap_historico_consultas.custo_cobrado). Renova no dia 1º do mês seguinte.
+ */
+export async function obterConsumoCiclo(userId: string, plano: PlanoTipo): Promise<ConsumoCiclo> {
+  const franquia = REGRAS_PLANOS[plano].franquiaMensalReais;
+  const agoraBr = new Date(Date.now() - 3 * 3600_000);
+  const ano = agoraBr.getUTCFullYear();
+  const mes = agoraBr.getUTCMonth();
+  const inicio = new Date(Date.UTC(ano, mes, 1, 3, 0, 0));
+  const renova = new Date(Date.UTC(ano, mes + 1, 1, 3, 0, 0));
+
+  let usado = 0;
+  const db = getAdminClient();
+  if (db) {
+    const { data, error } = await db
+      .from('ap_historico_consultas')
+      .select('custo_cobrado')
+      .eq('user_id', userId)
+      .gte('created_at', inicio.toISOString());
+    if (error) console.error('[planos] Falha ao somar consumo do ciclo:', error.message);
+    usado = (data ?? []).reduce((soma, linha) => soma + Number(linha.custo_cobrado ?? 0), 0);
+  }
+
+  usado = Number(usado.toFixed(2));
+  const restante = Number(Math.max(0, franquia - usado).toFixed(2));
+  const percentual = franquia > 0 ? Math.min(100, Math.round((usado / franquia) * 100)) : usado > 0 ? 100 : 0;
+
+  return {
+    franquiaReais: franquia,
+    usadoReais: usado,
+    restanteReais: restante,
+    percentualUsado: percentual,
+    inicioCiclo: inicio.toISOString(),
+    renovaEm: renova.toISOString()
   };
 }
 

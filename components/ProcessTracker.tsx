@@ -23,8 +23,7 @@ import {
   Plus,
   UserRound,
   ArrowRight,
-  ChevronDown,
-  SlidersHorizontal
+  ChevronDown
 } from 'lucide-react';
 import ProcessResultView from './ProcessResultView';
 import FontesSelector, {
@@ -193,7 +192,6 @@ export default function ProcessTracker({
     if (!visaoAdvogado && !isConsultante) setSearchMode('numero');
   }, [visaoAdvogado, isConsultante]);
   const [ajustesAbertos, setAjustesAbertos] = useState(false);
-  const [fontesManuaisAbertas, setFontesManuaisAbertas] = useState(false);
 
   // Refinar a busca (opcional)
   const [phoneInput, setPhoneInput] = useState('');
@@ -1591,14 +1589,9 @@ export default function ProcessTracker({
                     </div>
                   </Revelar>
 
-                  {/* Escolha manual de fontes (só na visão do advogado; o resumo "Onde vamos procurar" foi removido) */}
+                  {/* Seletor de fontes só na busca por número do processo (nas demais, as fontes seguem o padrão) */}
                   <motion.div variants={secaoEntradaVariants}>
-                    {visaoAdvogado && searchMode !== 'numero' && (
-                      <button type="button" onClick={() => setFontesManuaisAbertas(v => !v)} style={linkAcaoStyle}>
-                        <SlidersHorizontal size={14} /> {fontesManuaisAbertas ? 'Ocultar escolha de fontes' : 'Escolher fontes manualmente'}
-                      </button>
-                    )}
-                    <Revelar aberto={visaoAdvogado && (fontesManuaisAbertas || searchMode === 'numero')}>
+                    <Revelar aberto={visaoAdvogado && searchMode === 'numero'}>
                       <div style={{ paddingTop: 12 }}>
                         <FontesSelector
                           tipoBusca={tipoBusca}

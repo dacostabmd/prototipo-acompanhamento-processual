@@ -142,6 +142,9 @@ flowchart LR
 - [x] **DJEN no cron de reconsulta (2026-10-27)**: `app/api/cron/reconsulta` consulta DataJud e DJEN (`listarMovimentosDjen`) em paralelo e junta as movimentações no mesmo dedupe por hash; intimações entram no dia seguinte à publicação, sem custo. Publicação do DJEN com mais de 7 dias vista pela primeira vez entra no histórico sem alerta (evita disparo em massa ao ligar). Em 429, o DJEN pausa 60s e o processo segue só com o DataJud.
 - [x] **Classificador de intimação com prazo como urgente (2026-10-28)**: em `lib/classify.ts`, atos e despachos com "no prazo de N dias", "sob pena de" ou manifestações temporais passam a ser classificados como `urgente`, disparando alerta imediato no WhatsApp sem esperar o Smart Digest de sexta-feira.
 - [x] **Checkout recorrente (Pix/cartão) ligado a `atualizarPlanoUsuario` (2026-10-28)**: em `app/api/pagamentos/webhook/route.ts`, criado webhook unificado com suporte a Asaas, Stripe, Mercado Pago e homologação manual para ativação de assinaturas no Supabase. Em `components/UpgradeProModal.tsx`, modal enriquecido com abas de Pix Instantâneo (QR Code vetorial + Copia e Cola BACEN), Cartão de Crédito, animação festiva com confetti (`canvas-confetti`) e atualização reativa de perfil.
+- [x] **Indicador de créditos no topo (2026-11-04)**: `components/CreditosChip.tsx` no `AppShellLayout` mostra o saldo da franquia mensal de consultas pagas (soma de `custo_cobrado` em `ap_historico_consultas` no mês), barra por faixa de uso e data de renovação (dia 1º). Franquia em `REGRAS_PLANOS` (`lib/planos.ts`), ajustável por `FRANQUIA_MENSAL_FREE_REAIS`/`FRANQUIA_MENSAL_PRO_REAIS` (padrão R$ 5 / R$ 40, a confirmar). Ainda não bloqueia a busca quando o saldo acaba.
+- [x] **Escolha manual de fontes removida (2026-11-04)**: busca por pessoa/empresa e por nome usam só as fontes padrão; o seletor ficou apenas na busca por número (`components/ProcessTracker.tsx`).
+- [ ] **Pagamento real via Asaas (2026-11-04, código pronto)**: `lib/asaas.ts` (cliente v3) e `lib/assinaturas.ts` (assinatura mensal, Pix com QR Code real e cartão pela página segura do Asaas). Rota `app/api/pagamentos/assinatura` (POST gera a cobrança; GET consulta o status e ativa o Pro se pago, o que funciona sem webhook no localhost). Webhook reescrito: exige `asaas-access-token` = `ASAAS_WEBHOOK_TOKEN`, só age sobre assinaturas de `ap_assinaturas` (a conta Asaas é compartilhada com outros negócios), trata pago, inadimplência, estorno e cancelamento. Removidos os ramos Stripe, Mercado Pago e o "manual de homologação", que ativavam o Pro sem autenticação. `POST /api/planos` não promove mais a Pro (só admin/owner); voltar ao Gratuito cancela a assinatura no Asaas. **Pendente**: aplicar `supabase/migrations/20261104120000_ap_assinaturas.sql`, cadastrar o webhook no painel do Asaas e configurar as variáveis na Vercel.
 - [x] **Suíte de homologação e teste de fumaça E2E (2026-10-28)**: criado `evals/homologacao-smoke-test.ts` e comando `npm run test:smoke`. Valida em tempo real: classificação de intimações, busca pública com blur, handshake e opt-out LGPD do WhatsApp, webhooks de pagamentos e respostas seguras do Agente IA com 100% de aprovação (17/17).
 
 ---
@@ -175,6 +178,12 @@ WHATSAPP_WEBHOOK_VERIFY_TOKEN=jusconsulta_whatsapp_secret
 
 # Agendadores (Crons)
 CRON_SECRET=...
+
+# Pagamentos (Asaas). No .env.local o "$" inicial da chave vai escapado (\$aact_...); na Vercel, sem escape.
+ASAAS_API_KEY=\$aact_...
+ASAAS_WEBHOOK_TOKEN=...          # o mesmo token cadastrado no webhook do painel Asaas
+# ASAAS_API_URL=https://api-sandbox.asaas.com/v3   # opcional: força sandbox
+# FRANQUIA_MENSAL_FREE_REAIS=5  /  FRANQUIA_MENSAL_PRO_REAIS=40
 ```
 
 ---

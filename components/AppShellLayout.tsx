@@ -14,6 +14,7 @@ import { ProfileProvider, useSharedProfile } from './ProfileProvider';
 import PageTransition from './PageTransition';
 import UserChip from './UserChip';
 import ZoomControls from './ZoomControls';
+import CreditosChip from './CreditosChip';
 import Changelog from './Changelog';
 import RodapeGlobal from './RodapeGlobal';
 
@@ -110,6 +111,7 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
       <AppShell.Header className="bf-topbar">
         <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" aria-label="Abrir menu" />
         <div className="bf-topbar-right">
+          <CreditosChip />
           <ZoomControls />
           <UserChip />
         </div>

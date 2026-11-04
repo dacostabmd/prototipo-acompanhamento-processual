@@ -1,124 +1,103 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { atualizarPlanoUsuario } from '@/lib/planos';
+import { timingSafeEqual } from 'node:crypto';
 import { trackEvento } from '@/lib/track';
-import { getAdminClient } from '@/lib/track';
+import { type AsaasPagamento } from '@/lib/asaas';
+import {
+  STATUS_PAGOS,
+  confirmarPagamento,
+  encerrarAssinatura,
+  localizarUsuarioDoEvento,
+  obterAssinaturaDoUsuario
+} from '@/lib/assinaturas';
 
 /**
- * Webhook unificado de pagamentos para assinaturas do Plano PRO.
- * Suporta payloads de gateways brasileiros e internacionais (Asaas, Stripe, Mercado Pago).
+ * Webhook do Asaas para as assinaturas do Plano Pro.
  *
- * Ao receber confirmação de pagamento:
- * 1. Identifica o usuário (via customerId, email ou metadata.userId)
- * 2. Promove a conta para o plano 'pro' no Supabase
- * 3. Registra o evento de conversão
+ * Segurança: o Asaas manda no header "asaas-access-token" o token cadastrado na configuração do webhook;
+ * ele precisa bater com ASAAS_WEBHOOK_TOKEN. Sem isso, qualquer um ativaria o Pro com um POST.
+ *
+ * A conta Asaas é compartilhada com outros negócios: chegam eventos de clientes que não são nossos. Só há
+ * ação quando o evento é da assinatura registrada em ap_assinaturas; o resto responde 200 "ignored" (erro
+ * faria o Asaas reenviar e, após falhas seguidas, pausar a fila).
  */
+
+const EVENTOS_PAGO = new Set(['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED']);
+const EVENTOS_ESTORNO = new Set(['PAYMENT_REFUNDED', 'PAYMENT_CHARGEBACK_REQUESTED']);
+const EVENTOS_ASSINATURA_ENCERRADA = new Set(['SUBSCRIPTION_DELETED', 'SUBSCRIPTION_INACTIVATED']);
+
+function tokenValido(recebido: string | null): boolean {
+  const esperado = process.env.ASAAS_WEBHOOK_TOKEN?.trim();
+  if (!esperado || !recebido) return false;
+  const a = Buffer.from(recebido);
+  const b = Buffer.from(esperado);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+const ignorar = (motivo: string, evento: string) => {
+  return NextResponse.json({ status: 'ignored', motivo, evento }, { status: 200 });
+};
+
 export async function POST(request: NextRequest) {
+  if (!tokenValido(request.headers.get('asaas-access-token'))) {
+    return NextResponse.json({ error: 'Token do webhook inválido.' }, { status: 401 });
+  }
+
+  let body: Record<string, any>;
   try {
-    const rawBody = await request.text();
-    let body: Record<string, unknown> = {};
-    try {
-      body = JSON.parse(rawBody);
-    } catch {
-      return NextResponse.json({ error: 'Payload JSON inválido' }, { status: 400 });
+    body = JSON.parse(await request.text());
+  } catch {
+    return NextResponse.json({ error: 'Payload JSON inválido' }, { status: 400 });
+  }
+
+  const evento = typeof body?.event === 'string' ? body.event : 'desconhecido';
+  const pagamento = body?.payment as AsaasPagamento | undefined;
+  const assinaturaEvento = body?.subscription as { id?: string; customer?: string; externalReference?: string } | undefined;
+
+  const assinaturaId = pagamento?.subscription ?? assinaturaEvento?.id ?? null;
+  const userId = await localizarUsuarioDoEvento({
+    assinaturaId,
+    clienteId: pagamento?.customer ?? assinaturaEvento?.customer,
+    externalReference: pagamento?.externalReference ?? assinaturaEvento?.externalReference
+  });
+
+  if (!userId) {
+    // Conta compartilhada: o normal é ser cobrança de outro negócio. Só registra se parecer nossa.
+    if (String(pagamento?.externalReference ?? assinaturaEvento?.externalReference ?? '').startsWith('jusconsulta:')) {
+      console.warn(`[webhook-asaas] ${evento} com referência JusConsulta sem assinatura local. Chaves:`, Object.keys(body));
+    }
+    return ignorar('usuario_nao_localizado', evento);
+  }
+
+  // Só a assinatura vigente muda o plano (eventos de uma pendente trocada por outro método são ignorados).
+  const atual = await obterAssinaturaDoUsuario(userId);
+  if (!atual?.assinatura_id || atual.assinatura_id !== assinaturaId) {
+    return ignorar('assinatura_antiga', evento);
+  }
+
+  try {
+    if (EVENTOS_PAGO.has(evento) && pagamento && STATUS_PAGOS.has(pagamento.status)) {
+      if (!(await confirmarPagamento(userId, pagamento))) throw new Error('falha ao ativar plano');
+      await trackEvento(request, userId, {
+        tipo: 'lead',
+        dados: { acao: 'conversao_assinatura_pro', gateway: 'asaas', evento, valor: pagamento.value }
+      });
+      return NextResponse.json({ status: 'success', plano: 'pro' });
     }
 
-    const db = getAdminClient();
-    let userId: string | null = null;
-    let gateway = 'desconhecido';
-    let evento = 'desconhecido';
-
-    // 1. Suporte a Webhooks do Asaas (evento: PAYMENT_CONFIRMED ou PAYMENT_RECEIVED)
-    if (body.event && typeof body.event === 'string' && body.payment) {
-      gateway = 'asaas';
-      evento = body.event;
-
-      if (body.event === 'PAYMENT_CONFIRMED' || body.event === 'PAYMENT_RECEIVED') {
-        const payment = body.payment as Record<string, unknown>;
-        const customerEmail = payment.customerEmail as string | undefined;
-        const externalReference = payment.externalReference as string | undefined;
-
-        if (externalReference) {
-          userId = externalReference;
-        } else if (customerEmail && db) {
-          const { data: perfil } = await db
-            .from('ap_perfis')
-            .select('id')
-            .eq('email', customerEmail)
-            .maybeSingle();
-          userId = perfil?.id || null;
-        }
-      }
+    if (evento === 'PAYMENT_OVERDUE' && atual.status === 'ativa') {
+      await encerrarAssinatura(userId, 'inadimplente');
+      return NextResponse.json({ status: 'success', plano: 'free', motivo: 'inadimplente' });
     }
 
-    // 2. Suporte a Webhooks do Stripe (evento: invoice.payment_succeeded ou checkout.session.completed)
-    else if (body.type && typeof body.type === 'string' && body.data) {
-      gateway = 'stripe';
-      evento = body.type;
-
-      if (body.type === 'invoice.payment_succeeded' || body.type === 'checkout.session.completed') {
-        const dataObj = (body.data as Record<string, unknown>).object as Record<string, unknown> | undefined;
-        const clientRef = dataObj?.client_reference_id as string | undefined;
-        const metaUserId = (dataObj?.metadata as Record<string, string> | undefined)?.userId;
-        const customerEmail = dataObj?.customer_email as string | undefined;
-
-        if (clientRef) {
-          userId = clientRef;
-        } else if (metaUserId) {
-          userId = metaUserId;
-        } else if (customerEmail && db) {
-          const { data: perfil } = await db
-            .from('ap_perfis')
-            .select('id')
-            .eq('email', customerEmail)
-            .maybeSingle();
-          userId = perfil?.id || null;
-        }
-      }
+    // Pendente nunca foi paga (o plano já é Gratuito); ignorar evita corrida com a troca de método no modal.
+    if ((EVENTOS_ESTORNO.has(evento) || EVENTOS_ASSINATURA_ENCERRADA.has(evento)) && atual.status !== 'pendente') {
+      await encerrarAssinatura(userId, 'cancelada');
+      return NextResponse.json({ status: 'success', plano: 'free', motivo: 'cancelada' });
     }
 
-    // 3. Suporte a Webhooks do Mercado Pago (action: payment.created ou payment.updated)
-    else if (body.action && typeof body.action === 'string' && body.data) {
-      gateway = 'mercadopago';
-      evento = body.action;
-      const dataObj = body.data as Record<string, unknown>;
-      const externalRef = dataObj?.external_reference as string | undefined;
-      if (externalRef) {
-        userId = externalRef;
-      }
-    }
-
-    // 4. Payload genérico/manual de homologação
-    else if (body.userId && typeof body.userId === 'string' && (body.status === 'pago' || body.status === 'approved')) {
-      gateway = 'manual_homologacao';
-      evento = 'aprovado';
-      userId = body.userId;
-    }
-
-    if (!userId) {
-      console.warn(`[webhook-pagamentos] Pagamento recebido (${gateway}:${evento}), mas usuário não identificado.`);
-      return NextResponse.json({ status: 'ignored', motivo: 'usuario_nao_localizado' }, { status: 200 });
-    }
-
-    const ativado = await atualizarPlanoUsuario(userId, 'pro');
-    if (!ativado) {
-      console.error(`[webhook-pagamentos] Falha ao atualizar plano para o usuário ${userId}`);
-      return NextResponse.json({ error: 'erro_ao_atualizar_plano' }, { status: 500 });
-    }
-
-    await trackEvento(request, userId, {
-      tipo: 'lead',
-      dados: {
-        acao: 'conversao_assinatura_pro',
-        gateway,
-        evento,
-        valor: 79.9
-      }
-    });
-
-    console.log(`[webhook-pagamentos] Plano PRO ativado com sucesso para o usuário ${userId} via ${gateway}`);
-    return NextResponse.json({ status: 'success', userId, plano: 'pro' }, { status: 200 });
+    return ignorar('evento_sem_acao', evento);
   } catch (error) {
-    console.error('[webhook-pagamentos] Erro inesperado no processamento:', error);
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    console.error(`[webhook-asaas] Erro ao processar ${evento} do usuário ${userId}:`, error);
+    return NextResponse.json({ error: 'erro_ao_processar' }, { status: 500 });
   }
 }

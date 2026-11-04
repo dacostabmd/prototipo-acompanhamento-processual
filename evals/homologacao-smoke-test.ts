@@ -117,33 +117,34 @@ async function run() {
   // ------------------------------------------------------------
   console.log('\n[4/5] Testando Webhook de Pagamento do Plano PRO (/api/pagamentos/webhook)...');
   
-  // Teste payload inválido
-  const reqPgInvalido = new NextRequest('http://localhost:3000/api/pagamentos/webhook', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: 'payload-invalido'
+  const tokenWebhook = process.env.ASAAS_WEBHOOK_TOKEN || 'token-de-teste-smoke';
+  process.env.ASAAS_WEBHOOK_TOKEN = tokenWebhook;
+  const reqWebhook = (body: string, token?: string) =>
+    new NextRequest('http://localhost:3000/api/pagamentos/webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { 'asaas-access-token': token } : {}) },
+      body
+    });
+  const pagamentoFalso = JSON.stringify({
+    event: 'PAYMENT_CONFIRMED',
+    payment: { id: 'pay_teste_123', customer: 'cus_naoexiste', subscription: 'sub_naoexiste', status: 'CONFIRMED', value: 79.9, dueDate: '2026-11-04' }
   });
-  const resPgInvalido = await pagamentoPost(reqPgInvalido);
+
+  // Sem token (ou token errado) não ativa nada: antes, qualquer POST virava Pro.
+  const resPgSemToken = await pagamentoPost(reqWebhook(pagamentoFalso));
+  assert(resPgSemToken.status === 401, 'Webhook sem asaas-access-token deve retornar 401');
+  const resPgTokenErrado = await pagamentoPost(reqWebhook(pagamentoFalso, 'token-errado'));
+  assert(resPgTokenErrado.status === 401, 'Webhook com token errado deve retornar 401');
+
+  const resPgInvalido = await pagamentoPost(reqWebhook('payload-invalido', tokenWebhook));
   assert(resPgInvalido.status === 400, 'Webhook de pagamento com JSON inválido deve retornar status 400');
 
-  // Teste payload Asaas simulado
-  const reqPgAsaas = new NextRequest('http://localhost:3000/api/pagamentos/webhook', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      event: 'PAYMENT_CONFIRMED',
-      payment: {
-        id: 'pay_teste_123',
-        customerEmail: 'cliente.teste.naoexiste@exemplo.com.br',
-        value: 79.9
-      }
-    })
-  });
-  const resPgAsaas = await pagamentoPost(reqPgAsaas);
+  // Conta Asaas compartilhada: cobrança que não é de assinatura nossa é ignorada com 200.
+  const resPgAsaas = await pagamentoPost(reqWebhook(pagamentoFalso, tokenWebhook));
   const jsonPgAsaas = await resPgAsaas.json();
   assert(
     resPgAsaas.status === 200 && jsonPgAsaas.motivo === 'usuario_nao_localizado',
-    'Webhook do Asaas deve ser aceito e tratar graciosamente usuário desconhecido'
+    'Webhook do Asaas deve ignorar cobrança de assinatura desconhecida'
   );
 
   // ------------------------------------------------------------

@@ -972,6 +972,80 @@ select.bf-input option {
   margin-left: 0;
 }
 
+/* Indicador de créditos (franquia mensal de consultas pagas). */
+.bf-creditos {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(30, 124, 242, 0.35);
+  background: rgba(30, 124, 242, 0.1);
+  color: var(--tt-text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  --bf-creditos-cor: #1e7cf2;
+}
+.bf-creditos:hover {
+  background: transparent;
+  border-color: var(--bf-creditos-cor);
+}
+.bf-creditos[data-nivel='atencao'] {
+  --bf-creditos-cor: #f5a524;
+  border-color: rgba(245, 165, 36, 0.45);
+  background: rgba(245, 165, 36, 0.1);
+}
+.bf-creditos[data-nivel='critico'] {
+  --bf-creditos-cor: #f31260;
+  border-color: rgba(243, 18, 96, 0.5);
+  background: rgba(243, 18, 96, 0.1);
+}
+.bf-creditos svg {
+  color: var(--bf-creditos-cor);
+  flex-shrink: 0;
+}
+.bf-creditos-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 96px;
+}
+.bf-creditos-valor {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.bf-creditos-barra {
+  display: block;
+  height: 3px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+.bf-creditos-preenchimento {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--bf-creditos-cor);
+  transition: width 0.4s ease;
+}
+@media (max-width: 47.99em) {
+  .bf-creditos {
+    padding: 6px 8px;
+  }
+  .bf-creditos-texto {
+    min-width: 0;
+  }
+  .bf-creditos-valor {
+    font-size: 11px;
+  }
+  .bf-topbar-right {
+    gap: 10px;
+  }
+}
+
 .bf-zoom {
   display: flex;
   align-items: center;
