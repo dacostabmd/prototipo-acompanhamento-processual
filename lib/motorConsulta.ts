@@ -121,14 +121,20 @@ function nomeDoPolo(polo: any): string {
   return textoDoCampo(primeiro) || textoDoCampo(primeiro?.participante) || textoDoCampo(primeiro?.nome_parte);
 }
 
-const TIPO_ATIVO = /apelante|autor|requerente|agravante|recorrente|exequente|impetrante|reclamante|embargante/i;
-const TIPO_PASSIVO = /apelad|r[ée]u\b|requerid|agravad|recorrid|executad|impetrad|reclamad|embargad/i;
+const TIPO_ATIVO = /apelante|autor|requerente|reqte|agravante|recorrente|exequente|exeqte|impetrante|reclamante|embargante|ativo/i;
+const TIPO_PASSIVO = /apelad|r[ée]u?(?![a-z])|requerid|reqd|agravad|recorrid|executad|exectd|impetrad|reclamad|embargad|passivo/i;
 
-/** partes como lista de { nome_parte, tipo_participacao } (TJSP 2º grau): o primeiro nome do polo pedido. */
+/**
+ * partes como lista de { nome_parte, tipo_participacao } (TJSP 2º grau), { tipo, nome } (e-SAJ 1º grau: "Reqte",
+ * "Reqdo") ou { polo, nome }: o primeiro nome do polo pedido.
+ */
 function parteDoTipo(partes: any, tipo: RegExp): string {
   if (!Array.isArray(partes)) return '';
-  const parte = partes.find((x: any) => ehObjeto(x) && tipo.test(String(x.tipo_participacao ?? x.tipo ?? '')));
-  return parte ? textoDoCampo(parte.nome_parte) || textoDoCampo(parte) : '';
+  const parte = partes.find(
+    (x: any) => ehObjeto(x) && tipo.test(String(x.tipo_participacao ?? x.tipo_parte ?? x.tipo ?? x.polo ?? x.participacao ?? ''))
+  );
+  if (!parte) return '';
+  return textoDoCampo(parte.nome_parte) || textoDoCampo(parte) || textoDoCampo(parte.parte) || nomeDaParte(parte.nomes);
 }
 
 /** Converte um registro bruto de processo retornado pela Infosimples para o formato LegalProcess. */
@@ -143,10 +149,17 @@ export function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, f
   const partesRep = p.partes_representantes && typeof p.partes_representantes === 'object' ? p.partes_representantes : {};
   const autor: string =
     textoDoCampo(p.reqte) || textoDoCampo(p.autor) || nomeDaParte(partesRep.exequente?.[0] ?? partesRep.autor?.[0] ?? partesRep.requerente?.[0]) ||
-    nomeDoPolo(p.polo_ativo) || parteDoTipo(p.partes, TIPO_ATIVO);
-  const reu: string =
-    textoDoCampo(p.reqdo) || textoDoCampo(p.reu) || textoDoCampo(p.exectdo) || nomeDaParte(partesRep.executado?.[0] ?? partesRep.reu?.[0] ?? partesRep.requerido?.[0]) ||
-    nomeDoPolo(p.polo_passivo) || parteDoTipo(p.partes, TIPO_PASSIVO);
+    nomeDoPolo(p.polo_ativo) || parteDoTipo(p.partes, TIPO_ATIVO) || parteDoTipo(p.partes_processo, TIPO_ATIVO);
+  const reuBruto: string =
+    textoDoCampo(p.reqdo) || textoDoCampo(p.reqda) || textoDoCampo(p.reu) || textoDoCampo(p.re) || textoDoCampo(p.requerido) ||
+    textoDoCampo(p.requerida) || textoDoCampo(p.exectdo) || textoDoCampo(p.executado) ||
+    nomeDaParte(partesRep.executado?.[0] ?? partesRep.reu?.[0] ?? partesRep.requerido?.[0]) ||
+    nomeDoPolo(p.polo_passivo) || parteDoTipo(p.partes, TIPO_PASSIVO) || parteDoTipo(p.partes_processo, TIPO_PASSIVO);
+  // Algumas fontes repetem o polo ativo no lugar do passivo: réu igual ao autor é dado inválido, não "outro lado".
+  const reu = reuBruto && autor && normalizarNome(reuBruto) === normalizarNome(autor) ? '' : reuBruto;
+  if (!reu && autor && Array.isArray(p.partes ?? p.partes_processo)) {
+    console.warn('[motorConsulta] polo passivo não identificado', num, JSON.stringify((p.partes ?? p.partes_processo).slice(0, 4)).slice(0, 600));
+  }
   const classe =
     textoDoCampo(p.classe) || textoDoCampo(p.classe_acao) || textoDoCampo(p.classe_judicial) || textoDoCampo(p.classe_processual);
   const distribuicao =
@@ -244,8 +257,11 @@ export function montarLegalProcessDaInfosimples(p: any, tribunalLabel: string, f
     } else {
       parteContraria = reu;
     }
-  } else {
-    parteContraria = reu || autor || 'Não informada';
+  } else if (reu) {
+    parteContraria = reu;
+  } else if (autor && !(normUser && autor.toLowerCase().includes(normUser))) {
+    // Só o autor veio e ele não é o pesquisado: então ele é o outro lado.
+    parteContraria = autor;
   }
 
   let valorCausa = p.valor_acao || p.valor_causa;

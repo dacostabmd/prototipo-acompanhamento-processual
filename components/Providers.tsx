@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { theme } from '@/lib/theme';
+import { IS_DEV } from '@/lib/devDock';
 import '@mantine/notifications/styles.css';
 
 // Controle de simulação pagante/não pagante do protótipo
@@ -15,7 +16,7 @@ export default function Providers({ children }: { children: ReactNode }) {
     <MantineProvider theme={theme} defaultColorScheme="dark">
       <Notifications position="top-right" zIndex={300} />
       {children}
-      <DevMetrics />
+      {IS_DEV && <DevMetrics />}
     </MantineProvider>
   );
 }

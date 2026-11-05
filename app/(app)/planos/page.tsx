@@ -141,7 +141,7 @@ export default function PlanosPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8 sm:px-10 sm:py-12">
+    <div className="bf-page [--bf-page-max:64rem]">
       <header className="text-center">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-3.5 py-1 text-xs font-semibold text-[color:var(--tt-text-2)]">
           <Sparkles size={13} className="text-[#1E7CF2]" />
@@ -156,10 +156,11 @@ export default function PlanosPage() {
       </header>
 
       {/* Grid de Planos */}
-      <div className="mt-10 grid gap-6 md:grid-cols-2">
+      <div className="bf-cols mt-10 grid md:grid-cols-2">
         {/* Card Plano Gratuito */}
         <div
-          className={`relative flex flex-col justify-between rounded-3xl border p-6 backdrop-blur-xl sm:p-8 ${
+          data-tour="planos-gratuito"
+          className={`bf-paper relative flex flex-col justify-between rounded-3xl border p-6 backdrop-blur-xl sm:p-8 ${
             !isPro ? 'border-white/20 bg-white/5 ring-1 ring-white/10' : 'border-white/10 bg-white/[0.02]'
           }`}
         >
@@ -231,7 +232,8 @@ export default function PlanosPage() {
 
         {/* Card Plano Pro */}
         <div
-          className={`relative flex flex-col justify-between rounded-3xl border p-6 shadow-2xl backdrop-blur-xl sm:p-8 ${
+          data-tour="planos-pro"
+          className={`bf-paper relative flex flex-col justify-between rounded-3xl border p-6 shadow-2xl backdrop-blur-xl sm:p-8 ${
             isPro
               ? 'border-[#1E7CF2]/60 bg-gradient-to-b from-[#1E7CF2]/15 to-white/5 ring-1 ring-[#1E7CF2]/40'
               : 'border-[#1E7CF2]/40 bg-gradient-to-b from-[#1E7CF2]/10 to-white/5 ring-1 ring-[#1E7CF2]/20'
@@ -294,7 +296,7 @@ export default function PlanosPage() {
             </ul>
           </div>
 
-          <div className="mt-8 pt-4 border-t border-white/10">
+          <div className="mt-8 pt-4 border-t border-white/10" data-tour="planos-acao">
             {isPro ? (
               <div className="flex items-center justify-center gap-2 rounded-xl border border-[#1E7CF2]/40 bg-[#1E7CF2]/20 py-2.5 text-center text-sm font-semibold text-[color:var(--tt-text-2)]">
                 <ShieldCheck size={16} className="text-[#1E7CF2]" />
@@ -315,7 +317,7 @@ export default function PlanosPage() {
       </div>
 
       {/* Tabela de Comparação */}
-      <section className="mt-16 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl sm:p-8">
+      <section data-tour="planos-comparativo" className="bf-paper mt-16 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl sm:p-8">
         <h2 className="text-xl font-bold text-white">Comparativo Detalhado de Recursos</h2>
         <p className="mt-1 text-xs text-white/50">Veja todas as diferenças entre os planos lado a lado.</p>
 
@@ -371,7 +373,7 @@ export default function PlanosPage() {
         </h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {FAQS.map((faq, i) => (
-            <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div key={i} className="bf-paper rounded-2xl border border-white/10 bg-white/[0.03] p-5">
               <h3 className="text-sm font-semibold text-white">{faq.pergunta}</h3>
               <p className="mt-2 text-xs leading-relaxed text-white/60">{faq.resposta}</p>
             </div>

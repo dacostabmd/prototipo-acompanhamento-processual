@@ -2,30 +2,45 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Switch } from '@mantine/core';
+import { Drawer, Switch } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { AnimatePresence, motion } from 'motion/react';
 import {
+  Banknote,
   Bell,
   BellRing,
+  Building2,
+  CalendarDays,
   CheckCheck,
+  ChevronRight,
   Clock,
   Crown,
   Gavel,
+  History,
+  Landmark,
   Mail,
   MessageCircle,
+  Scale,
   Send,
   ShieldAlert,
   SlidersHorizontal,
   Sparkles,
   TriangleAlert,
+  UserRound,
   Zap
 } from 'lucide-react';
 import { authFetch } from '@/lib/authFetch';
 import { useSharedProfile } from '@/components/ProfileProvider';
 import { UpgradeProModal } from '@/components/UpgradeProModal';
 import { WhatsAppSimulatorModal } from './WhatsAppSimulatorModal';
-import type { ModoSensibilidade, ProcessoAcompanhado, RespostaMonitoramento, UrgenciaResumo, Notificacao } from '@/lib/types/monitoramento';
+import type {
+  ModoSensibilidade,
+  PoloProcesso,
+  ProcessoAcompanhado,
+  RespostaMonitoramento,
+  UrgenciaResumo,
+  Notificacao
+} from '@/lib/types/monitoramento';
 
 const fmtData = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '—');
 // Movimentações só têm dia (AAAA-MM-DD, gravado como meia-noite UTC): no fuso local cairia no dia anterior.
@@ -39,7 +54,113 @@ const URGENCIA: Record<UrgenciaResumo, { rotulo: string; classe: string }> = {
   baixa: { rotulo: 'Rotina', classe: 'border-white/15 bg-white/5 text-white/60' }
 };
 
+/** Ponto colorido por tipo de movimentação (classificação gravada na sincronização). */
+const COR_MOV: Record<string, string> = {
+  urgente: 'bg-red-400',
+  positivo: 'bg-emerald-400',
+  informativo: 'bg-[#1E7CF2]'
+};
+
+const fmtMoeda = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+/** Distribuição pode vir como ISO (coluna) ou já como dd/mm/aaaa (metadados da fonte). */
+const fmtDistribuicao = (v: string) => (/^\d{2}\/\d{2}\/\d{4}$/.test(v) ? v : fmtDia(v));
+
+/** Nome principal do polo + "e mais N" e o primeiro advogado; lista completa no tooltip. */
+function Polo({ rotulo, polo }: { rotulo: string; polo: PoloProcesso }) {
+  if (polo.nomes.length === 0) return null;
+  const [principal, ...outros] = polo.nomes;
+  return (
+    <div className="min-w-0 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2" title={polo.nomes.join('\n')}>
+      <p className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-white/40">
+        {rotulo === 'Autor' ? <UserRound size={11} /> : <Building2 size={11} />}
+        {rotulo}
+      </p>
+      <p className="mt-0.5 truncate text-sm text-white/85">
+        {principal}
+        {outros.length > 0 && <span className="text-white/45"> e mais {outros.length}</span>}
+      </p>
+      {polo.advogados.length > 0 && (
+        <p className="mt-0.5 truncate text-[11px] text-white/45" title={polo.advogados.join('\n')}>
+          Adv.: {polo.advogados[0]}
+          {polo.advogados.length > 1 && ` +${polo.advogados.length - 1}`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Todas as movimentações carregadas do processo, cada uma em duas versões: o que significa em
+ * linguagem simples (IA) e o texto técnico do tribunal, para o advogado.
+ */
+function DrawerMovimentacoes({
+  processo,
+  traduzindo,
+  onClose
+}: {
+  processo: ProcessoAcompanhado | null;
+  traduzindo: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Drawer
+      opened={!!processo}
+      onClose={onClose}
+      position="right"
+      size="lg"
+      padding="lg"
+      title={
+        processo && (
+          <span className="block">
+            <span className="block text-base font-semibold text-white">{processo.numeroCnj}</span>
+            <span className="block text-xs text-white/50">{[processo.tribunal, processo.classe].filter(Boolean).join(' · ')}</span>
+          </span>
+        )
+      }
+    >
+      {processo && (
+        <ol className="relative list-none space-y-5 border-l border-white/10 pl-5">
+          {processo.movimentacoes.map(m => (
+            <li key={m.id} className="relative">
+              <span
+                className={`absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full ${COR_MOV[m.tipo ?? ''] ?? 'bg-white/30'}`}
+                aria-hidden="true"
+              />
+              <p className="text-xs tabular-nums text-white/50">{fmtDia(m.data)}</p>
+
+              <div className="mt-1.5 rounded-xl border border-[#1E7CF2]/25 bg-[#1E7CF2]/[0.06] px-3 py-2.5">
+                <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#1E7CF2]">
+                  <Sparkles size={11} />
+                  Em linguagem simples
+                </p>
+                <p className={`mt-1 text-sm leading-relaxed text-white/85 ${!m.traducao && traduzindo ? 'animate-pulse' : ''}`}>
+                  {m.traducao ?? (traduzindo ? 'Traduzindo...' : 'Tradução indisponível no momento.')}
+                </p>
+              </div>
+
+              <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5">
+                <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/45">
+                  <Scale size={11} />
+                  Texto do tribunal (para advogados)
+                </p>
+                <p className="mt-1 whitespace-pre-line break-words text-xs leading-relaxed text-white/65">{m.textoOriginal}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+      {processo && (
+        <p className="mt-6 text-[11px] text-white/40">Tradução gerada por IA. Não substitui a orientação do seu advogado.</p>
+      )}
+    </Drawer>
+  );
+}
+
 type Canal = 'notificarEmail' | 'notificarWhatsapp';
+
+/** Formato único dos botões de ação da seção (cor vem de bf-btn-ouro = principal ou bf-btn-sec = secundário). */
+const BOTAO_ACAO =
+  'inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-full px-4 text-[13px] font-semibold whitespace-nowrap';
 
 /**
  * Acompanhamento em "Meus processos": alertas recentes (ap_notificacoes) e, por processo monitorado,
@@ -58,11 +179,42 @@ export function AcompanhamentoProcessos() {
   const [salvando, setSalvando] = useState<Record<string, boolean>>({});
   const [testandoWhatsapp, setTestandoWhatsapp] = useState<Record<string, boolean>>({});
   const [erroCanal, setErroCanal] = useState<{ processoId: string; mensagem: string; semTelefone: boolean } | null>(null);
+  const [abertoId, setAbertoId] = useState<string | null>(null);
+  const [traduzindo, setTraduzindo] = useState(false);
+
+  /** Pede ao servidor a tradução leiga das movimentações que ainda não têm e aplica na tela. */
+  const traduzirPendentes = useCallback((d: RespostaMonitoramento) => {
+    const processoIds = d.processos.filter(p => p.movimentacoes.some(m => !m.traducao)).map(p => p.processoId);
+    if (processoIds.length === 0) return;
+    setTraduzindo(true);
+    authFetch('/api/monitoramento/traduzir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ processoIds })
+    })
+      .then(res => (res.ok ? res.json() : Promise.reject()))
+      .then(({ traducoes }: { traducoes: Record<string, string> }) =>
+        setDados(atual =>
+          atual && {
+            ...atual,
+            processos: atual.processos.map(p => ({
+              ...p,
+              movimentacoes: p.movimentacoes.map(m => (traducoes[m.id] ? { ...m, traducao: traducoes[m.id] } : m))
+            }))
+          }
+        )
+      )
+      .catch(() => undefined)
+      .finally(() => setTraduzindo(false));
+  }, []);
 
   useEffect(() => {
     authFetch('/api/monitoramento')
       .then(res => (res.ok ? res.json() : Promise.reject()))
-      .then((d: RespostaMonitoramento) => setDados(d))
+      .then((d: RespostaMonitoramento) => {
+        setDados(d);
+        traduzirPendentes(d);
+      })
       .catch(() => {
         setErroCarga(true);
         setDados({ processos: [], telefoneValido: false });
@@ -74,7 +226,7 @@ export function AcompanhamentoProcessos() {
         setNaoLidas(d.naoLidas ?? 0);
       })
       .catch(() => undefined);
-  }, []);
+  }, [traduzirPendentes]);
 
   const alternarCanal = useCallback(async (processo: ProcessoAcompanhado, canal: Canal, valor: boolean) => {
     // Paywall do WhatsApp: exclusivo para assinantes do Plano Pro
@@ -209,7 +361,7 @@ export function AcompanhamentoProcessos() {
 
   if (!dados) {
     return (
-      <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-white/60 backdrop-blur-md">
+      <div className="bf-paper mt-10 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-white/60 backdrop-blur-md">
         Carregando acompanhamento…
       </div>
     );
@@ -218,7 +370,7 @@ export function AcompanhamentoProcessos() {
   return (
     <>
       {notificacoes.length > 0 && (
-        <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-sm backdrop-blur-md">
+        <section className="bf-paper mt-10 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-sm backdrop-blur-md">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-white">
               {naoLidas > 0 ? <BellRing size={18} strokeWidth={1.8} className="text-[#1E7CF2]" /> : <Bell size={18} strokeWidth={1.8} className="text-white/50" />}
@@ -255,7 +407,7 @@ export function AcompanhamentoProcessos() {
         </section>
       )}
 
-      <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-sm backdrop-blur-md">
+      <section className="bf-paper mt-10 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl backdrop-blur-xl sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-white">
@@ -271,16 +423,17 @@ export function AcompanhamentoProcessos() {
             <button
               type="button"
               onClick={() => setModalSimulatorAberto(true)}
-              className="bf-btn-sec bf-btn-whats inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#25d366]/40 bg-[#25d366]/10 px-3 py-1 text-xs font-semibold text-[#25d366] transition-all hover:bg-[#25d366]/20"
+              title="Veja como os alertas chegam no WhatsApp, sem enviar nada de verdade"
+              className={`bf-btn-sec ${BOTAO_ACAO}`}
             >
-              <MessageCircle size={13} />
-              <span>Simulador Copiloto WhatsApp</span>
+              <MessageCircle size={15} className="text-[#25d366]" aria-hidden="true" />
+              <span>Simular no WhatsApp</span>
             </button>
 
             {profile.plano === 'pro' ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 px-3 py-1 text-xs font-semibold text-[color:var(--tt-text-2)]">
-                <Crown size={13} className="text-[#1E7CF2]" />
-                Plano Pro Ativo
+              <span className={`${BOTAO_ACAO} cursor-default border border-[#1E7CF2]/40 bg-[#1E7CF2]/10 text-[color:var(--tt-text-2)]`}>
+                <Crown size={15} className="text-[#1E7CF2]" aria-hidden="true" />
+                Plano Pro ativo
               </span>
             ) : (
               <button
@@ -289,10 +442,10 @@ export function AcompanhamentoProcessos() {
                   setMotivoPro(undefined);
                   setModalProAberto(true);
                 }}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-3 py-1 text-xs font-semibold text-[color:var(--tt-text-2)] transition-all hover:bg-[#1E7CF2]/25"
+                className={`bf-btn-ouro ${BOTAO_ACAO}`}
               >
-                <Crown size={13} />
-                <span>Upgrade Pro</span>
+                <Crown size={15} aria-hidden="true" />
+                <span>Assinar o Pro</span>
               </button>
             )}
           </div>
@@ -329,32 +482,34 @@ export function AcompanhamentoProcessos() {
                   const res = await authFetch('/api/processos/seed-demo', { method: 'POST' });
                   if (res.ok) window.location.reload();
                 }}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#1E7CF2]/40 bg-[#1E7CF2]/15 px-4 py-2 text-xs font-semibold text-[color:var(--tt-text-2)] transition-all hover:bg-[#1E7CF2]/25"
+                className={`bf-btn-ouro ${BOTAO_ACAO}`}
               >
-                <Sparkles size={13} />
-                <span>Carregar Processos de Demonstração</span>
+                <Sparkles size={15} aria-hidden="true" />
+                <span>Carregar processos de exemplo</span>
               </button>
               <button
                 type="button"
                 onClick={() => setModalSimulatorAberto(true)}
-                className="bf-btn-sec bf-btn-whats inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#25d366]/40 bg-[#25d366]/10 px-4 py-2 text-xs font-semibold text-[#25d366] transition-all hover:bg-[#25d366]/20"
+                className={`bf-btn-sec ${BOTAO_ACAO}`}
               >
-                <MessageCircle size={13} />
-                <span>Testar no Simulador WhatsApp</span>
+                <MessageCircle size={15} className="text-[#25d366]" aria-hidden="true" />
+                <span>Simular no WhatsApp</span>
               </button>
             </div>
           </div>
         )}
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="mt-4 grid gap-3">
           {dados.processos.map((p, index) => (
             <motion.article
               key={p.processoId}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.5), ease: [0.22, 1, 0.36, 1] }}
-              className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+              className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,360px)] md:gap-6"
             >
+              {/* Coluna esquerda: dados do processo */}
+              <div className="flex min-w-0 flex-col">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="inline-flex items-center gap-1.5 break-all font-medium text-white">
@@ -364,6 +519,7 @@ export function AcompanhamentoProcessos() {
                   <p className="mt-0.5 text-xs text-white/50">
                     {[p.tribunal, p.classe].filter(Boolean).join(' · ') || 'Tribunal não informado'}
                   </p>
+                  {p.assunto && <p className="mt-0.5 text-xs text-white/70">{p.assunto}</p>}
                 </div>
                 {p.resumo?.urgencia && (
                   <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${URGENCIA[p.resumo.urgencia].classe}`}>
@@ -372,6 +528,80 @@ export function AcompanhamentoProcessos() {
                   </span>
                 )}
               </div>
+
+              {(p.poloAtivo.nomes.length > 0 || p.poloPassivo.nomes.length > 0) && (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <Polo rotulo="Autor" polo={p.poloAtivo} />
+                  <Polo rotulo="Réu" polo={p.poloPassivo} />
+                </div>
+              )}
+
+              {(p.vara || p.distribuidoEm || p.valorCausa != null) && (
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-white/55">
+                  {p.vara && (
+                    <span className="inline-flex min-w-0 items-center gap-1.5" title={p.vara}>
+                      <Landmark size={12} className="shrink-0 text-white/35" />
+                      <span className="line-clamp-1">{p.vara}</span>
+                    </span>
+                  )}
+                  {p.distribuidoEm && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <CalendarDays size={12} className="text-white/35" />
+                      Distribuído em {fmtDistribuicao(p.distribuidoEm)}
+                    </span>
+                  )}
+                  {p.valorCausa != null && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Banknote size={12} className="text-white/35" />
+                      {fmtMoeda(p.valorCausa)}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {p.movimentacoes.length > 0 && (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setAbertoId(p.processoId)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setAbertoId(p.processoId);
+                    }
+                  }}
+                  aria-label={`Ver movimentações do processo ${p.numeroCnj}`}
+                  className="group -mx-2 mt-3 cursor-pointer rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-white/[0.04]"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-white/40">
+                      <History size={12} />
+                      Últimas movimentações
+                    </span>
+                    <span className="inline-flex items-center gap-0.5 text-[11px] text-white/40 transition-colors group-hover:text-[#1E7CF2]">
+                      Ver detalhes
+                      <ChevronRight size={12} />
+                    </span>
+                  </span>
+                  <ul className="mt-1.5 list-none space-y-1 pl-0">
+                    {p.movimentacoes.slice(0, 3).map(m => (
+                      <li key={m.id} className="flex min-w-0 items-baseline gap-2 text-xs">
+                        <span className={`h-1.5 w-1.5 shrink-0 translate-y-[-1px] rounded-full ${COR_MOV[m.tipo ?? ''] ?? 'bg-white/30'}`} />
+                        <span className="shrink-0 tabular-nums text-white/45">{fmtDia(m.data)}</span>
+                        {m.traducao ? (
+                          <span className="min-w-0 line-clamp-2 text-white/80" title={m.traducao}>
+                            {m.traducao}
+                          </span>
+                        ) : (
+                          <span className={`min-w-0 truncate text-white/55 ${traduzindo ? 'animate-pulse' : ''}`} title={m.titulo}>
+                            {m.titulo}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {p.resumo ? (
                 <div className="mt-3 space-y-1.5 text-sm leading-relaxed">
@@ -384,19 +614,22 @@ export function AcompanhamentoProcessos() {
                   )}
                   <p className="text-[11px] text-white/35">Resumo gerado por IA em {fmtData(p.resumo.criadoEm)}. Não substitui a orientação do seu advogado.</p>
                 </div>
-              ) : (
+              ) : p.movimentacoes.length === 0 ? (
                 <p className="mt-3 text-sm text-white/50">Sem movimentação nova desde que começamos a acompanhar.</p>
-              )}
+              ) : null}
 
-              <div className="mt-auto pt-4">
-                <p className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/40">
-                  <span>Últ. movimentação: {fmtDia(p.ultimaMovimentacaoEm)}</span>
-                  <span className="inline-flex items-center gap-1">
-                    <Clock size={11} />
-                    Próxima conferência: {p.proximaConsultaEm ? fmtData(p.proximaConsultaEm) : 'esta noite'}
-                  </span>
-                </p>
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 border-t border-white/5 pt-3">
+              <p className="mt-auto inline-flex flex-wrap items-center gap-x-3 gap-y-1 pt-4 text-[11px] text-white/40">
+                <span>Últ. movimentação: {fmtDia(p.ultimaMovimentacaoEm)}</span>
+                <span className="inline-flex items-center gap-1">
+                  <Clock size={11} />
+                  Próxima conferência: {p.proximaConsultaEm ? fmtData(p.proximaConsultaEm) : 'esta noite'}
+                </span>
+              </p>
+              </div>
+
+              {/* Coluna direita: canais e frequência dos alertas */}
+              <div className="min-w-0 border-t border-white/5 pt-3 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+                <div className="flex flex-wrap gap-x-5 gap-y-2">
                   <Switch
                     size="sm"
                     color="brand"
@@ -423,21 +656,10 @@ export function AcompanhamentoProcessos() {
                     }
                     styles={{ track: { cursor: 'pointer' }, label: { cursor: 'pointer' } }}
                   />
-                  {p.notificarWhatsapp && (
-                    <button
-                      type="button"
-                      disabled={testandoWhatsapp[p.processoId]}
-                      onClick={() => testarEnvioWhatsApp(p.processoId)}
-                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2.5 py-1 text-xs font-medium text-[color:var(--tt-text-2)] transition-colors hover:bg-[#1E7CF2]/20 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Send size={12} className={testandoWhatsapp[p.processoId] ? 'animate-pulse' : ''} />
-                      {testandoWhatsapp[p.processoId] ? 'Enviando...' : 'Testar WhatsApp'}
-                    </button>
-                  )}
                 </div>
 
                 {(p.notificarEmail || p.notificarWhatsapp) && (
-                  <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
+                  <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="inline-flex items-center gap-1.5 text-xs font-medium text-white/80">
                         <SlidersHorizontal size={13} className="text-[#1E7CF2]" />
@@ -502,6 +724,20 @@ export function AcompanhamentoProcessos() {
                     </div>
                   </div>
                 )}
+
+                {p.notificarWhatsapp && (
+                  <div className="mt-5 flex justify-center">
+                    <button
+                      type="button"
+                      disabled={testandoWhatsapp[p.processoId]}
+                      onClick={() => testarEnvioWhatsApp(p.processoId)}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-3 py-1.5 text-xs font-medium text-[color:var(--tt-text-2)] transition-colors hover:bg-[#1E7CF2]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Send size={12} className={testandoWhatsapp[p.processoId] ? 'animate-pulse' : ''} />
+                      {testandoWhatsapp[p.processoId] ? 'Enviando...' : 'Testar WhatsApp'}
+                    </button>
+                  </div>
+                )}
                 <AnimatePresence>
                   {erroCanal?.processoId === p.processoId && (
                     <motion.p
@@ -524,6 +760,12 @@ export function AcompanhamentoProcessos() {
           ))}
         </div>
       </section>
+
+      <DrawerMovimentacoes
+        processo={dados.processos.find(p => p.processoId === abertoId) ?? null}
+        traduzindo={traduzindo}
+        onClose={() => setAbertoId(null)}
+      />
 
       <UpgradeProModal
         opened={modalProAberto}

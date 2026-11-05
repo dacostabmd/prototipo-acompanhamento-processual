@@ -6,8 +6,19 @@ import { Modal, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { formatChatMessageHtml, formatDateLabel } from '@/lib/format';
 import type { CaseData, LegalProcess } from '@/lib/mockProcesses';
-import { Bell, BellRing, Download, Maximize2, MessageCircle, RefreshCw, Search, Send, Smartphone, X } from 'lucide-react';
+import { Bell, BellRing, Download, Maximize2, MessageCircle, RefreshCw, Search, Send, Smartphone, Sparkles, X } from 'lucide-react';
 import AiSummaryLoadingBar from './AiSummaryLoadingBar';
+import AbasDeslizantes from './AbasDeslizantes';
+
+/** Modelos de resposta do chat (espelham lib/agent/processAgent.ts, que não pode ir para o bundle do cliente). */
+const MODOS_RESPOSTA = ['Direta', 'Detalhista', 'Resumido', 'Instrutivo'] as const;
+type ModoResposta = (typeof MODOS_RESPOSTA)[number];
+const DESCRICAO_MODO: Record<ModoResposta, string> = {
+  Direta: 'Direta: a resposta logo na primeira frase, sem rodeios, e o próximo passo.',
+  Detalhista: 'Detalhista: análise completa, com linha do tempo, riscos, cenários e base legal.',
+  Resumido: 'Resumido: só o essencial, em até 3 tópicos curtos.',
+  Instrutivo: 'Instrutivo: explica como um professor, com termos traduzidos e um passo a passo do que fazer.'
+};
 
 const GOLD = '#1E7CF2';
 const GOLD_SOFT = 'rgba(214,178,110,0.12)';
@@ -26,10 +37,11 @@ export type FonteResultado = { label: string; status: 'found' | 'not-found' | 'e
 
 type StatusProcesso = 'andamento' | 'pausado' | 'encerrado';
 
-const STATUS_META: Record<StatusProcesso, { label: string; color: string }> = {
-  andamento: { label: 'Em andamento', color: BLUE },
-  pausado: { label: 'Pausado', color: GOLD },
-  encerrado: { label: 'Encerrado', color: 'rgb(var(--bf-fg) / 0.55)' }
+/** Cor por situação, legível nos dois temas: verde = andando, vermelho = parado, amarelo = encerrado. */
+const STATUS_META: Record<StatusProcesso, { label: string; color: string; bg: string }> = {
+  andamento: { label: 'Em andamento', color: '#1FA971', bg: 'rgba(31, 169, 113, 0.14)' },
+  pausado: { label: 'Pausado', color: '#E5484D', bg: 'rgba(229, 72, 77, 0.14)' },
+  encerrado: { label: 'Encerrado', color: '#D99A00', bg: 'rgba(217, 154, 0, 0.16)' }
 };
 
 const FASES = [
@@ -139,6 +151,15 @@ function separarAdvogado(texto?: string): { pessoas: string[]; advogado?: string
   return { pessoas, advogado: resto.join(', ').trim() || undefined };
 }
 
+/** Parte contrária, ignorando o caso em que a fonte repetiu o próprio autor no polo passivo. */
+function outroLado(p: { parteContraria?: string; autor?: string }): string {
+  const contra = (p.parteContraria || '').trim();
+  if (!contra || /^n[ãa]o informad/i.test(contra)) return '';
+  const a = separarAdvogado(p.autor).pessoas.join('|').toLowerCase();
+  const c = separarAdvogado(contra).pessoas.join('|').toLowerCase();
+  return a && a === c ? '' : contra;
+}
+
 interface ProcessResultViewProps {
   fullName: string;
   cpf: string;
@@ -198,6 +219,7 @@ export default function ProcessResultView({
   }, []);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatModo, setChatModo] = useState<ModoResposta>('Direta');
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [chatExpandido, setChatExpandido] = useState(false);
@@ -261,17 +283,29 @@ export default function ProcessResultView({
         body: JSON.stringify({
           messages: newMessages,
           tone: chatTone,
+          modo: chatModo,
           model: aiModel,
+          // Tudo o que a tela sabe de cada processo, com todas as movimentações; o perfil e os processos
+          // da conta são somados no servidor (lib/agent/contextoConta.ts).
           caseContext: {
             fullName,
             cpf,
             totalProcessos: caseData.totalProcessos,
-            processes: caseData.processes.map(p => ({
+            processoEmFoco: selecionado?.p.numero,
+            processes: processos.map(({ p, status, fase }) => ({
               numero: p.numero,
               tribunal: p.tribunal,
               tipo: p.tipo,
               valorCausa: p.valorCausa,
-              parteContraria: p.parteContraria
+              parteContraria: p.parteContraria,
+              assunto: p.assunto || p.assuntosDataJud?.join(', '),
+              varaForo: p.varaForo || p.orgaoJulgadorDataJud,
+              autor: p.autor,
+              reu: p.reu,
+              distribuicao: p.distribuicao,
+              situacao: STATUS_META[status].label,
+              fase: FASES[fase]?.titulo,
+              movimentos: movimentosOrdenados(p).map(m => ({ data: m.data, titulo: m.titulo, descricao: m.descricao }))
             }))
           }
         })
@@ -293,8 +327,15 @@ export default function ProcessResultView({
     <>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: grande ? 16 : 0 }}>
         {chatMessages.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {['Quando ele deve receber?', 'O que acontece agora?', 'O que significa cada movimentação?'].map(q => (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 8 }}>
+            {[
+              'Como está o andamento deste processo?',
+              'O que acontece agora e quanto tempo pode levar?',
+              'Explique cada movimentação em linguagem simples',
+              'Existe algum risco ou prazo correndo?',
+              'Quando e quanto devo receber?',
+              'Compare este processo com os outros da minha conta'
+            ].map(q => (
               <button key={q} type="button" className="prv-sugestao" onClick={() => void sendChatMessage(q)}>
                 {q}
               </button>
@@ -305,9 +346,9 @@ export default function ProcessResultView({
           <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
             <div
               style={{
-                maxWidth: '88%',
-                padding: '9px 13px',
-                fontSize: grande ? 13.5 : 12.5,
+                maxWidth: msg.role === 'user' ? '70%' : '85%',
+                padding: '10px 14px',
+                fontSize: 13.5,
                 lineHeight: 1.6,
                 borderRadius: 6,
                 background: msg.role === 'user' ? GOLD_SOFT : 'rgb(var(--bf-fg) / 0.06)',
@@ -323,7 +364,11 @@ export default function ProcessResultView({
             </div>
           </div>
         ))}
-        {chatLoading && <div style={{ fontSize: 12, color: MUTED, animation: 'bf-blink 1.4s ease-in-out infinite' }}>Analisando o processo...</div>}
+        {chatLoading && (
+          <div style={{ fontSize: 12, color: MUTED, animation: 'bf-blink 1.4s ease-in-out infinite' }}>
+            Analisando as movimentações ({chatModo.toLowerCase()})...
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
       <div style={{ display: 'flex', gap: 8, padding: grande ? 12 : '12px 0 0', borderTop: grande ? `1px solid ${BORDER}` : 'none' }}>
@@ -332,7 +377,7 @@ export default function ProcessResultView({
           value={chatInput}
           onChange={e => setChatInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && void sendChatMessage()}
-          placeholder="Escreva sua dúvida"
+          placeholder="Pergunte sobre o andamento, prazos, riscos ou qualquer processo da sua conta"
           className="prv-input"
         />
         <button type="button" onClick={() => void sendChatMessage()} aria-label="Enviar" className="prv-btn prv-btn-gold bf-btn-ouro" style={{ padding: '8px 12px' }}>
@@ -345,7 +390,12 @@ export default function ProcessResultView({
   const sel = selecionado;
   const selP = sel?.p;
   const autor = separarAdvogado(selP?.autor);
-  const reu = separarAdvogado(selP?.reu || selP?.parteContraria);
+  const reuBruto = separarAdvogado(selP?.reu || selP?.parteContraria);
+  // Dado antigo/defeituoso com o autor repetido no polo passivo: não mostrar o autor como "o outro lado".
+  const reuRepeteAutor =
+    reuBruto.pessoas.length > 0 &&
+    reuBruto.pessoas.join('|').toLowerCase() === autor.pessoas.join('|').toLowerCase();
+  const reu = reuRepeteAutor ? { pessoas: [] as string[], advogado: undefined } : reuBruto;
   const glossario = selP ? GLOSSARIO.filter(g => g.regex.test(textoDoProcesso(selP))).slice(0, 5) : [];
   const monitorado = selP ? monitorados.has(selP.numero) : false;
 
@@ -508,7 +558,7 @@ export default function ProcessResultView({
       </div>
 
       {/* ── Em resumo ── */}
-      <section className="prv-card" style={{ marginBottom: 16 }}>
+      <section className="prv-card bf-paper" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <span className="prv-eyebrow">Em resumo</span>
           <button
@@ -549,7 +599,7 @@ export default function ProcessResultView({
 
       {/* ── Onde procuramos ── */}
       {totalTribunais > 0 && (
-        <section className="prv-card" style={{ marginBottom: 20 }}>
+        <section className="prv-card bf-paper" style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>Onde procuramos</div>
@@ -610,14 +660,14 @@ export default function ProcessResultView({
                       key={`${item.p.numero}-${item.idx}`}
                       type="button"
                       onClick={() => setProcessoSelecionadoIdx(item.idx)}
-                      className={`prv-item${ativo ? ' prv-item-ativo' : ''}`}
+                      className={`prv-item bf-paper${ativo ? ' prv-item-ativo' : ''}`}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: TEXT, lineHeight: 1.35 }}>{item.titulo}</span>
                         <StatusBadge status={item.status} />
                       </div>
                       <div className="prv-clamp" style={{ fontSize: 11.5, color: MUTED, marginTop: 4 }}>
-                        Contra {item.p.parteContraria || 'parte não informada'}
+                        Contra {outroLado(item.p) || 'parte não informada'}
                         {item.p.valorCausa ? ` · ${item.p.valorCausa}` : ''}
                       </div>
                       <div style={{ fontSize: 10.5, color: 'rgb(var(--bf-fg) / 0.5)', marginTop: 3, fontFamily: 'monospace', overflowWrap: 'anywhere' }}>
@@ -633,7 +683,7 @@ export default function ProcessResultView({
         {sel && selP && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
             {/* Cabeçalho do processo */}
-            <section className="prv-card">
+            <section className="prv-card bf-paper">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 <div style={{ minWidth: 0 }}>
                   <StatusBadge status={sel.status} />
@@ -644,6 +694,7 @@ export default function ProcessResultView({
                   type="button"
                   disabled={salvandoMonitoramento}
                   className={`prv-btn prv-no-print ${monitorado ? 'bf-btn-sec prv-btn-ativo' : 'prv-btn-gold bf-btn-ouro'}`}
+                  data-tour="resultado-acompanhar"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -781,7 +832,7 @@ export default function ProcessResultView({
 
               <p style={{ margin: '14px 0', fontSize: 14, lineHeight: 1.7, color: TEXT }}>
                 {primeiroNome} é quem pede neste processo
-                {selP.parteContraria ? `, contra ${selP.parteContraria}` : ''}.{' '}
+                {outroLado(selP) ? `, contra ${outroLado(selP)}` : ''}.{' '}
                 {sel.status === 'pausado'
                   ? `O processo está pausado e está na fase de ${FASES[sel.fase].titulo.toLowerCase()}.`
                   : sel.status === 'encerrado'
@@ -804,15 +855,27 @@ export default function ProcessResultView({
             </section>
 
             {/* Fase */}
-            <section className="prv-card">
+            <section className="prv-card bf-paper">
               <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 14 }}>Em que fase está</div>
               <div className="prv-fases">
                 {FASES.map((f, i) => {
+                  // Etapas cumpridas na cor da situação (verde andando, vermelho parado, amarelo encerrado);
+                  // a etapa atual ganha o título na mesma cor para ser achada de relance.
                   const feito = i <= sel.fase;
+                  const atual = i === sel.fase;
+                  const cor = STATUS_META[sel.status as StatusProcesso]?.color ?? GOLD;
                   return (
                     <div key={f.titulo} style={{ minWidth: 0 }}>
-                      <div style={{ height: 4, borderRadius: 2, background: feito ? GOLD : 'rgb(var(--bf-fg) / 0.14)', marginBottom: 8 }} />
-                      <div style={{ fontSize: 12, fontWeight: 700, color: feito ? TEXT : MUTED }}>{f.titulo}</div>
+                      <div
+                        style={{
+                          height: atual ? 6 : 4,
+                          borderRadius: 3,
+                          background: feito ? cor : 'rgb(var(--bf-fg) / 0.14)',
+                          opacity: feito && !atual ? 0.55 : 1,
+                          marginBottom: atual ? 6 : 8
+                        }}
+                      />
+                      <div style={{ fontSize: 12, fontWeight: 700, color: atual ? cor : feito ? TEXT : MUTED }}>{f.titulo}</div>
                       <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.4 }}>{f.desc}</div>
                     </div>
                   );
@@ -822,7 +885,7 @@ export default function ProcessResultView({
 
             {/* Envolvidos + dados */}
             <div className="prv-duo">
-              <section className="prv-card">
+              <section className="prv-card bf-paper">
                 <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 12 }}>Quem está envolvido</div>
                 <div style={{ fontSize: 11, color: MUTED }}>Do lado de {primeiroNome} (quem pede)</div>
                 <ListaPessoas key={`a-${selP.numero}`} pessoas={autor.pessoas.length ? autor.pessoas : [fullName]} />
@@ -833,7 +896,7 @@ export default function ProcessResultView({
                 {reu.advogado && <TextoLimitado prefixo="Representado por: " texto={reu.advogado} />}
               </section>
 
-              <section className="prv-card">
+              <section className="prv-card bf-paper">
                 <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 12 }}>Dados do processo</div>
                 <DadoLinha label="Onde corre" valor={[siglaTribunal(selP.tribunal), selP.varaForo || selP.orgaoJulgadorDataJud].filter(Boolean).join(' · ') || '—'} />
                 <DadoLinha label="Começou em" valor={selP.distribuicao || '—'} />
@@ -846,7 +909,7 @@ export default function ProcessResultView({
             </div>
 
             {/* Movimentações */}
-            <section className="prv-card">
+            <section className="prv-card bf-paper">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>Últimas movimentações, traduzidas</div>
                 {selP.movimentos.length > 3 && (
@@ -863,9 +926,9 @@ export default function ProcessResultView({
                 ))}
             </section>
 
-            {/* Glossário + chat */}
-            <div className="prv-duo">
-              <section className="prv-card">
+            {/* Glossário (o chat fica numa linha própria, abaixo, ocupando toda a largura) */}
+            <div>
+              <section className="prv-card bf-paper">
                 <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 12 }}>Palavras deste processo</div>
                 {glossario.length === 0 && <p style={{ margin: 0, fontSize: 12.5, color: MUTED }}>Nenhum termo técnico a explicar.</p>}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -878,22 +941,58 @@ export default function ProcessResultView({
                 </div>
               </section>
 
-              <section className="prv-card prv-no-print" style={{ display: 'flex', flexDirection: 'column', height: 360 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>Ficou com dúvida?</div>
-                  <button type="button" className="prv-icon-btn" onClick={() => setChatExpandido(true)} title="Ampliar chat" aria-label="Ampliar chat">
-                    <Maximize2 size={14} />
-                  </button>
-                </div>
-                <div style={{ fontSize: 11.5, color: MUTED, margin: '2px 0 12px' }}>
-                  Pergunte em português comum. A resposta usa só os dados deste processo.
-                </div>
-                {renderChatCorpo(chatBottomRef, false)}
-              </section>
             </div>
           </div>
         )}
       </div>
+
+      {/* Assistente jurídico de IA: linha própria, largura total, para conversar com folga */}
+      {selP && (
+        <header className="prv-no-print" style={{ marginTop: 40, marginBottom: 4 }}>
+          <h1 className="m-0 text-3xl font-bold tracking-tight text-white">Consultoria Digital</h1>
+          <p className="mb-0 mt-2 text-white/60">
+            Uma IA treinada por advogados de elite para ler o seu processo por inteiro e explicar, em linguagem simples, o que está acontecendo e o que vem a seguir.
+          </p>
+        </header>
+      )}
+      {selP && (
+        <section
+          className="prv-card prv-no-print prv-chat bf-paper"
+          aria-labelledby="prv-chat-titulo"
+          style={{ display: 'flex', flexDirection: 'column', height: 620, marginTop: 16 }}
+        >
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', minWidth: 0 }}>
+              <span className="prv-chat-icone" aria-hidden="true">
+                <Sparkles size={18} />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div id="prv-chat-titulo" style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>
+                  Assistente jurídico com IA
+                </div>
+                <div style={{ fontSize: 12, color: MUTED, marginTop: 2, lineHeight: 1.5 }}>
+                  Avalia o andamento, todas as movimentações e os processos da sua conta, e explica de forma didática. Em foco:{' '}
+                  <strong style={{ color: TEXT }}>{selP.numero}</strong>
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <AbasDeslizantes
+                size="xs"
+                ariaLabel="Modelo de resposta da IA"
+                value={chatModo}
+                onChange={setChatModo}
+                data={MODOS_RESPOSTA.map(m => ({ value: m, label: m }))}
+              />
+              <button type="button" className="prv-icon-btn" onClick={() => setChatExpandido(true)} title="Ampliar chat" aria-label="Ampliar chat">
+                <Maximize2 size={14} />
+              </button>
+            </div>
+          </div>
+          <div style={{ fontSize: 11.5, color: MUTED, margin: '10px 0 14px' }}>{DESCRICAO_MODO[chatModo]}</div>
+          {renderChatCorpo(chatBottomRef, false)}
+        </section>
+      )}
 
       {chatExpandido && (
         <div className="prv-overlay" onClick={() => setChatExpandido(false)}>
@@ -904,8 +1003,16 @@ export default function ProcessResultView({
             className="prv-modal"
             style={{ width: 'max(60vw, min(100vw - 24px, 560px))', height: '70vh' }}
           >
-            <div className="prv-modal-header">
-              <span>Ficou com dúvida?</span>
+            <div className="prv-modal-header" style={{ flexWrap: 'wrap' }}>
+              <span>Assistente jurídico com IA</span>
+              <AbasDeslizantes
+                size="xs"
+                ariaLabel="Modelo de resposta da IA"
+                value={chatModo}
+                onChange={setChatModo}
+                data={MODOS_RESPOSTA.map(m => ({ value: m, label: m }))}
+                style={{ marginLeft: 'auto' }}
+              />
               <button type="button" className="prv-icon-btn" onClick={() => setChatExpandido(false)} aria-label="Fechar chat ampliado">
                 <X size={16} />
               </button>
@@ -1051,6 +1158,7 @@ function StatusBadge({ status }: { status: StatusProcesso }) {
         fontSize: 10,
         fontWeight: 700,
         color: meta.color,
+        background: meta.bg,
         border: `1px solid ${meta.color}`,
         borderRadius: 4,
         padding: '2px 7px',
@@ -1168,13 +1276,14 @@ const CSS = `
 .prv-inner { background: ${INNER}; border: 1px solid ${BORDER}; border-radius: 6px; padding: 12px 14px; min-width: 0; }
 .prv-resumo { font-size: 15px; line-height: 1.7; color: ${TEXT}; font-weight: 600; }
 .prv-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
-.prv-split { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.prv-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); gap: 16px; align-items: start; }
+.prv-split > aside { order: 2; }
 .prv-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .prv-fases { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
 .prv-mov { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-top: 1px solid ${BORDER}; }
 .prv-mov:first-of-type { border-top: none; }
 .prv-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid ${BORDER}; color: ${TEXT}; padding: 9px 14px; font-size: 12.5px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
-.prv-btn:hover { border-color: ${GOLD}; color: ${GOLD}; background: transparent; }
+.prv-btn:hover { color: ${GOLD}; }
 .prv-btn-gold { background: ${GOLD}; border: 1px solid ${GOLD}; color: #FFFFFF; }
 .prv-btn-gold:hover { background: transparent !important; color: ${GOLD} !important; border-color: ${GOLD} !important; }
 .prv-btn-ativo { border-color: ${GOLD}; background: ${GOLD_SOFT}; color: ${GOLD}; }
@@ -1184,7 +1293,10 @@ const CSS = `
 .prv-icon-btn:hover { color: ${TEXT}; }
 .prv-item { text-align: left; width: 100%; background: ${GLASS}; border: 1px solid ${BORDER}; border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: border-color .2s, background .2s; }
 .prv-item:hover { border-color: rgba(214,178,110,0.5); }
-.prv-item-ativo { border-color: ${GOLD}; background: ${GOLD_SOFT}; }
+.prv-item-ativo { border-color: ${GOLD}; background: ${GOLD_SOFT}; background-image: linear-gradient(${GOLD_SOFT}, ${GOLD_SOFT}); }
+.prv-chat { border: 1px solid ${GOLD}55; box-shadow: 0 0 0 4px ${GOLD}14, var(--bf-paper-shadow); }
+.prv-chat-icone { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; flex-shrink: 0; border-radius: 10px; background: ${GOLD}; color: #FFFFFF; }
+@media (max-width: 600px) { .prv-chat { height: 560px !important; } }
 .prv-sugestao { text-align: left; background: ${INNER}; border: 1px solid ${BORDER}; border-radius: 6px; padding: 9px 12px; font-size: 12.5px; color: ${TEXT}; cursor: pointer; }
 .prv-sugestao:hover { border-color: ${GOLD}; }
 .prv-input { flex: 1; min-width: 0; padding: 9px 12px; font-size: 12.5px; border: 1px solid ${BORDER}; border-radius: 6px; background: rgb(var(--bf-fg) / 0.06); color: ${TEXT}; outline: none; }
@@ -1195,6 +1307,7 @@ const CSS = `
 .prv-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 18px; border-bottom: 1px solid ${BORDER}; font-size: 13px; font-weight: 700; color: ${TEXT}; flex-shrink: 0; }
 @media (max-width: 900px) {
   .prv-split { grid-template-columns: 1fr; }
+  .prv-split > aside { order: 0; }
   .prv-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 600px) {

@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Select, SegmentedControl, Switch, TextInput } from '@mantine/core';
+import { Select, Switch, TextInput } from '@mantine/core';
+import AbasDeslizantes, { ConteudoDeslizante, useDirecaoAba } from './AbasDeslizantes';
 import { Check, ChevronRight, Database, Fingerprint, Info, Plus, Scale, Search, X } from 'lucide-react';
 import type { CnjInfo } from '@/lib/cnj';
 import { FONTES_DATAJUD, GRUPOS_FONTES, type GrupoFonte } from '@/lib/fontesDatajud';
@@ -167,6 +168,11 @@ function passaFiltro(f: Filtro, info: { ufs: string[]; texto: string }, grupo: G
 }
 
 type ModoFontes = 'recomendado' | 'todas' | 'personalizar';
+const MODOS_FONTES: { label: string; value: ModoFontes }[] = [
+  { label: 'Recomendado', value: 'recomendado' },
+  { label: 'Todas', value: 'todas' },
+  { label: 'Personalizar', value: 'personalizar' }
+];
 type Provedor = 'infosimples' | 'lemit' | 'datajud';
 
 function FontesPorDocumento({
@@ -219,6 +225,8 @@ function FontesPorDocumento({
     const ids = new Set(compativeis.map(f => f.id));
     onInfosimplesChange([...infosimplesSel.filter(id => !ids.has(id)), ...marcados]);
   };
+
+  const direcaoModo = useDirecaoAba(modo, MODOS_FONTES.map(m => m.value));
 
   const trocarModo = (novo: ModoFontes) => {
     setModo(novo);
@@ -305,18 +313,16 @@ function FontesPorDocumento({
           <div style={{ fontSize: 12, color: MUTED, margin: '2px 0 10px' }}>
             {qtdInfo} de {compativeis.length} serviços marcados · {formatarReais(custo)}
           </div>
-          <SegmentedControl
+          <AbasDeslizantes
             fullWidth
+            ariaLabel="Modo de seleção dos tribunais"
             value={modo}
-            onChange={v => trocarModo(v as ModoFontes)}
-            data={[
-              { label: 'Recomendado', value: 'recomendado' },
-              { label: 'Todas', value: 'todas' },
-              { label: 'Personalizar', value: 'personalizar' }
-            ]}
+            onChange={v => trocarModo(v)}
+            data={MODOS_FONTES}
           />
         </div>
 
+        <ConteudoDeslizante chave={modo} direcao={direcaoModo}>
         {modo === 'personalizar' && (
           <>
             <BarraFiltros filtro={filtro} onChange={setFiltro} />
@@ -365,6 +371,7 @@ function FontesPorDocumento({
             )}
           </>
         )}
+        </ConteudoDeslizante>
       </section>
       )}
 

@@ -1,0 +1,119 @@
+/* Controle segmentado padrão (components/AbasDeslizantes.tsx): sem borda e sem fundo; só o destaque azul
+   da opção ativa, que desliza entre as opções. */
+
+.raiz {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  gap: 2px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+/* Muitas opções: rola na horizontal em vez de quebrar (ex.: abas de Configurações no celular). */
+.raiz[data-rolavel] {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.raiz[data-rolavel]::-webkit-scrollbar {
+  display: none;
+}
+.raiz[data-rolavel] .aba {
+  flex-shrink: 0;
+}
+
+.raiz[data-full-width] {
+  display: flex;
+  width: 100%;
+}
+
+.indicador {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--bf-blue-500, #1e7cf2) 0%, var(--bf-blue-600, #1a67d2) 100%);
+  box-shadow: 0 2px 10px rgba(27, 63, 168, 0.3);
+  pointer-events: none;
+}
+
+.indicador[data-animar] {
+  transition:
+    left 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.aba {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tt-text-2);
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.raiz[data-full-width] .aba {
+  flex: 1 1 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Larguras iguais quando cabem; no celular, cada aba mantém o próprio texto e o controle rola. */
+.raiz[data-full-width][data-rolavel] .aba {
+  flex: 1 0 auto;
+  overflow: visible;
+}
+
+.raiz[data-size='xs'] .aba {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.raiz[data-size='md'] .aba {
+  padding: 9px 16px;
+  font-size: 14px;
+}
+
+.aba:hover:not([data-ativo]):not(:disabled) {
+  color: var(--tt-text);
+}
+
+.aba[data-ativo] {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.aba:disabled {
+  color: rgb(var(--bf-fg) / 0.35);
+  cursor: not-allowed;
+}
+
+.aba:focus-visible {
+  outline: 2px solid #1e7cf2;
+  outline-offset: 2px;
+}
+
+/* Recorta o conteúdo que entra/sai deslizando, sem cortar sombras verticais. */
+.conteudo {
+  overflow-x: clip;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indicador[data-animar] {
+    transition: none;
+  }
+}

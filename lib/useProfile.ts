@@ -54,22 +54,6 @@ export function useProfileQuery(): { profile: Profile; loading: boolean; refresh
         return;
       }
 
-      // Sincroniza role / documento pendente de login com Google se houver
-      try {
-        const pendingRole = localStorage.getItem('bf_pending_role');
-        const pendingDoc = localStorage.getItem('bf_pending_documento');
-        const pendingDocTipo = localStorage.getItem('bf_pending_documento_tipo');
-        if (pendingRole) {
-          await supabase.from('ap_perfis').update({
-            role: pendingRole,
-            ...(pendingDoc ? { documento: pendingDoc, documento_tipo: pendingDocTipo || (pendingDoc.length === 14 ? 'cnpj' : 'cpf') } : {})
-          }).eq('id', u.id);
-          localStorage.removeItem('bf_pending_role');
-          localStorage.removeItem('bf_pending_documento');
-          localStorage.removeItem('bf_pending_documento_tipo');
-        }
-      } catch {}
-
       const { data: perfil } = await supabase.from('ap_perfis').select('nome,role,documento,documento_tipo,plano').eq('id', u.id).maybeSingle();
       setProfile({
         role: (perfil?.role as ProfileRole) || 'advogado',

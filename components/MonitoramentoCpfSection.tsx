@@ -177,7 +177,7 @@ export function MonitoramentoCpfSection() {
 
   return (
     <>
-      <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-sm backdrop-blur-md sm:p-6">
+      <section className="bf-paper mt-8 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-sm backdrop-blur-md sm:p-6">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-white">

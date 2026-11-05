@@ -2,13 +2,12 @@
 
 import { useState, useEffect, type CSSProperties, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { SegmentedControl } from '@mantine/core';
 import TechTieHero from './TechTieHero';
 import BuscaPublica from './BuscaPublica';
 import ParticulasOuro from './ParticulasOuro';
 import type { ProcessoDjenPublico } from '@/lib/djen';
 import { getSupabase } from '@/lib/supabase';
-import { cleanDigits, formatDocumento, isValidCpf, isValidCnpj } from '@/lib/format';
+import { cleanDigits } from '@/lib/format';
 
 // Cartão de vidro sobre o fundo escuro do login: texto claro e destaques no dourado da marca.
 const BLUE = '#1E7CF2';
@@ -16,7 +15,6 @@ const TEXT = 'var(--tt-text)';
 const MUTED = 'rgb(var(--bf-fg) / 0.65)';
 
 type Mode = 'login' | 'signup' | 'forgot';
-type Perfil = 'advogado' | 'broker' | 'cliente';
 
 // Cadastro e redefinição exigem mais que o login: contas antigas com 6 caracteres continuam entrando.
 const MIN_SENHA_CADASTRO = 8;
@@ -39,20 +37,15 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('login');
   const [buscando, setBuscando] = useState(false); // busca pública em andamento: o hero troca a marca pela logo "digitando"
-  const [perfil, setPerfil] = useState<Perfil>('advogado');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [documento, setDocumento] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
   const supabase = getSupabase();
-  const documentoDigits = cleanDigits(documento);
-  const isDocumentoValido =
-    documentoDigits.length === 11 ? isValidCpf(documentoDigits) : documentoDigits.length === 14 ? isValidCnpj(documentoDigits) : false;
 
   const finish = () => {
     try {
@@ -95,26 +88,12 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
   const handleGoogle = async () => {
     setError('');
 
-    // Se estiver em modo cadastro, salva o perfil/documento escolhido para sincronizar no retorno do OAuth
-    try {
-      if (mode === 'signup') {
-        localStorage.setItem('bf_pending_role', perfil);
-        if (perfil === 'cliente' && documentoDigits) {
-          localStorage.setItem('bf_pending_documento', documentoDigits);
-          localStorage.setItem('bf_pending_documento_tipo', documentoDigits.length === 14 ? 'cnpj' : 'cpf');
-        }
-      }
-    } catch {}
-
+    // O perfil de acesso (advogado, broker ou consulta avulsa) é perguntado depois do primeiro acesso (PerfilOnboarding).
     if (!supabase) {
       // Modo demonstração enquanto o Supabase não está configurado
       try {
         localStorage.setItem('bf-demo-user', 'google');
-        localStorage.setItem('bf-demo-role', perfil);
-        if (perfil === 'cliente' && documentoDigits) {
-          localStorage.setItem('bf-demo-documento', documentoDigits);
-          localStorage.setItem('bf-demo-documento-tipo', documentoDigits.length === 14 ? 'cnpj' : 'cpf');
-        }
+        localStorage.setItem('bf-demo-role', 'advogado');
       } catch {}
       return finish();
     }
@@ -146,9 +125,6 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
       return setError(`A senha deve ter ao menos ${mode === 'signup' ? MIN_SENHA_CADASTRO : 6} caracteres.`);
     }
     if (mode === 'signup' && name.trim().length < 3) return setError('Informe seu nome completo.');
-    if (mode === 'signup' && perfil === 'cliente' && !isDocumentoValido) {
-      return setError('Informe um CPF ou CNPJ válido para a Consulta Avulsa.');
-    }
 
     setLoading(true);
     try {
@@ -166,11 +142,7 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
       if (!supabase) {
         try {
           localStorage.setItem('bf-demo-user', normalizedEmail);
-          localStorage.setItem('bf-demo-role', mode === 'signup' ? perfil : 'admin');
-          if (mode === 'signup' && perfil === 'cliente') {
-            localStorage.setItem('bf-demo-documento', documentoDigits);
-            localStorage.setItem('bf-demo-documento-tipo', documentoDigits.length === 14 ? 'cnpj' : 'cpf');
-          }
+          localStorage.setItem('bf-demo-role', mode === 'signup' ? 'advogado' : 'admin');
         } catch {}
         return finish();
       }
@@ -181,11 +153,7 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
           password,
           options: {
             data: {
-              full_name: name.trim(),
-              role: perfil,
-              ...(perfil === 'cliente'
-                ? { documento: documentoDigits, documento_tipo: documentoDigits.length === 14 ? 'cnpj' : 'cpf' }
-                : {})
+              full_name: name.trim()
             },
             emailRedirectTo: `${window.location.origin}/painel`
           }
@@ -325,28 +293,6 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
             </form>
           )}
 
-          {mode === 'signup' && (
-            <div style={{ margin: '0 0 20px' }}>
-              <label style={label}>Qual é o seu perfil de acesso?</label>
-              <SegmentedControl
-                fullWidth
-                value={perfil}
-                onChange={v => setPerfil(v as Perfil)}
-                data={[
-                  { label: 'Advogado', value: 'advogado' },
-                  { label: 'Broker', value: 'broker' },
-                  { label: 'Consulta Avulsa', value: 'cliente' }
-                ]}
-                mb={6}
-              />
-              <p style={{ fontSize: 12, color: MUTED, margin: '4px 0 0', lineHeight: 1.4 }}>
-                {perfil === 'advogado' && 'Acesso a consultas livres por qualquer CPF ou CNJ, gestão de carteiras e automações.'}
-                {perfil === 'broker' && 'Acesso a consultas livres, análise de precatórios/ativos judiciais e automação de funil.'}
-                {perfil === 'cliente' && 'Acesso restrito ao próprio CPF/CNPJ cadastrado, ideal para acompanhamento pessoal.'}
-              </p>
-            </div>
-          )}
-
           {mode !== 'forgot' && (
           <>
           <button type="button" onClick={handleGoogle} className="bf-btn-google">
@@ -372,25 +318,6 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
                   Nome completo
                 </label>
                 <input id="bf-name" className="bf-input" value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
-              </div>
-            )}
-            {mode === 'signup' && perfil === 'cliente' && (
-              <div>
-                <label style={label} htmlFor="bf-documento">
-                  CPF ou CNPJ do titular
-                </label>
-                <input
-                  id="bf-documento"
-                  className="bf-input"
-                  placeholder="000.000.000-00"
-                  value={documento}
-                  maxLength={18}
-                  onChange={e => setDocumento(formatDocumento(e.target.value))}
-                  autoComplete="off"
-                />
-                <p style={{ fontSize: 12, color: MUTED, margin: '6px 0 0' }}>
-                  Você consultará os processos ligados a este documento fixo.
-                </p>
               </div>
             )}
             <div>

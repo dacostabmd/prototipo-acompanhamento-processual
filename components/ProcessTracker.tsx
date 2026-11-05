@@ -4,7 +4,8 @@ import { authFetch } from '@/lib/authFetch';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { AnimatePresence, MotionConfig, motion, type Variants } from 'motion/react';
-import { SegmentedControl, Switch, Tooltip } from '@mantine/core';
+import { Switch, Tooltip } from '@mantine/core';
+import AbasDeslizantes, { ConteudoDeslizante } from './AbasDeslizantes';
 import { notifications } from '@mantine/notifications';
 import {
   Lock,
@@ -26,6 +27,8 @@ import {
   ChevronDown
 } from 'lucide-react';
 import ProcessResultView from './ProcessResultView';
+import SalvarProcessosModal, { type ProcessoParaSalvar } from './SalvarProcessosModal';
+import ConfirmarBuscaModal, { type ResumoBusca } from './ConfirmarBuscaModal';
 import FontesSelector, {
   IDS_TODOS_DATAJUD,
   custoFontesSelecionadas,
@@ -167,6 +170,10 @@ export default function ProcessTracker({
           setSearchMode('numero');
           setProcessNumberInput(formatProcessNumber(digitos));
           sessionStorage.removeItem('ap_processo_pendente');
+        } else if (buscaUrl && (digitos.length === 11 || digitos.length === 14)) {
+          // CPF/CNPJ vindo da busca rápida da Visão geral (busca por documento é da visão de advogado)
+          setSearchMode('cpf');
+          setCpfInput(formatDocumento(digitos));
         }
       }
     } catch {}
@@ -242,6 +249,8 @@ export default function ProcessTracker({
   // Diálogo "continuar nos demais tribunais?" — aparece quando a economia por DDD achou algo já na
   // 1ª onda, mas ainda restam tribunais selecionados que não chegaram a ser consultados.
   const [perguntaContinuarOnda, setPerguntaContinuarOnda] = useState<{ tribunaisRestantes: string[] } | null>(null);
+  // Dialog "Salvar em Meus processos?" ao fim da busca (salvar deixou de ser automático).
+  const [salvarPendente, setSalvarPendente] = useState<{ processos: ProcessoParaSalvar[]; custo: number } | null>(null);
   const resolverContinuarOndaRef = useRef<((continuar: boolean) => void) | null>(null);
   // Tela de transição explícita entre o fim da varredura e a exibição do resultado (processando dados).
   const [processandoResultado, setProcessandoResultado] = useState(false);
@@ -337,6 +346,24 @@ export default function ProcessTracker({
   // Celular opcional (da parte pesquisada): vazio é válido; se preenchido, exige DDD + número.
   const isStep4Valid = cleanDigits(phoneInput).length === 0 || cleanDigits(phoneInput).length >= 10;
   const formularioValido = isStep1Valid && isStep2Valid && isStep4Valid;
+
+  // Dialog de confirmação antes de pesquisar (o que será buscado e o custo em tokens).
+  const [confirmarBuscaAberto, setConfirmarBuscaAberto] = useState(false);
+  const resumoBusca: ResumoBusca = {
+    tipo: tipoBusca === 'numero' ? 'Número do processo' : tipoBusca === 'nome' ? 'Nome da parte' : tipoBusca === 'cnpj' ? 'CNPJ' : 'CPF',
+    termo: tipoBusca === 'numero' ? processNumberInput.trim() : tipoBusca === 'nome' ? fullName.trim() : cpfInput.trim(),
+    extras:
+      tipoBusca === 'numero'
+        ? []
+        : extraDocsInput.filter(d => {
+            const digits = cleanDigits(d);
+            return (digits.length === 11 && isValidCpf(digits)) || (digits.length === 14 && isValidCnpj(digits));
+          }),
+    custoReais: custoPrevisto,
+    custoEhTeto: tipoBusca === 'numero' ? idsInfosimplesEfetivos.length > 1 : true,
+    qtdFontesPagas: idsInfosimplesEfetivos.length,
+    qtdFontesGratuitas: qtdDatajudEfetivos
+  };
   // O que ainda falta para liberar "Consultar agora" (exibido ao lado do botão).
   const pendenciasFormulario = [
     searchMode === 'numero' && !isProcessNumberValid && 'número do processo (20 dígitos)',
@@ -398,6 +425,8 @@ export default function ProcessTracker({
   ): Promise<{
     processes: any[];
     custo: number;
+    custoCobrado: number;
+    consultaId: string | null;
     tribunaisConsultados: string[];
     tribunaisRestantes: string[];
     descartadosPorPolo: { numero: string; tribunal: string; autor?: string }[];
@@ -637,6 +666,8 @@ export default function ProcessTracker({
     return {
       processes: processesEncontrados,
       custo: typeof data.custoEstimado === 'number' ? data.custoEstimado : 0,
+      custoCobrado: typeof data.custoCobrado === 'number' ? data.custoCobrado : 0,
+      consultaId: consultaIdRef.current,
       tribunaisConsultados: data.tribunaisConsultados || [],
       // Só relevante quando a 1ª onda JÁ achou algo (senão o backend já continua sozinho para a 2ª onda) e o
       // usuário não encerrou a busca de propósito.
@@ -677,6 +708,17 @@ export default function ProcessTracker({
       const todosTribunais = new Set<string>();
       const todosDescartadosPorPolo: { numero: string; tribunal: string; autor?: string }[] = [];
       let custoTotalAcumulado = 0;
+      let custoCobradoAcumulado = 0;
+      const paraSalvar = new Map<string, ProcessoParaSalvar>();
+      const registrarParaSalvar = (r: { processes: any[]; consultaId: string | null; custoCobrado: number }) => {
+        custoCobradoAcumulado += r.custoCobrado;
+        if (!r.consultaId) return;
+        for (const p of r.processes) {
+          if (p?.numero && !paraSalvar.has(p.numero)) {
+            paraSalvar.set(p.numero, { numero: p.numero, consultaId: r.consultaId, tribunal: p.tribunal, classe: p.tipo });
+          }
+        }
+      };
       const fila = documentosDigits.length > 0 ? documentosDigits : [digits];
 
       for (let i = 0; i < fila.length; i++) {
@@ -686,6 +728,7 @@ export default function ProcessTracker({
         if (!resultado) break; // cancelado no meio desta rodada
 
         resultado.processes.forEach(p => todosProcessos.push(p));
+        registrarParaSalvar(resultado);
         resultado.tribunaisConsultados.forEach(t => todosTribunais.add(t));
         resultado.descartadosPorPolo.forEach(d => todosDescartadosPorPolo.push(d));
         custoTotalAcumulado += resultado.custo;
@@ -703,6 +746,7 @@ export default function ProcessTracker({
             const resultadoExtra = await executarBuscaDocumento(fila[i], resultado.tribunaisRestantes);
             if (resultadoExtra) {
               resultadoExtra.processes.forEach(p => todosProcessos.push(p));
+              registrarParaSalvar(resultadoExtra);
               resultadoExtra.tribunaisConsultados.forEach(t => todosTribunais.add(t));
               resultadoExtra.descartadosPorPolo.forEach(d => todosDescartadosPorPolo.push(d));
               custoTotalAcumulado += resultadoExtra.custo;
@@ -739,6 +783,11 @@ export default function ProcessTracker({
       }
 
       setHasSearched(true);
+
+      // Pergunta se quer salvar em Meus processos (com o custo cobrado nesta busca).
+      if (paraSalvar.size > 0) {
+        setSalvarPendente({ processos: Array.from(paraSalvar.values()), custo: custoCobradoAcumulado });
+      }
 
       // 2. Se encontrou processos, gera automaticamente o resumo por IA
       if (currentCases) {
@@ -1012,15 +1061,12 @@ export default function ProcessTracker({
     >
       {/* Container principal */}
       <div
+        className="bf-page"
         style={{
           position: 'relative',
           zIndex: 10,
-          padding: 'clamp(20px, 4vw, 40px) clamp(16px, 3vw, 32px)',
           minHeight: '100vh',
-          width: '100%',
-          maxWidth: 1400,
-          margin: '0 auto',
-          boxSizing: 'border-box'
+          ['--bf-page-max' as string]: '1400px'
         }}
       >
         <div
@@ -1056,9 +1102,8 @@ export default function ProcessTracker({
             )}
 
             {searching && processandoResultado ? (
-              <div
+              <div className="bf-paper"
                 style={{
-                  background: 'rgb(var(--bf-ink-rgb) / 0.88)',
                   backdropFilter: 'blur(20px)',
                   WebkitBackdropFilter: 'blur(20px)',
                   padding: '56px 32px',
@@ -1087,9 +1132,8 @@ export default function ProcessTracker({
                 </p>
               </div>
             ) : searching ? (
-              <div
+              <div className="bf-paper"
                 style={{
-                  background: 'rgb(var(--bf-ink-rgb) / 0.88)',
                   backdropFilter: 'blur(20px)',
                   WebkitBackdropFilter: 'blur(20px)',
                   padding: '48px 32px',
@@ -1390,17 +1434,16 @@ export default function ProcessTracker({
             ) : (
               <>
               <MotionConfig reducedMotion="user">
-              <motion.form
+              <motion.form className="bf-paper"
                 initial="oculto"
                 animate="visivel"
                 variants={formEntradaVariants}
                 noValidate
                 onSubmit={e => {
                   e.preventDefault();
-                  if (formularioValido) void handleFinalStepCompleted();
+                  if (formularioValido) setConfirmarBuscaAberto(true);
                 }}
                 style={{
-                  background: 'rgb(var(--bf-surface-rgb) / 0.92)',
                   backdropFilter: 'blur(20px)',
                   WebkitBackdropFilter: 'blur(20px)',
                   border: `1px solid ${BORDER}`,
@@ -1411,7 +1454,7 @@ export default function ProcessTracker({
                 }}
               >
                 <motion.div variants={formEntradaVariants} style={{ padding: 'clamp(20px, 4vw, 26px)', display: 'flex', flexDirection: 'column', gap: 22 }}>
-                  <motion.header variants={secaoEntradaVariants}>
+                  <motion.header variants={secaoEntradaVariants} data-tour="busca-cabecalho">
                     <div style={{ fontSize: 12, color: BLUE, fontWeight: 600, marginBottom: 6 }}>Nova consulta</div>
                     <h2 style={{ margin: '0 0 6px', fontSize: 'clamp(19px, 3.2vw, 22px)', color: TEXT, fontWeight: 700, letterSpacing: -0.3 }}>
                       {isConsultante || visaoAdvogado ? 'Encontre processos de uma pessoa ou empresa' : 'Consulte um processo pelo número'}
@@ -1424,7 +1467,7 @@ export default function ProcessTracker({
                   </motion.header>
 
                   {!isConsultante && (
-                    <motion.div variants={secaoEntradaVariants}>
+                    <motion.div variants={secaoEntradaVariants} data-tour="busca-modos">
                       <h3 style={tituloBlocoStyle}>Como você quer buscar?</h3>
                       <div role="radiogroup" aria-label="Como você quer buscar" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 10 }}>
                         <OpcaoBusca
@@ -1456,7 +1499,7 @@ export default function ProcessTracker({
                     </motion.div>
                   )}
 
-                  <motion.div variants={secaoEntradaVariants} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16 }}>
+                  <motion.div variants={secaoEntradaVariants} data-tour="busca-campos" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16 }}>
                     <Revelar aberto={!isConsultante && searchMode === 'numero'} style={{ gridColumn: '1 / -1' }}>
                         <CampoTexto
                           id="campo-cnj"
@@ -1608,7 +1651,7 @@ export default function ProcessTracker({
                   </motion.div>
 
                   {/* Ajustes opcionais (recolhível) */}
-                  <motion.div variants={secaoEntradaVariants} style={{ ...painelStyle, padding: 0 }}>
+                  <motion.div variants={secaoEntradaVariants} data-tour="busca-ajustes" style={{ ...painelStyle, padding: 0 }}>
                     <button
                       type="button"
                       onClick={() => setAjustesAbertos(v => !v)}
@@ -1647,9 +1690,9 @@ export default function ProcessTracker({
                       <div style={{ padding: '4px 16px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                         <div>
                           <span style={rotuloCampoStyle}>Papel no processo</span>
-                          <SegmentedControl
+                          <AbasDeslizantes
                             fullWidth
-                            classNames={{ control: 'bf-seg-igual-control', label: 'bf-seg-igual-label' }}
+                            ariaLabel="Papel no processo"
                             value={somenteAutor ? 'autor' : 'qualquer'}
                             onChange={v => setSomenteAutor(v === 'autor')}
                             data={[
@@ -1657,9 +1700,11 @@ export default function ProcessTracker({
                               { label: 'Só como autor', value: 'autor' }
                             ]}
                           />
-                          <span style={{ display: 'block', marginTop: 6, fontSize: 11.5, color: MUTED }}>
-                            {somenteAutor ? 'Oculta processos em que a pessoa é ré ou parte contrária.' : 'Mostra processos em que a pessoa é autora ou ré.'}
-                          </span>
+                          <ConteudoDeslizante chave={somenteAutor ? 'autor' : 'qualquer'} ordem={['qualquer', 'autor']}>
+                            <span style={{ display: 'block', marginTop: 6, fontSize: 11.5, color: MUTED }}>
+                              {somenteAutor ? 'Oculta processos em que a pessoa é ré ou parte contrária.' : 'Mostra processos em que a pessoa é autora ou ré.'}
+                            </span>
+                          </ConteudoDeslizante>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
@@ -1731,13 +1776,14 @@ export default function ProcessTracker({
                     background: 'rgb(var(--bf-fg) / 0.02)'
                   }}
                 >
-                  <div style={{ minWidth: 0 }}>
+                  <div style={{ minWidth: 0 }} data-tour="busca-custo">
                     <div style={{ fontSize: 12, color: MUTED }}>Custo estimado</div>
                     <div style={{ fontSize: 19, color: custoPrevisto === 0 ? '#12A37A' : TEXT, fontWeight: 700 }}>{custoPrevistoLabel}</div>
                   </div>
                   <button
                     type="submit"
                     className="bf-btn-ouro"
+                    data-tour="busca-enviar"
                     disabled={!formularioValido}
                     title={pendenciasFormulario.length > 0 ? `Falta: ${pendenciasFormulario.join(', ')}` : undefined}
                     style={{
@@ -1777,12 +1823,11 @@ export default function ProcessTracker({
         {hasSearched && notFound && <DescartadosPorPoloAviso itens={descartadosPorPolo} />}
         {hasSearched && notFound && <FontesComErroAviso itens={scanItems} />}
         {hasSearched && notFound && (
-          <section
+          <section className="bf-paper"
             style={{
               width: '100%',
               maxWidth: 720,
               marginTop: 20,
-              background: PAPER,
               borderTop: `1px solid ${BORDER}`,
               borderRight: `1px solid ${BORDER}`,
               borderBottom: `1px solid ${BORDER}`,
@@ -2038,6 +2083,23 @@ export default function ProcessTracker({
       {/* ═════════════════════════════════════════════════════════════════
           MODAL DE AJUDA / FALAR COM A IA (+40% LARGURA E ALTURA)
           ═════════════════════════════════════════════════════════════════ */}
+      <ConfirmarBuscaModal
+        opened={confirmarBuscaAberto}
+        onClose={() => setConfirmarBuscaAberto(false)}
+        onConfirmar={() => {
+          setConfirmarBuscaAberto(false);
+          void handleFinalStepCompleted();
+        }}
+        resumo={resumoBusca}
+      />
+
+      <SalvarProcessosModal
+        opened={!!salvarPendente}
+        onClose={() => setSalvarPendente(null)}
+        processos={salvarPendente?.processos ?? []}
+        custoBusca={salvarPendente?.custo ?? 0}
+      />
+
       {infoModalOpen && (
         <div
           onClick={() => setInfoModalOpen(false)}

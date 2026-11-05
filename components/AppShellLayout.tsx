@@ -16,9 +16,10 @@ import UserChip from './UserChip';
 import ZoomControls from './ZoomControls';
 import CreditosChip from './CreditosChip';
 import Changelog from './Changelog';
+import PerfilOnboarding from './PerfilOnboarding';
 import RodapeGlobal from './RodapeGlobal';
-
-const ROTAS_SEM_RODAPE = ['/painel'];
+import TourGuiado from './tour/TourGuiado';
+import { IS_DEV } from '@/lib/devDock';
 
 const RAIL = 80;
 const EXPANDED = 250;
@@ -39,7 +40,9 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
   const [expanded, setExpanded] = useState(true);
   const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure(false);
   const [naoLidas, setNaoLidas] = useState(0);
-  const { profile } = useSharedProfile();
+  const { profile, loading: carregandoPerfil } = useSharedProfile();
+  // Enquanto o onboarding de perfil estiver aberto (modal sem fechar), o tour fica escondido.
+  const onboardingPendente = !carregandoPerfil && profile.role === 'cliente' && !profile.documento;
   const navItems = NAV_ITEMS.filter(item => !item.roles || item.roles.includes(profile.role));
 
   useEffect(() => {
@@ -80,7 +83,14 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
 
   const { setColorScheme } = useMantineColorScheme();
   const modoEscuro = useComputedColorScheme('dark', { getInitialValueInEffect: true }) === 'dark';
-  const alternarTema = () => setColorScheme(modoEscuro ? 'light' : 'dark');
+  // Durante a troca, .bf-trocando-tema liga a transição de cores nos cards (.bf-paper) para o fade
+  // branco <-> azul; fora dela os hovers continuam instantâneos.
+  const alternarTema = () => {
+    const html = document.documentElement;
+    html.classList.add('bf-trocando-tema');
+    setColorScheme(modoEscuro ? 'light' : 'dark');
+    window.setTimeout(() => html.classList.remove('bf-trocando-tema'), 700);
+  };
 
   const logout = async () => {
     await authFetch('/api/eventos', {
@@ -149,6 +159,7 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
                   prefetch
                   aria-current={isActive ? 'page' : undefined}
                   className="bf-nav-item"
+                  data-tour={`nav-${item.href.slice(1)}`}
                   data-active={isActive || undefined}
                 >
                   {isActive && (
@@ -209,10 +220,11 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
 
       <AppShell.Main className="bf-main">
         <PageTransition>{children}</PageTransition>
-        {/* Visão geral sem rodapé: a tela é só um atalho, e a sidebar já assina a marca */}
-        {!ROTAS_SEM_RODAPE.includes(pathname) && <RodapeGlobal />}
+        <RodapeGlobal />
       </AppShell.Main>
-      <Changelog isOwner={profile.role === 'owner'} />
+      <PerfilOnboarding />
+      {IS_DEV && <Changelog isOwner={profile.role === 'owner'} />}
+      {IS_DEV && <TourGuiado oculto={onboardingPendente} />}
     </AppShell>
     </div>
   );

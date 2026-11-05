@@ -1,0 +1,471 @@
+/* Tour guiado (components/tour/TourGuiado.tsx): destaque, cartão do passo e controle remoto.
+   Camadas acima do AppShell, das notificações (300) e dos botões flutuantes (400). */
+
+.camada {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* Recorte iluminado: a sombra gigante escurece todo o resto da tela. */
+.destaque {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 2px #1e7cf2,
+    0 0 0 6px rgba(30, 124, 242, 0.25),
+    0 0 0 200vmax rgba(3, 8, 22, 0.62);
+  transition:
+    top 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.veu {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 8, 22, 0.62);
+}
+
+.cartao {
+  position: fixed;
+  pointer-events: auto;
+  box-sizing: border-box;
+  padding: 18px 18px 14px;
+  border-radius: 16px;
+  background: var(--tt-surface);
+  color: var(--tt-text);
+  border: 1px solid var(--tt-line);
+  box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.6);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+.cartaoTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cartaoTour {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #3fa0ff;
+}
+
+.cartaoTitulo {
+  margin: 8px 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--tt-text);
+}
+
+.cartaoCorpo {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--tt-text-2);
+}
+
+.cartaoCorpo p {
+  margin: 0 0 8px;
+}
+
+.cartaoCorpo p:last-child {
+  margin-bottom: 0;
+}
+
+.cartaoCorpo strong {
+  color: var(--tt-text);
+  font-weight: 600;
+}
+
+.lista {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.fluxo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 4px;
+  margin-top: 12px;
+}
+
+.fluxoItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fluxoEtapa {
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--tt-text);
+  background: rgba(30, 124, 242, 0.14);
+  border: 1px solid rgba(30, 124, 242, 0.35);
+  white-space: nowrap;
+}
+
+.fluxoSeta {
+  color: var(--tt-text-3);
+  flex-shrink: 0;
+}
+
+.progresso {
+  display: flex;
+  gap: 4px;
+  margin: 14px 0 12px;
+}
+
+.ponto {
+  height: 4px;
+  flex: 1;
+  border-radius: 999px;
+  background: var(--tt-line);
+  transition: background 0.25s;
+}
+
+.ponto[data-feito] {
+  background: rgba(30, 124, 242, 0.5);
+}
+
+.ponto[data-ativo] {
+  background: #1e7cf2;
+}
+
+.cartaoRodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.contador {
+  font-size: 12px;
+  color: var(--tt-text-3);
+  white-space: nowrap;
+}
+
+.acoes {
+  display: flex;
+  gap: 8px;
+}
+
+.botaoPri,
+.botaoSec {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.botaoPri {
+  background: #1e7cf2;
+  color: #fff;
+}
+
+.botaoPri:hover,
+.botaoPri:focus-visible {
+  background: transparent;
+  color: #1e7cf2;
+  border-color: #1e7cf2;
+}
+
+.botaoSec {
+  background: transparent;
+  color: var(--tt-text-2);
+  border-color: var(--tt-line);
+}
+
+.botaoSec:hover,
+.botaoSec:focus-visible {
+  color: #1e7cf2;
+  border-color: #1e7cf2;
+}
+
+.botaoIcone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--tt-text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.botaoIcone:hover,
+.botaoIcone:focus-visible {
+  color: var(--tt-text);
+  border-color: var(--tt-line);
+}
+
+/* ---------- Controle remoto ---------- */
+
+.controle {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.lancador {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 16px 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 124, 242, 0.55);
+  background: var(--tt-surface);
+  color: var(--tt-text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -8px rgba(23, 52, 122, 0.6);
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.lancador svg {
+  color: #3fa0ff;
+}
+
+.lancador:hover,
+.lancador:focus-visible,
+.lancador[aria-expanded='true'] {
+  border-color: #1e7cf2;
+  background: var(--tt-raised);
+}
+
+.pulso {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #1e7cf2;
+  box-shadow: 0 0 0 0 rgba(30, 124, 242, 0.6);
+  animation: pulsar 1.8s infinite;
+}
+
+@keyframes pulsar {
+  70% {
+    box-shadow: 0 0 0 10px rgba(30, 124, 242, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(30, 124, 242, 0);
+  }
+}
+
+.painel {
+  width: min(360px, calc(100vw - 40px));
+  max-height: min(560px, calc(100dvh - 100px));
+  overflow-y: auto;
+  border-radius: 18px;
+  background: var(--tt-surface);
+  color: var(--tt-text);
+  border: 1px solid var(--tt-line);
+  box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.6);
+  padding: 14px;
+  transform-origin: bottom right;
+}
+
+.painelTopo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 2px 10px;
+}
+
+.painelTitulo {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.painelSub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--tt-text-3);
+}
+
+.painelLista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.opcao {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.opcao:hover,
+.opcao:focus-visible {
+  background: var(--tt-raised);
+  border-color: var(--tt-line);
+}
+
+.opcaoIcone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  color: #3fa0ff;
+  background: rgba(30, 124, 242, 0.12);
+}
+
+.opcaoTexto {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.opcaoTitulo {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tt-text);
+}
+
+.opcaoResumo {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--tt-text-3);
+}
+
+.opcaoMeta {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--tt-text-3);
+  white-space: nowrap;
+}
+
+.feito {
+  color: var(--tt-success);
+}
+
+.remotoAtivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--tt-surface);
+  border: 1px solid rgba(30, 124, 242, 0.55);
+  box-shadow: 0 10px 24px -8px rgba(23, 52, 122, 0.6);
+}
+
+.remotoBotao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--tt-text);
+  cursor: pointer;
+}
+
+.remotoBotao:hover:not(:disabled),
+.remotoBotao:focus-visible {
+  border-color: #1e7cf2;
+  color: #3fa0ff;
+}
+
+.remotoBotao:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.remotoParar:hover:not(:disabled) {
+  border-color: var(--tt-danger);
+  color: var(--tt-danger);
+}
+
+.remotoPasso {
+  min-width: 38px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--tt-text-2);
+}
+
+@media (max-width: 640px) {
+  .lancador {
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .lancadorTexto {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .destaque {
+    transition: none;
+  }
+  .pulso {
+    animation: none;
+  }
+}

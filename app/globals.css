@@ -133,62 +133,61 @@ a:hover {
   display: none !important;
 }
 
-/* Botões com preenchimento azul (ações principais / Nova busca / Entrar / Continuar):
-   No hover, o fundo torna-se transparente e o texto/borda ganham o azul #1E7CF2. */
-.bf-btn-ouro,
-.prv-btn-gold,
-.bf-auth .bf-btn-primary {
-  border: 1px solid #1e7cf2;
+/* Padrão único de botões: bordas SEMPRE transparentes.
+   Primário (.bf-btn-ouro, .bf-btn-primary, .prv-btn-gold): fundo azul + texto escuro; no hover as cores
+   se invertem (fundo escuro + texto azul) com transição suave. Os !important vencem estilos inline/escopados. */
+:is(.bf-btn-ouro, .bf-btn-sec, .bf-btn-primary, .bf-btn-google, .prv-btn, .prv-btn-gold, .bf-btn-whats, .bf-btn-whats-cheio, .bf-btn-perigo) {
+  border-color: transparent !important;
+  transition: background-color 0.35s ease, color 0.35s ease, box-shadow 0.35s ease, transform 0.1s ease !important;
 }
 
-:is(.bf-btn-ouro, .prv-btn-gold, .bf-auth .bf-btn-primary):not(:disabled):is(:hover, :focus-visible) {
-  background: transparent !important;
-  background-color: transparent !important;
-  color: #1e7cf2 !important;
-  border-color: #1e7cf2 !important;
-  box-shadow: none !important;
+:is(.bf-btn-ouro, .bf-btn-primary, .prv-btn-gold) {
+  background: #1e7cf2 !important;
+  background-color: #1e7cf2 !important;
+  color: var(--tt-base) !important;
 }
 
-/* Botões secundários e neutros (.bf-btn-sec, .prv-btn):
-   No hover, o fundo torna-se transparente e destacam a borda e o texto em azul. */
-:is(.bf-btn-sec, .prv-btn):not(:disabled):is(:hover, :focus-visible) {
-  background: transparent !important;
-  background-color: transparent !important;
-  border-color: #1e7cf2 !important;
+:is(.bf-btn-ouro, .bf-btn-primary, .prv-btn-gold):not(:disabled):is(:hover, :focus-visible) {
+  background: var(--tt-base) !important;
+  background-color: var(--tt-base) !important;
   color: #1e7cf2 !important;
   box-shadow: none !important;
 }
 
-/* Botão Google: no hover mantém o fundo transparente e reforça a borda */
-.bf-btn-google:not(:disabled):is(:hover, :focus-visible) {
-  background: transparent !important;
-  background-color: transparent !important;
-  border-color: rgb(var(--bf-fg) / 0.35) !important;
+/* Secundários e neutros: fundo sutil; no hover invertem para azul com texto escuro */
+:is(.bf-btn-sec, .prv-btn, .bf-btn-google) {
+  background: rgb(var(--bf-fg) / 0.06) !important;
   color: var(--tt-text) !important;
+}
+
+:is(.bf-btn-sec, .prv-btn, .bf-btn-google):not(:disabled):is(:hover, :focus-visible) {
+  background: #1e7cf2 !important;
+  color: var(--tt-base) !important;
   box-shadow: none !important;
 }
 
-/* Variações especiais: WhatsApp e Perigo tornam-se transparentes na respectiva cor */
+/* WhatsApp e Perigo: mesma inversão na respectiva cor */
+.bf-btn-whats-cheio {
+  background: #25d366 !important;
+  color: #06210f !important;
+}
 .bf-btn-whats-cheio:not(:disabled):is(:hover, :focus-visible) {
-  background: transparent !important;
-  background-color: transparent !important;
-  border-color: #25d366 !important;
+  background: var(--tt-base) !important;
   color: #25d366 !important;
   box-shadow: none !important;
 }
-
+.bf-btn-whats {
+  background: rgba(37, 211, 102, 0.1) !important;
+  color: #25d366 !important;
+}
 .bf-btn-whats:not(:disabled):is(:hover, :focus-visible) {
   background: rgba(37, 211, 102, 0.12) !important;
-  border-color: #25d366 !important;
   color: #25d366 !important;
   box-shadow: none !important;
 }
-
 .bf-btn-perigo:not(:disabled):is(:hover, :focus-visible) {
-  background: transparent !important;
-  background-color: transparent !important;
-  border-color: var(--tt-danger, #e5484d) !important;
-  color: var(--tt-danger, #e5484d) !important;
+  background: var(--tt-danger, #e5484d) !important;
+  color: var(--tt-base) !important;
   box-shadow: none !important;
 }
 
@@ -724,6 +723,8 @@ select.bf-input option {
 
   /* Utilitários Tailwind pensados para fundo escuro (text-white/60, bg-white/5 ...) passam a usar o azul-noite */
   --color-white: #0B1730;
+  /* Poços escuros (bg-black/20..40: inputs, sub-cards) viram poços brancos sobre o porcelain */
+  --color-black: #FFFFFF;
   --color-red-200: #9B1C14;
   --color-red-300: #B42318;
   --color-red-400: #C0382B;
@@ -738,16 +739,168 @@ select.bf-input option {
 }
 
 /* ============================================================
+   Papers (.bf-paper): cards de primeiro nível da área principal, sempre em contraste com o fundo.
+   Modo escuro -> card branco com a paleta clara; modo claro -> card azul-noite com a paleta escura.
+   Como os utilitários (text-white/60, bg-white/5, inputs do Mantine...) leem os tokens, redefinir os tokens
+   no card inverte todo o conteúdo dele. Os derivados (--bf-text-*, --bf-glass-*) são resolvidos no :root,
+   por isso também são redefinidos aqui.
+   ============================================================ */
+.bf-paper.bf-paper {
+  /* Modo escuro (padrão): ilha clara */
+  --tt-ink: #FFFFFF;
+  --tt-base: #F1F4F9;
+  --tt-surface: #FFFFFF;
+  --tt-raised: #E9EEF7;
+  --tt-active: #DCE7F8;
+  --tt-line: #D5DEEE;
+  --tt-text: #0B1730;
+  --tt-text-2: #2B3957;
+  --tt-text-3: #4A5878;
+  --tt-champagne-100: #0B1730;
+  --tt-champagne-300: #1E7CF2;
+  --tt-champagne-500: #1A67D2;
+  --tt-champagne-700: #1B3FA8;
+  --tt-accent-2: #1A67D2;
+  --tt-success: #0E8A66;
+  --tt-danger: #B42318;
+  --bf-fg: 11 23 48;
+  --bf-ink-rgb: 255 255 255;
+  --bf-surface-rgb: 255 255 255;
+  --bf-base-rgb: 241 244 249;
+  --color-white: #0B1730;
+  --color-black: #8EA0C4; /* poços (bg-black/20..40) viram um azul-acinzentado suave sobre o branco */
+  --color-red-200: #9B1C14;
+  --color-red-300: #B42318;
+  --color-red-400: #C0382B;
+  --color-emerald-200: #0B6B4F;
+  --color-emerald-300: #0B7A58;
+  --color-emerald-400: #0E8A66;
+  --color-amber-200: #8A5A00;
+  --color-amber-300: #9A6400;
+  --color-blue-300: #1A67D2;
+  --color-indigo-300: #3B4FC4;
+  --color-purple-300: #6B3FB5;
+  --bf-paper-bg: #FFFFFF;
+  --bf-paper-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  color-scheme: light;
+  /* Componentes do Mantine leem as variáveis dele (definidas pelo esquema do <html>) */
+  --mantine-color-text: #0B1730;
+  --mantine-color-dimmed: #4A5878;
+  --mantine-color-placeholder: #8EA0C4;
+  --mantine-color-default: #FFFFFF;
+  --mantine-color-default-hover: #E9EEF7;
+  --mantine-color-default-color: #0B1730;
+  --mantine-color-default-border: #D5DEEE;
+
+  --bf-navy-950: var(--tt-base);
+  --bf-navy-900: var(--tt-surface);
+  --bf-navy-800: var(--tt-raised);
+  --bf-blue-600: var(--tt-accent-2);
+  --bf-purple-950: var(--tt-base);
+  --bf-purple-900: var(--tt-surface);
+  --bf-purple-800: var(--tt-raised);
+  --bf-glass-bg: rgb(var(--bf-fg) / 0.05);
+  --bf-glass-bg-strong: rgb(var(--bf-fg) / 0.08);
+  --bf-glass-border: rgb(var(--bf-fg) / 0.12);
+  --bf-glass-border-strong: rgb(var(--bf-fg) / 0.22);
+  --bf-text-primary: var(--tt-text);
+  --bf-text-muted: rgb(var(--bf-fg) / 0.7);
+
+  /* Só a cor de fundo: gradientes do card (ex.: Plano Pro) continuam por cima. Fora de @layer, vence os
+     utilitários bg-white/5 do Tailwind. A borda fica com as classes do card, que já leem os tokens daqui. */
+  background-color: var(--bf-paper-bg);
+  box-shadow: var(--bf-paper-shadow);
+  color: var(--tt-text);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root[data-mantine-color-scheme='light'] .bf-paper.bf-paper {
+  /* Modo claro: ilha azul-noite */
+  --tt-ink: #060F28;
+  --tt-base: #0B1730;
+  --tt-surface: #122552;
+  --tt-raised: #19305F;
+  --tt-active: #1F3A7A;
+  --tt-line: #22345E;
+  --tt-text: #FFFFFF;
+  --tt-text-2: #C9D6EE;
+  --tt-text-3: #8EA0C4;
+  --tt-champagne-100: #C9D6EE;
+  --tt-champagne-300: #1E7CF2;
+  --tt-champagne-500: #3FA0FF;
+  --tt-champagne-700: #1B3FA8;
+  --tt-accent-2: #3FA0FF;
+  --tt-success: #12A37A;
+  --tt-danger: #e08a8a;
+  --bf-fg: 255 255 255;
+  --bf-ink-rgb: 6 15 40;
+  --bf-surface-rgb: 18 37 82;
+  --bf-base-rgb: 11 23 48;
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+  --color-red-200: oklch(88.5% 0.062 18.334);
+  --color-red-300: oklch(80.8% 0.114 19.571);
+  --color-red-400: oklch(70.4% 0.191 22.216);
+  --color-emerald-200: oklch(90.5% 0.093 164.15);
+  --color-emerald-300: oklch(84.5% 0.143 164.978);
+  --color-emerald-400: oklch(76.5% 0.177 163.223);
+  --color-amber-200: oklch(92.4% 0.12 95.746);
+  --color-amber-300: oklch(87.9% 0.169 91.605);
+  --color-blue-300: oklch(80.9% 0.105 251.813);
+  --color-indigo-300: oklch(78.5% 0.115 274.713);
+  --color-purple-300: oklch(82.7% 0.119 306.383);
+  --bf-paper-bg: #122552;
+  --bf-paper-shadow: 0 10px 30px rgba(11, 23, 48, 0.18);
+  color-scheme: dark;
+  --mantine-color-text: #FFFFFF;
+  --mantine-color-dimmed: #8EA0C4;
+  --mantine-color-placeholder: #8EA0C4;
+  --mantine-color-default: #19305F;
+  --mantine-color-default-hover: #1F3A7A;
+  --mantine-color-default-color: #FFFFFF;
+  --mantine-color-default-border: #22345E;
+}
+
+/* Fade da troca de tema: o AppShellLayout põe .bf-trocando-tema no <html> por ~700ms. */
+html.bf-trocando-tema .bf-paper,
+html.bf-trocando-tema .bf-paper * {
+  transition:
+    background-color 500ms ease,
+    background 500ms ease,
+    color 500ms ease,
+    border-color 500ms ease,
+    fill 500ms ease,
+    stroke 500ms ease,
+    box-shadow 500ms ease !important;
+}
+
+/* ============================================================
    Sidebar (trilho 80px → 264px). Grid de 8px:
    padding 12 · item 48 · gap 4 · coluna do ícone 56 (centraliza no trilho)
    Fica fora de @layer para vencer os estilos do Mantine.
    ============================================================ */
 .bf-side.bf-side {
-  background: linear-gradient(160deg, #122552 0%, #060F28 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* Sidebar cinza #C7C7C7 com fontes/ícones em preto, nos dois modos. Redefine os tokens localmente. */
+  --tt-ink: #C7C7C7;
+  --tt-active: #B5B5B5;
+  --tt-line: #B0B0B0;
+  --tt-text: #000000;
+  --tt-text-2: #000000;
+  --tt-text-3: #1F1F1F;
+  --tt-champagne-100: #000000;
+  --tt-champagne-500: #1A67D2;
+  --tt-accent-2: #1A67D2;
+  --bf-fg: 0 0 0;
+  --bf-text-primary: #000000;
+  --bf-text-muted: rgb(0 0 0 / 0.7);
+  --color-white: #000000;
+  --color-red-200: #9B1C14;
+  --color-red-400: #C0382B;
+  color-scheme: light;
+  background: #C7C7C7;
   border-right: 1px solid var(--tt-line);
-  box-shadow: 1px 0 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 1px 0 12px rgba(11, 23, 48, 0.08);
   padding: 12px;
   overflow: hidden;
   display: flex;
@@ -945,6 +1098,19 @@ select.bf-input option {
   }
 }
 
+/* Coluna única dos botões flutuantes de desenvolvimento (lib/devDock.tsx), logo acima do "Tour guiado"
+   (44px de altura em bottom: 20px). column-reverse: ordem 1 fica embaixo. */
+.bf-dev-dock {
+  position: fixed;
+  right: 20px;
+  bottom: 76px;
+  z-index: 400;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 12px;
+}
+
 .bf-topbar.bf-topbar {
   display: flex;
   align-items: center;
@@ -959,6 +1125,32 @@ select.bf-input option {
   .bf-topbar.bf-topbar {
     padding: 0 16px;
   }
+}
+
+/* Modo escuro: topo e área principal com o mesmo fundo. O gradiente é ancorado na janela (fixed) nos dois,
+   então ele continua sem emenda do topo para o conteúdo. A sidebar troca o branco por branco escurecido 45%. */
+:root:not([data-mantine-color-scheme='light']) .bf-topbar.bf-topbar,
+:root:not([data-mantine-color-scheme='light']) .bf-main.bf-main {
+  background: radial-gradient(circle at 50% 0%, #122552 0%, #0B1730 70%) fixed;
+}
+:root:not([data-mantine-color-scheme='light']) .bf-topbar.bf-topbar {
+  border-bottom-color: transparent;
+}
+:root:not([data-mantine-color-scheme='light']) .bf-side.bf-side {
+  /* Cores herdadas do bloco base (#C7C7C7 + preto); aqui só tira borda e sombra. */
+  border-right: 0;
+  box-shadow: none;
+}
+
+/* Modo claro: sidebar e área principal com o mesmo branco (fontes da sidebar continuam pretas). */
+:root[data-mantine-color-scheme='light'] .bf-side.bf-side {
+  --tt-ink: #FFFFFF;
+  --tt-active: #EDEDED;
+  --tt-line: #E4E4E4;
+  background: #FFFFFF;
+}
+:root[data-mantine-color-scheme='light'] .bf-main.bf-main {
+  background: #FFFFFF;
 }
 
 /* Lado direito do topo: zoom (-/+) + usuário. */
@@ -1143,6 +1335,149 @@ select.bf-input option {
   min-height: 100dvh;
 }
 
+/* ============================================================
+   Espaçamento padrão das rotas autenticadas (mesmo da Visão geral).
+   .bf-page: margem do conteúdo (topo 48 → 80px; laterais 24 → 40px; base 32 → 48px).
+   .bf-cols: distância entre colunas de página (24px empilhado → 48px lado a lado).
+   ============================================================ */
+/* .bf-page ocupa toda a largura do AppShell.Main; o conteúdo fica centralizado em --bf-page-max e só o
+   bloco .bf-page-titulo (título + subtítulo) encosta no canto superior esquerdo. Em @layer base para que
+   utilitários do Tailwind nos filhos (ex.: mx-*) continuem valendo.
+   .bf-page-titulo-acoes: controle na linha do título (busca, botão) alinhado à borda direita do conteúdo. */
+@layer base {
+  .bf-page > * {
+    max-width: var(--bf-page-max, none);
+    margin-inline: auto;
+  }
+  .bf-page > .bf-page-titulo {
+    max-width: none;
+    margin-inline: 0;
+  }
+  .bf-page-titulo-acoes {
+    margin-right: calc((100% - min(100%, var(--bf-page-max, 100%))) / 2);
+  }
+}
+.bf-page {
+  width: 100%;
+  margin-inline: 0;
+  box-sizing: border-box;
+  padding: 48px 24px 32px;
+}
+@media (min-width: 40rem) {
+  .bf-page {
+    padding: 80px 40px 48px;
+  }
+}
+.bf-cols {
+  gap: 24px;
+}
+
+/* Tela de altura fixa (ex.: Visão geral), só no desktop: a área principal tem exatamente a altura da janela,
+   o rodapé fica colado embaixo e a página não rola; o conteúdo que crescer (tabelas) rola por dentro.
+   A página marca .bf-tela-fixa e encadeia flex/min-h-0 até o elemento que deve rolar. */
+@media (min-width: 64em) {
+  :root .bf-main.bf-main:has(.bf-tela-fixa) {
+    height: calc(100dvh / var(--bf-zoom, 1));
+    min-height: 0;
+    overflow: hidden;
+  }
+  .bf-main:has(.bf-tela-fixa) > .bf-transicao {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .bf-tela-fixa {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Página com .bf-sem-scrollbar (ex.: Visão geral): esconde a barra de rolagem da janela, mas a página
+   continua rolando (roda do mouse, teclado, toque). */
+html:has(.bf-sem-scrollbar),
+html:has(.bf-sem-scrollbar) body {
+  scrollbar-width: none;
+}
+html:has(.bf-sem-scrollbar)::-webkit-scrollbar,
+html:has(.bf-sem-scrollbar) body::-webkit-scrollbar {
+  display: none;
+}
+
+/* Card opaco no tom do vidro (bg-white/5 sobre --tt-base): usado quando há cabeçalho fixo (sticky) dentro do
+   card, para o cabeçalho ter exatamente a mesma cor do resto. Inverte com o tema via --color-white/--tt-base. */
+/* Cabeçalho das tabelas: fonte branca no modo noturno, preta no diurno. */
+.bf-thead.bf-thead th {
+  color: #FFFFFF;
+}
+:root[data-mantine-color-scheme='light'] .bf-thead.bf-thead th {
+  color: #000000;
+}
+
+.bf-card-solido {
+  background: color-mix(in srgb, var(--color-white) 5%, var(--tt-base));
+}
+
+/* Criticidade do processo: ponto com ondas (ripple). Vermelho pulsa rápido, amarelo médio, verde lento. */
+.bf-ripple {
+  --rc: #12a37a;
+  --rd: 2.6s;
+  position: relative;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rc);
+}
+.bf-ripple > span {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--rc);
+  animation: bf-ripple var(--rd) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+.bf-ripple > span + span {
+  animation-delay: calc(var(--rd) / 2);
+}
+.bf-ripple-critico {
+  --rc: #ef4444;
+  --rd: 1.2s;
+}
+.bf-ripple-atencao {
+  --rc: #f5b300;
+  --rd: 1.8s;
+}
+.bf-ripple-estavel {
+  --rc: #12a37a;
+  --rd: 2.6s;
+}
+@keyframes bf-ripple {
+  from {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-ripple > span {
+    animation: none;
+    opacity: 0;
+  }
+  .bf-ripple {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--rc) 25%, transparent);
+  }
+}
+@media (min-width: 64rem) {
+  .bf-cols {
+    column-gap: 48px;
+  }
+}
+
 /* Cartões com spotlight (React Bits) */
 .bf-spot {
   --mx: 50%;
@@ -1197,12 +1532,38 @@ select.bf-input option {
   box-shadow: inset 0 1px 0 rgb(var(--bf-fg) / 0.15);
 }
 
+/* Variante compacta (coluna estreita de atalhos na Visão geral). */
+.bf-spot.bf-spot-compacto {
+  padding: 16px;
+  border-radius: 18px;
+}
+.bf-spot-compacto .bf-spot-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bf-side.bf-side,
   .bf-nav-label,
   .bf-spot {
     transition: none;
   }
+}
+
+/* ── Switch desligado visível ── O trilho padrão do Mantine (cinza muito claro) sumia no fundo claro.
+   Trilho e borda usam a cor do texto do tema (--bf-fg) com opacidade: contrastam no claro e no escuro. */
+.mantine-Switch-input:not(:checked) + .mantine-Switch-track {
+  background-color: rgb(var(--bf-fg) / 0.22) !important;
+  border-color: rgb(var(--bf-fg) / 0.32) !important;
+}
+.mantine-Switch-input:not(:checked) + .mantine-Switch-track .mantine-Switch-thumb {
+  background-color: #FFFFFF !important;
+  border-color: rgb(var(--bf-fg) / 0.32) !important;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25) !important;
+}
+.mantine-Switch-input:disabled + .mantine-Switch-track {
+  opacity: 0.5;
 }
 
 /* ── SegmentedControl Legibility & High Contrast ── */
@@ -1217,9 +1578,13 @@ select.bf-input option {
   color: var(--tt-text-2) !important;
   font-size: 13px !important;
   font-weight: 500 !important;
-  display: inline-flex !important;
+  /* flex + largura total: o rótulo preenche a aba e o texto fica centralizado (inline-flex encolhia ao conteúdo e o texto ia para a esquerda). */
+  display: flex !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
   align-items: center !important;
   justify-content: center !important;
+  text-align: center !important;
   gap: 6px !important;
   transition: color 150ms ease !important;
 }
@@ -1232,6 +1597,12 @@ select.bf-input option {
 .mantine-SegmentedControl-label[data-disabled] {
   color: rgb(var(--bf-fg) / 0.35) !important;
   cursor: not-allowed !important;
+}
+
+/* Abas com largura proporcional: todas dividem o espaço igualmente (fullWidth). */
+.mantine-SegmentedControl-root[data-full-width] .mantine-SegmentedControl-control {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
 }
 
 .mantine-SegmentedControl-indicator {
@@ -1639,6 +2010,19 @@ body:has(.bf-main) .bf-rodape--raiz {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+/* Desktop: rodapé fixo na base da tela (sticky — continua no fluxo, então não cobre o fim do conteúdo).
+   No mobile ele empilha em 3 linhas e ocuparia muito da tela, por isso fica no fluxo normal. */
+@media (min-width: 861px) {
+  .bf-rodape {
+    position: sticky;
+    bottom: 0;
+    z-index: 50;
+  }
+  .bf-rodape-inner {
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
 }
 @media (max-width: 860px) {
   .bf-rodape-inner {

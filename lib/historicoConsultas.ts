@@ -3,6 +3,8 @@ import { getAdminClient } from './track';
 export type TipoBuscaHistorico = 'cpf' | 'cnpj' | 'nome' | 'numero';
 
 export interface ConsultaHistoricoInput {
+  /** Id da consulta (consultaId do streaming): liga a busca aos processos pesquisados e salvos. */
+  id?: string;
   tipoBusca: TipoBuscaHistorico;
   /** CPF/CNPJ (só dígitos), nº CNJ ou nome da parte, conforme o tipo. */
   termo: string;
@@ -45,6 +47,7 @@ export async function registrarHistoricoConsulta(userId: string | null, consulta
     const { data: perfil } = await db.from('ap_perfis').select('nome,email').eq('id', userId).maybeSingle();
 
     const { error } = await db.from('ap_historico_consultas').insert({
+      ...(consulta.id ? { id: consulta.id } : {}),
       user_id: userId,
       usuario_nome: perfil?.nome ?? null,
       usuario_email: perfil?.email ?? null,

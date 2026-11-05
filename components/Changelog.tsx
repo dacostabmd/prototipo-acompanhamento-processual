@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActionIcon, Modal, Textarea, TextInput, Tooltip, Button, Divider, ScrollArea, Text } from '@mantine/core';
 import { Sparkles, Plus } from 'lucide-react';
+import { DockSlot } from '@/lib/devDock';
 import { authFetch } from '@/lib/authFetch';
 export interface ChangelogEntry {
   id: string;
@@ -99,6 +100,7 @@ export default function Changelog({ isOwner }: { isOwner: boolean }) {
 
   return (
     <>
+      <DockSlot ordem={1}>
       <Tooltip label="Novidades" position="left">
         <ActionIcon
           onClick={abrirNovidades}
@@ -107,13 +109,7 @@ export default function Changelog({ isOwner }: { isOwner: boolean }) {
           variant="filled"
           color="brand"
           aria-label="Ver novidades do produto"
-          style={{
-            position: 'fixed',
-            right: 20,
-            bottom: isOwner ? 76 : 20,
-            zIndex: 400,
-            boxShadow: '0 10px 24px -8px rgba(23,52,122,.6)'
-          }}
+          style={{ boxShadow: '0 10px 24px -8px rgba(23,52,122,.6)' }}
         >
           <Sparkles size={20} strokeWidth={1.8} />
           {hasUnseen && (
@@ -133,21 +129,24 @@ export default function Changelog({ isOwner }: { isOwner: boolean }) {
           )}
         </ActionIcon>
       </Tooltip>
+      </DockSlot>
 
       {isOwner && (
-        <Tooltip label="Nova entrada de changelog" position="left">
-          <ActionIcon
-            onClick={() => setCriarOpened(true)}
-            size={44}
-            radius="xl"
-            variant="filled"
-            color="gray"
-            aria-label="Criar nova entrada de changelog"
-            style={{ position: 'fixed', right: 20, bottom: 20, zIndex: 400, boxShadow: '0 10px 24px -8px rgba(0,0,0,.5)' }}
-          >
-            <Plus size={20} strokeWidth={1.8} />
-          </ActionIcon>
-        </Tooltip>
+        <DockSlot ordem={3}>
+          <Tooltip label="Nova entrada de changelog" position="left">
+            <ActionIcon
+              onClick={() => setCriarOpened(true)}
+              size={44}
+              radius="xl"
+              variant="filled"
+              color="gray"
+              aria-label="Criar nova entrada de changelog"
+              style={{ boxShadow: '0 10px 24px -8px rgba(0,0,0,.5)' }}
+            >
+              <Plus size={20} strokeWidth={1.8} />
+            </ActionIcon>
+          </Tooltip>
+        </DockSlot>
       )}
 
       <Modal opened={opened} onClose={() => setOpened(false)} size="lg" radius="lg" padding="lg" title={<Text fw={600}>Novidades</Text>}>

@@ -71,6 +71,7 @@ export default function CreditosChip() {
       <Link
         href="/planos"
         className="bf-creditos"
+        data-tour="creditos"
         data-nivel={nivel}
         aria-label={`Créditos de consulta: ${brl(consumo.restanteReais)} restantes. ${dica}`}
       >

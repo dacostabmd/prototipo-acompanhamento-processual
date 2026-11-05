@@ -137,8 +137,18 @@ async function salvarPreferencias(
   }
 }
 
-/** Salva os processos pesquisados (com hash) e completa o perfil. Nunca lança erro. */
-async function salvarProcessos(userId: string, cpf: string, fullName: string | undefined, list: LegalProcess[]) {
+/**
+ * Salva os processos pesquisados (com hash) e completa o perfil. Nunca lança erro.
+ * Cada linha guarda a consulta que a encontrou (FK ap_historico_consultas) e o custo dela rateado entre os
+ * processos achados; o processo completo fica em dados_brutos.processo para o "Salvar em Meus processos".
+ */
+async function salvarProcessos(
+  userId: string,
+  cpf: string,
+  fullName: string | undefined,
+  list: LegalProcess[],
+  consulta: { id: string; custoCobrado: number }
+) {
   try {
     const db = getAdminClient();
     if (!db) return;
@@ -152,6 +162,7 @@ async function salvarProcessos(userId: string, cpf: string, fullName: string | u
       if (up.error) console.error('[api/processos] perfil:', up.error.message);
     }
 
+    const custoPorProcesso = list.length > 0 ? Number((consulta.custoCobrado / list.length).toFixed(2)) : 0;
     const rows = list
       .map(p => {
         const [tribunal, vara] = p.tribunal.split(' · ');
@@ -164,7 +175,14 @@ async function salvarProcessos(userId: string, cpf: string, fullName: string | u
           assunto: vara ?? null,
           parte_passiva: p.parteContraria,
           ultima_movimentacao_em: p.movimentos[0]?.data ?? null,
-          dados_brutos: { valorCausa: p.valorCausa, distribuicao: p.distribuicao, movimentos: p.movimentos.slice(0, 20) }
+          consulta_id: consulta.id,
+          custo_pesquisa: custoPorProcesso,
+          dados_brutos: {
+            valorCausa: p.valorCausa,
+            distribuicao: p.distribuicao,
+            movimentos: p.movimentos.slice(0, 20),
+            processo: { ...p, movimentos: p.movimentos.slice(0, 50) }
+          }
         };
       });
     if (rows.length) {
@@ -175,104 +193,6 @@ async function salvarProcessos(userId: string, cpf: string, fullName: string | u
   } catch (e) {
     console.error('[api/processos] falha ao salvar processos', e);
   }
-}
-
-/**
- * Upsert em ap_processos + ap_movimentacoes a partir dos processos já encontrados numa busca síncrona
- * do usuário final (Fluxo A ou B). Roda em paralelo/além de salvarProcessos (que grava em
- * ap_processos_pesquisados, tabela legada sem conceito de monitoramento) — nenhuma das duas
- * substitui a outra. É o que dá ao cron noturno (app/api/cron/reconsulta) "o que reconsultar" desde
- * a primeira busca síncrona: todo processo com número CNJ válido entra aqui com monitorar=true
- * (default da coluna), e já nasce com ultima_movimentacao_em preenchida para o backoff do cron ter
- * uma base correta. Nunca lança erro.
- */
-/**
- * Schema REAL de ap_processos/ap_movimentacoes no Supabase remoto (confirmado em 2026-10-07):
- * numero_cnj é ÚNICO GLOBALMENTE (um processo é uma entidade compartilhada entre usuários, não uma
- * cópia por usuário) e não tem user_id — quem monitora cada processo vive em ap_processos_monitorados
- * (user_id+processo_id+notificar_email/notificar_whatsapp). ap_movimentacoes usa data_movimentacao/
- * titulo/conteudo, não data/descricao. Isso diverge do arquivo local
- * supabase/migrations/20260929120000_ap_schema_inicial.sql, que nunca foi aplicado ao banco remoto —
- * o schema abaixo segue o banco real, não esse arquivo.
- */
-async function sincronizarMonitoramento(userId: string, list: LegalProcess[]) {
-  try {
-    const db = getAdminClient();
-    if (!db) return;
-
-    for (const p of list) {
-      const cnjInfo = parseCnj(p.numero);
-      const numeroCnjFormatado = cnjInfo?.numeroFormatado;
-      // ap_processos.numero_cnj exige o formato NNNNNNN-DD.AAAA.J.TR.OOOO (check constraint) —
-      // processos sem CNJ parseável (não deveria ocorrer no Fluxo A/B, mas por segurança) são ignorados.
-      if (!numeroCnjFormatado) continue;
-
-      const movimentoMaisRecente = p.movimentos.reduce<string | null>((max, m) => (!max || m.data > max ? m.data : max), null);
-      const [tribunal] = p.tribunal.split(' · ');
-
-      const upsertProcesso = await db
-        .from('ap_processos')
-        .upsert(
-          {
-            numero_cnj: numeroCnjFormatado,
-            titulo: p.numero,
-            tribunal: tribunal || 'Não informado',
-            classe_processual: p.tipo || null,
-            assunto_principal: p.assunto || null,
-            valor_causa: parseValorCausa(p.valorCausa),
-            status: 'ativo',
-            ...(movimentoMaisRecente ? { ultima_movimentacao_em: movimentoMaisRecente } : {}),
-            metadados: { distribuicao: p.distribuicao, varaForo: p.varaForo, origem: p.origem, parteAtiva: p.autor, partePassiva: p.reu || p.parteContraria }
-          },
-          { onConflict: 'numero_cnj' }
-        )
-        .select('id')
-        .single();
-
-      if (upsertProcesso.error || !upsertProcesso.data) {
-        console.error('[api/processos] sincronizarMonitoramento (ap_processos):', upsertProcesso.error?.message);
-        continue;
-      }
-
-      const processoId = upsertProcesso.data.id as string;
-
-      // Vincula este usuário ao processo (ap_processos_monitorados já guarda a preferência de canal
-      // por usuário+processo — notificar_email/notificar_whatsapp — consumida pelo cron de reconsulta).
-      const upsertMonitoramento = await db
-        .from('ap_processos_monitorados')
-        .upsert({ user_id: userId, processo_id: processoId }, { onConflict: 'user_id,processo_id', ignoreDuplicates: true });
-      if (upsertMonitoramento.error) {
-        console.error('[api/processos] sincronizarMonitoramento (ap_processos_monitorados):', upsertMonitoramento.error.message);
-      }
-
-      if (p.movimentos.length === 0) continue;
-
-      const movRows = p.movimentos.map(m => ({
-        processo_id: processoId,
-        data_movimentacao: m.data,
-        tipo: m.tag || null,
-        titulo: m.titulo,
-        conteudo: m.descricao || m.titulo,
-        hash: createHash('sha256').update(`${processoId}:${m.data}:${m.descricao || m.titulo}`).digest('hex')
-      }));
-
-      const upsertMovs = await db.from('ap_movimentacoes').upsert(movRows, { onConflict: 'processo_id,hash', ignoreDuplicates: true });
-      if (upsertMovs.error) console.error('[api/processos] sincronizarMonitoramento (ap_movimentacoes):', upsertMovs.error.message);
-    }
-  } catch (e) {
-    console.error('[api/processos] falha ao sincronizar monitoramento', e);
-  }
-}
-
-/** "R$ 12.345,67" / "12345.67" → 12345.67. Sem valor numérico reconhecível, retorna null (coluna aceita null). */
-function parseValorCausa(v: string | undefined): number | null {
-  if (!v) return null;
-  const limpo = v.replace(/[^\d,.-]/g, '');
-  if (!limpo) return null;
-  // Formato BR ("12.345,67"): remove separador de milhar (.) e troca a vírgula decimal por ponto.
-  const normalizado = limpo.includes(',') ? limpo.replace(/\./g, '').replace(',', '.') : limpo;
-  const n = Number(normalizado);
-  return Number.isFinite(n) ? n : null;
 }
 
 /**
@@ -446,19 +366,21 @@ export async function POST(request: Request) {
                   processos: allProcesses.map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
                 }
               }),
-              registrarHistoricoConsulta(userId, {
-                tipoBusca: 'numero',
-                termo: formattedNumber,
-                nomeParte: fullName,
-                tribunais: [targetLabel],
-                totalProcessos: allProcesses.length,
-                custoEstimado,
-                custoCobrado
-              }),
               (async () => {
+                // Histórico antes dos processos: ap_processos_pesquisados.consulta_id referencia esta linha.
+                // Monitorar (ap_processos_monitorados) só quando o usuário confirma "Salvar em Meus processos".
+                await registrarHistoricoConsulta(userId, {
+                  id: consultaId,
+                  tipoBusca: 'numero',
+                  termo: formattedNumber,
+                  nomeParte: fullName,
+                  tribunais: [targetLabel],
+                  totalProcessos: allProcesses.length,
+                  custoEstimado,
+                  custoCobrado
+                });
                 if (!userId || allProcesses.length === 0) return;
-                await salvarProcessos(userId, cpfParaPerfil, fullName, allProcesses);
-                await sincronizarMonitoramento(userId, allProcesses);
+                await salvarProcessos(userId, cpfParaPerfil, fullName, allProcesses, { id: consultaId, custoCobrado });
                 await salvarPreferencias(userId, [targetLabel], { avisarMovimentacao, canalAviso, resumoLinguagemSimples });
               })()
             ]);
@@ -806,20 +728,22 @@ export async function POST(request: Request) {
                 processos: filteredProcesses.slice(0, 20).map(p => ({ numero: p.numero, tipo: p.tipo, tribunal: p.tribunal }))
               }
             }),
-            registrarHistoricoConsulta(userId, {
-              tipoBusca,
-              termo: valorBusca,
-              nomeParte: fullName,
-              tribunais: tribunaisConsultados,
-              totalProcessos: filteredProcesses.length,
-              custoEstimado,
-              custoCobrado
-            }),
             registrarFontesConsulta(consultaId, userId, tipoBusca, sinais, dividirEmOndas ? prioridade.origem : null, registros),
             (async () => {
+              // Histórico antes dos processos: ap_processos_pesquisados.consulta_id referencia esta linha.
+              // Monitorar (ap_processos_monitorados) só quando o usuário confirma "Salvar em Meus processos".
+              await registrarHistoricoConsulta(userId, {
+                id: consultaId,
+                tipoBusca,
+                termo: valorBusca,
+                nomeParte: fullName,
+                tribunais: tribunaisConsultados,
+                totalProcessos: filteredProcesses.length,
+                custoEstimado,
+                custoCobrado
+              });
               if (!userId) return;
-              await salvarProcessos(userId, cpfParaPerfil, fullName, filteredProcesses);
-              if (filteredProcesses.length > 0) await sincronizarMonitoramento(userId, filteredProcesses);
+              await salvarProcessos(userId, cpfParaPerfil, fullName, filteredProcesses, { id: consultaId, custoCobrado });
               await salvarPreferencias(userId, tribunaisSelecionados, { avisarMovimentacao, canalAviso, resumoLinguagemSimples });
             })()
           ]);

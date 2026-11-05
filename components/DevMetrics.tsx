@@ -1,10 +1,21 @@
 'use client';
 
-import { ActionIcon, Badge, Group, Modal, SegmentedControl, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Badge, Group, Modal, Text, Tooltip } from '@mantine/core';
+import AbasDeslizantes, { ConteudoDeslizante, useDirecaoAba } from './AbasDeslizantes';
 import { useDisclosure } from '@mantine/hooks';
 import { Gauge, CheckCircle2 } from 'lucide-react';
 import { setDevPagante, useDevPagante } from '@/lib/devPagante';
 import { setDevVisaoAdvogado, useDevVisaoAdvogado } from '@/lib/devVisao';
+import { DockSlot } from '@/lib/devDock';
+
+const CONTAS = [
+  { label: 'Usuário comum', value: 'comum' as const },
+  { label: 'Advogado', value: 'advogado' as const }
+];
+const ASSINATURAS = [
+  { label: 'Não pagante', value: 'nao-pagante' as const },
+  { label: 'Pagante', value: 'pagante' as const }
+];
 
 /** Controle flutuante para simular, no protótipo, usuário comum / advogado (e, no advogado, pagante / não pagante). */
 export default function DevMetrics() {
@@ -13,9 +24,14 @@ export default function DevMetrics() {
   const pagante = useDevPagante();
 
   const rotuloConta = advogado ? 'Advogado' : 'Usuário comum';
+  const conta = advogado ? 'advogado' : 'comum';
+  const assinatura = pagante ? 'pagante' : 'nao-pagante';
+  const direcaoConta = useDirecaoAba(conta, ['comum', 'advogado']);
+  const direcaoAssinatura = useDirecaoAba(assinatura, ['nao-pagante', 'pagante']);
 
   return (
     <>
+      <DockSlot ordem={2}>
       <Tooltip label={`Simular conta (${rotuloConta})`} position="left" withArrow>
         <ActionIcon
           onClick={open}
@@ -24,13 +40,7 @@ export default function DevMetrics() {
           variant="filled"
           color={advogado ? 'teal' : 'brand'}
           aria-label="Alternar simulação de conta: usuário comum / advogado"
-          style={{
-            position: 'fixed',
-            right: 20,
-            bottom: 20,
-            zIndex: 400,
-            boxShadow: '0 10px 24px -8px rgba(23,52,122,.6)'
-          }}
+          style={{ boxShadow: '0 10px 24px -8px rgba(23,52,122,.6)' }}
         >
           <Gauge size={20} strokeWidth={1.8} />
           {advogado && (
@@ -50,6 +60,7 @@ export default function DevMetrics() {
           )}
         </ActionIcon>
       </Tooltip>
+      </DockSlot>
 
       <Modal
         opened={opened}
@@ -72,17 +83,15 @@ export default function DevMetrics() {
             Controla localmente (neste navegador) o que a conta enxerga: o usuário comum busca só por número do processo; o advogado também busca por pessoa ou empresa.
           </Text>
 
-          <SegmentedControl
+          <AbasDeslizantes
             fullWidth
-            size="sm"
-            value={advogado ? 'advogado' : 'comum'}
+            ariaLabel="Tipo de conta"
+            value={conta}
             onChange={v => setDevVisaoAdvogado(v === 'advogado')}
-            data={[
-              { label: 'Usuário comum', value: 'comum' },
-              { label: 'Advogado', value: 'advogado' }
-            ]}
+            data={CONTAS}
           />
 
+          <ConteudoDeslizante chave={conta} direcao={direcaoConta}>
           {advogado && (
             <div style={{ marginTop: 18 }}>
               <Group justify="space-between" align="center" mb={6}>
@@ -93,17 +102,15 @@ export default function DevMetrics() {
                   {pagante ? 'Pagante' : 'Não pagante'}
                 </Badge>
               </Group>
-              <SegmentedControl
+              <AbasDeslizantes
                 fullWidth
-                size="sm"
-                value={pagante ? 'pagante' : 'nao-pagante'}
+                ariaLabel="Assinatura"
+                value={assinatura}
                 onChange={v => setDevPagante(v === 'pagante')}
-                data={[
-                  { label: 'Não pagante', value: 'nao-pagante' },
-                  { label: 'Pagante', value: 'pagante' }
-                ]}
+                data={ASSINATURAS}
               />
 
+              <ConteudoDeslizante chave={assinatura} direcao={direcaoAssinatura}>
               {pagante && (
                 <Group gap={6} mt="sm" c="teal" wrap="nowrap">
                   <CheckCircle2 size={14} />
@@ -112,8 +119,10 @@ export default function DevMetrics() {
                   </Text>
                 </Group>
               )}
+              </ConteudoDeslizante>
             </div>
           )}
+          </ConteudoDeslizante>
         </div>
       </Modal>
     </>

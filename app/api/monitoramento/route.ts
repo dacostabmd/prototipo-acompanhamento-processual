@@ -2,7 +2,14 @@ import { NextResponse } from 'next/server';
 import { getAdminClient, getUserId } from '@/lib/track';
 import { requireUser } from '@/lib/requireUser';
 import { normalizarTelefoneBr } from '@/lib/whatsapp';
-import type { ModoSensibilidade, ProcessoAcompanhado, RespostaMonitoramento, UrgenciaResumo } from '@/lib/types/monitoramento';
+import type {
+  ModoSensibilidade,
+  MovimentacaoResumida,
+  PoloProcesso,
+  ProcessoAcompanhado,
+  RespostaMonitoramento,
+  UrgenciaResumo
+} from '@/lib/types/monitoramento';
 
 interface LinhaMonitoramento {
   processo_id: string;
@@ -13,10 +20,43 @@ interface LinhaMonitoramento {
     numero_cnj: string;
     tribunal: string | null;
     classe_processual: string | null;
+    assunto_principal: string | null;
+    valor_causa: number | string | null;
+    data_distribuicao: string | null;
+    orgao_julgador: string | null;
+    comarca: string | null;
+    metadados: Record<string, unknown> | null;
     ultima_movimentacao_em: string | null;
     ultima_consulta_em: string | null;
     proxima_consulta_em: string | null;
   } | null;
+}
+
+const texto = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
+/**
+ * As fontes gravam o polo como texto corrido: "Fulano, Advogado: A, B, Ciclano, Advogada: C".
+ * O nome após a lista de advogados de um bloco é a próxima parte; bloco com um único nome entre dois
+ * rótulos ("Advogada: X, Advogado: Y") é só advogado.
+ */
+function extrairPolo(valor: unknown): PoloProcesso {
+  const bruto = texto(valor);
+  if (!bruto || /^n[ãa]o informad/i.test(bruto)) return { nomes: [], advogados: [] };
+
+  const blocos = bruto.split(/\s*,?\s*Advogad[oa]s?\s*:\s*/i);
+  const nomes = [blocos[0]];
+  const advogados = new Set<string>();
+  blocos.slice(1).forEach((bloco, i) => {
+    const itens = bloco.split(',').map(s => s.trim().replace(/\.$/, '')).filter(Boolean);
+    const ultimo = i === blocos.length - 2;
+    if (!ultimo && itens.length >= 2) nomes.push(itens.pop()!);
+    itens.forEach(a => advogados.add(a));
+  });
+
+  return {
+    nomes: [...new Set(nomes.map(n => n.trim()).filter(Boolean))],
+    advogados: [...advogados]
+  };
 }
 
 /** Processos que o usuário acompanha, com canais de aviso e o último resumo IA de cada um. */
@@ -32,7 +72,7 @@ export async function GET(request: Request) {
     db
       .from('ap_processos_monitorados')
       .select(
-        'processo_id, notificar_email, notificar_whatsapp, tags, ap_processos(numero_cnj, tribunal, classe_processual, ultima_movimentacao_em, ultima_consulta_em, proxima_consulta_em)'
+        'processo_id, notificar_email, notificar_whatsapp, tags, ap_processos(numero_cnj, tribunal, classe_processual, assunto_principal, valor_causa, data_distribuicao, orgao_julgador, comarca, metadados, ultima_movimentacao_em, ultima_consulta_em, proxima_consulta_em)'
       )
       .eq('user_id', userId)
       .order('created_at', { ascending: false }),
@@ -49,6 +89,39 @@ export async function GET(request: Request) {
 
   // Último resumo por processo: os resumos vêm do mais novo para o mais antigo, fica o primeiro de cada.
   const ultimoResumo = new Map<string, ProcessoAcompanhado['resumo']>();
+
+  // Últimas 10 movimentações de cada processo (o card mostra 3, o drawer todas). Consulta por processo:
+  // um .in() com limit global deixaria processos muito movimentados "engolirem" os demais.
+  const movimentacoes = new Map<string, MovimentacaoResumida[]>();
+  await Promise.all(
+    ids.map(async id => {
+      const { data, error } = await db
+        .from('ap_movimentacoes')
+        .select('id, data_movimentacao, tipo, titulo, conteudo, traducao_leiga')
+        .eq('processo_id', id)
+        .order('data_movimentacao', { ascending: false })
+        .limit(10);
+      if (error) {
+        console.error('[api/monitoramento] erro ao ler movimentações:', error.message);
+        return;
+      }
+      movimentacoes.set(
+        id,
+        (data ?? []).map(m => {
+          const original = texto(m.conteudo) ?? texto(m.titulo) ?? 'Movimentação';
+          return {
+            id: m.id as string,
+            data: m.data_movimentacao as string,
+            titulo: original.slice(0, 240),
+            textoOriginal: original,
+            traducao: texto(m.traducao_leiga),
+            tipo: texto(m.tipo)
+          };
+        })
+      );
+    })
+  );
+
   if (ids.length > 0) {
     const { data: resumos, error } = await db
       .from('ap_resumos_ia')
@@ -71,6 +144,7 @@ export async function GET(request: Request) {
 
   const processos: ProcessoAcompanhado[] = linhas.map(l => {
     const p = l.ap_processos!;
+    const meta = (p.metadados ?? {}) as Record<string, unknown>;
     const tagSensibilidade = (l.tags ?? []).find(t => t.startsWith('sensibilidade:'))?.replace('sensibilidade:', '');
     const sensibilidade: ModoSensibilidade =
       tagSensibilidade === 'todas' || tagSensibilidade === 'urgentes_apenas' ? tagSensibilidade : 'smart_digest';
@@ -86,6 +160,13 @@ export async function GET(request: Request) {
       notificarEmail: l.notificar_email ?? true,
       notificarWhatsapp: l.notificar_whatsapp ?? false,
       sensibilidade,
+      assunto: texto(p.assunto_principal),
+      valorCausa: p.valor_causa != null && !Number.isNaN(Number(p.valor_causa)) ? Number(p.valor_causa) : null,
+      distribuidoEm: p.data_distribuicao ?? texto(meta.distribuicao)?.match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? null,
+      vara: texto(p.orgao_julgador) ?? texto(meta.varaForo) ?? texto(p.comarca),
+      poloAtivo: extrairPolo(meta.parteAtiva),
+      poloPassivo: extrairPolo(meta.partePassiva),
+      movimentacoes: movimentacoes.get(l.processo_id) ?? [],
       resumo: ultimoResumo.get(l.processo_id) ?? null
     };
   });

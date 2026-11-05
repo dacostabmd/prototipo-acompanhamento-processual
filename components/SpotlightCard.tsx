@@ -4,7 +4,7 @@ import { useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 
 /** Estilo React Bits "Spotlight Card": brilho que segue o cursor, sem re-render (só CSS vars). */
-export default function SpotlightCard({ href, children }: { href: string; children: ReactNode }) {
+export default function SpotlightCard({ href, children, compacto }: { href: string; children: ReactNode; compacto?: boolean }) {
   const ref = useRef<HTMLAnchorElement>(null);
 
   const onMove = (e: React.PointerEvent<HTMLAnchorElement>) => {
@@ -16,7 +16,7 @@ export default function SpotlightCard({ href, children }: { href: string; childr
   };
 
   return (
-    <Link ref={ref} href={href} onPointerMove={onMove} className="bf-spot">
+    <Link ref={ref} href={href} onPointerMove={onMove} className={compacto ? 'bf-spot bf-spot-compacto bf-paper' : 'bf-spot bf-paper'}>
       {children}
     </Link>
   );

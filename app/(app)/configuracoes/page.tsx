@@ -2,47 +2,28 @@
 
 import { useState, useEffect, useId, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import AbasDeslizantes, { ConteudoDeslizante } from '@/components/AbasDeslizantes';
 import {
   Settings,
   SlidersHorizontal,
   Bell,
-  Cpu,
-  Monitor,
-  Check,
   Save,
   Loader2,
-  Zap,
-  Globe,
-  Database,
-  Radio,
-  Layers,
   CheckCircle2,
   Info,
   type LucideIcon
 } from 'lucide-react';
 
-type AbaConfig = 'geral' | 'notificacoes' | 'integracoes' | 'aparencia';
+type AbaConfig = 'geral' | 'notificacoes';
 
 interface ConfigState {
   // Geral
-  autoSalvarConsultas: boolean;
-  otimizadorVarredura: boolean;
-  filtroAutorPadrao: boolean;
-  limitePorTribunal: string;
   ordenacaoPadrao: string;
   // Notificacoes
   emailMovimentacoes: boolean;
   alertaPrazos: boolean;
   resumoSemanal: boolean;
   notificacoesPush: boolean;
-  // Integracoes
-  datajudAtivo: boolean;
-  infosimplesAtivo: boolean;
-  webhookUrl: string;
-  // Aparencia
-  efeitoFibers: boolean;
-  densidadeTabela: 'confortavel' | 'compacto';
-  animacoesReduzidas: boolean;
 }
 
 type CampoBooleano = { [K in keyof ConfigState]: ConfigState[K] extends boolean ? K : never }[keyof ConfigState];
@@ -50,28 +31,16 @@ type CampoBooleano = { [K in keyof ConfigState]: ConfigState[K] extends boolean 
 const CONFIG_STORAGE_KEY = 'jusconsulta_configuracoes_v1';
 
 const DEFAULT_CONFIG: ConfigState = {
-  autoSalvarConsultas: true,
-  otimizadorVarredura: true,
-  filtroAutorPadrao: false,
-  limitePorTribunal: '50',
   ordenacaoPadrao: 'data_desc',
   emailMovimentacoes: true,
   alertaPrazos: true,
   resumoSemanal: false,
-  notificacoesPush: false,
-  datajudAtivo: true,
-  infosimplesAtivo: true,
-  webhookUrl: '',
-  efeitoFibers: true,
-  densidadeTabela: 'confortavel',
-  animacoesReduzidas: false
+  notificacoesPush: false
 };
 
 const ABAS: { id: AbaConfig; label: string; icon: LucideIcon }[] = [
   { id: 'geral', label: 'Geral & Varredura', icon: SlidersHorizontal },
-  { id: 'notificacoes', label: 'Notificações & Alertas', icon: Bell },
-  { id: 'integracoes', label: 'Integrações & APIs', icon: Cpu },
-  { id: 'aparencia', label: 'Aparência & Interface', icon: Monitor }
+  { id: 'notificacoes', label: 'Notificações & Alertas', icon: Bell }
 ];
 
 // Interruptor: o knob é absoluto dentro da trilha (um inline-block dentro do <button> seria centralizado
@@ -109,7 +78,7 @@ function Secao({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl backdrop-blur-xl sm:p-8">
+    <section className="bf-paper rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl backdrop-blur-xl sm:p-8">
       <header className="flex items-center gap-3 border-b border-white/10 pb-5">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-tt-champagne-300/10 text-tt-champagne-300">
           <Icone size={20} strokeWidth={1.8} />
@@ -182,57 +151,11 @@ function CampoSelect({
   );
 }
 
-function CartaoFonte({
-  icone: Icone,
-  nome,
-  detalhe,
-  status,
-  descricao,
-  tom
-}: {
-  icone: LucideIcon;
-  nome: string;
-  detalhe: string;
-  status: string;
-  descricao: string;
-  tom: 'sucesso' | 'acento';
-}) {
-  const cores =
-    tom === 'sucesso'
-      ? { icone: 'bg-tt-success/15 text-tt-success', chip: 'border-tt-success/30 bg-tt-success/10 text-tt-success', ponto: 'bg-tt-success animate-pulse' }
-      : {
-          icone: 'bg-tt-champagne-300/15 text-tt-champagne-300',
-          chip: 'border-tt-champagne-300/30 bg-tt-champagne-300/10 text-tt-champagne-300',
-          ponto: 'bg-tt-champagne-300'
-        };
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${cores.icone}`}>
-            <Icone size={18} strokeWidth={1.8} />
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-white">{nome}</h3>
-            <p className="text-[13px] text-tt-text-2">{detalhe}</p>
-          </div>
-        </div>
-        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${cores.chip}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${cores.ponto}`} />
-          {status}
-        </span>
-      </div>
-      <p className="mt-3 text-[13px] leading-relaxed text-tt-text-2">{descricao}</p>
-    </div>
-  );
-}
-
 export default function ConfiguracoesPage() {
   const [aba, setAba] = useState<AbaConfig>('geral');
   const [config, setConfig] = useState<ConfigState>(DEFAULT_CONFIG);
   const [salvando, setSalvando] = useState(false);
   const [toast, setToast] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null);
-  const webhookId = useId();
 
   useEffect(() => {
     try {
@@ -283,31 +206,8 @@ export default function ConfiguracoesPage() {
     }
   };
 
-  const opcaoDensidade = (valor: ConfigState['densidadeTabela'], titulo: string, descricao: string) => {
-    const ativa = config.densidadeTabela === valor;
-    return (
-      <button
-        type="button"
-        role="radio"
-        aria-checked={ativa}
-        onClick={() => setValor('densidadeTabela', valor)}
-        className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3.5 text-left outline-none transition-all focus-visible:ring-2 focus-visible:ring-tt-champagne-300/60 ${
-          ativa
-            ? 'border-tt-champagne-300/50 bg-tt-champagne-300/10 text-white'
-            : 'border-white/10 bg-black/20 text-tt-text-2 hover:border-white/20 hover:text-white'
-        }`}
-      >
-        <div>
-          <p className="text-sm font-medium">{titulo}</p>
-          <p className="mt-0.5 text-[13px] text-tt-text-2">{descricao}</p>
-        </div>
-        {ativa && <Check size={16} className="shrink-0 text-tt-champagne-300" />}
-      </button>
-    );
-  };
-
   return (
-    <div className="relative mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-8 lg:p-10 [&_h1]:m-0 [&_h2]:m-0 [&_h3]:m-0 [&_p]:m-0">
+    <div className="bf-page relative [--bf-page-max:72rem] space-y-6 [&_h1]:m-0 [&_h2]:m-0 [&_h3]:m-0 [&_p]:m-0">
       {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
@@ -333,7 +233,7 @@ export default function ConfiguracoesPage() {
       </AnimatePresence>
 
       {/* Cabeçalho */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="bf-page-titulo flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-tt-champagne-300">
@@ -342,7 +242,7 @@ export default function ConfiguracoesPage() {
             <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Configurações</h1>
           </div>
           <p className="mt-2 text-sm text-tt-text-2">
-            Personalize o comportamento da plataforma, parâmetros de busca, alertas e integrações judiciais.
+            Personalize o comportamento da plataforma, parâmetros de busca e alertas.
           </p>
         </div>
 
@@ -350,7 +250,7 @@ export default function ConfiguracoesPage() {
           type="button"
           onClick={handleSalvar}
           disabled={salvando}
-          className="bf-btn-ouro inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+          className="bf-page-titulo-acoes bf-btn-ouro inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           style={{
             background: 'linear-gradient(135deg, #1E7CF2 0%, var(--tt-accent-2) 100%)',
             border: '1px solid rgb(var(--bf-fg) / 0.4)',
@@ -378,51 +278,26 @@ export default function ConfiguracoesPage() {
       </div>
 
       {/* Barra de Abas */}
-      <div
-        role="tablist"
-        aria-label="Seções de configuração"
-        className="flex gap-1.5 overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-2 backdrop-blur-xl"
-      >
-        {ABAS.map(item => {
-          const ativa = aba === item.id;
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={ativa}
-              onClick={() => setAba(item.id)}
-              className={`relative flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-tt-champagne-300/60 sm:px-5 sm:py-3 ${
-                ativa ? 'text-white' : 'text-tt-text-2 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              {ativa && (
-                <motion.div
-                  layoutId="tab-pill-config"
-                  className="absolute inset-0 rounded-xl border border-tt-champagne-300/40 bg-tt-champagne-300/10"
-                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                />
-              )}
-              <span className="relative z-10 flex items-center gap-2">
-                <Icon size={16} strokeWidth={1.8} className={ativa ? 'text-tt-champagne-300' : 'text-tt-text-2'} />
-                <span>{item.label}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <AbasDeslizantes
+        rolavel
+        size="md"
+        ariaLabel="Seções de configuração"
+        value={aba}
+        onChange={setAba}
+        data={ABAS.map(item => ({
+          value: item.id,
+          label: (
+            <>
+              <item.icon size={16} strokeWidth={1.8} aria-hidden="true" />
+              <span>{item.label}</span>
+            </>
+          )
+        }))}
+      />
 
-      {/* Conteúdo das Abas */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={aba}
-          role="tabpanel"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.18 }}
-        >
+      {/* Conteúdo das Abas: desliza para a esquerda/direita conforme a aba escolhida */}
+      <ConteudoDeslizante chave={aba} ordem={ABAS.map(item => item.id)}>
+        <div role="tabpanel">
           {/* ABA 1: GERAL & VARREDURA */}
           {aba === 'geral' && (
             <Secao
@@ -430,65 +305,16 @@ export default function ConfiguracoesPage() {
               titulo="Parâmetros de Varredura & Consulta"
               descricao="Configure como o motor de busca opera sobre os tribunais"
             >
-              <LinhaConfig
-                icone={Zap}
-                titulo="Otimizador de Varredura Paralela"
-                descricao="Dispara consultas assíncronas com timeout inteligente de 15s para evitar bloqueios em tribunais lentos."
-              >
-                <Toggle
-                  ligado={config.otimizadorVarredura}
-                  onChange={() => toggle('otimizadorVarredura')}
-                  rotulo="Otimizador de Varredura Paralela"
-                />
-              </LinhaConfig>
-
-              <LinhaConfig
-                icone={Database}
-                titulo="Auto-armazenamento de Resultados"
-                descricao="Salva automaticamente novos processos localizados na sua base pessoal para consultas futuras."
-              >
-                <Toggle
-                  ligado={config.autoSalvarConsultas}
-                  onChange={() => toggle('autoSalvarConsultas')}
-                  rotulo="Auto-armazenamento de Resultados"
-                />
-              </LinhaConfig>
-
-              <LinhaConfig
-                icone={Layers}
-                titulo="Filtro Padrão por Polo Ativo (Autor)"
-                descricao="Quando ativado, novas consultas virão pré-configuradas para priorizar apenas processos onde o documento figure como autor."
-              >
-                <Toggle
-                  ligado={config.filtroAutorPadrao}
-                  onChange={() => toggle('filtroAutorPadrao')}
-                  rotulo="Filtro Padrão por Polo Ativo (Autor)"
-                />
-              </LinhaConfig>
-
-              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
-                <CampoSelect
-                  rotulo="Limite de Processos por Tribunal"
-                  valor={config.limitePorTribunal}
-                  onChange={v => setValor('limitePorTribunal', v)}
-                  opcoes={[
-                    { valor: '25', texto: 'Até 25 processos' },
-                    { valor: '50', texto: 'Até 50 processos (Recomendado)' },
-                    { valor: '100', texto: 'Até 100 processos' },
-                    { valor: 'unlimited', texto: 'Sem limite (Varredura completa)' }
-                  ]}
-                />
-                <CampoSelect
-                  rotulo="Ordenação Padrão nas Listagens"
-                  valor={config.ordenacaoPadrao}
-                  onChange={v => setValor('ordenacaoPadrao', v)}
-                  opcoes={[
-                    { valor: 'data_desc', texto: 'Última movimentação (Mais recente primeiro)' },
-                    { valor: 'data_asc', texto: 'Mais antigo primeiro' },
-                    { valor: 'tribunal', texto: 'Agrupar por Tribunal / Instância' }
-                  ]}
-                />
-              </div>
+              <CampoSelect
+                rotulo="Ordenação Padrão nas Listagens"
+                valor={config.ordenacaoPadrao}
+                onChange={v => setValor('ordenacaoPadrao', v)}
+                opcoes={[
+                  { valor: 'data_desc', texto: 'Última movimentação (Mais recente primeiro)' },
+                  { valor: 'data_asc', texto: 'Mais antigo primeiro' },
+                  { valor: 'tribunal', texto: 'Agrupar por Tribunal / Instância' }
+                ]}
+              />
             </Secao>
           )}
 
@@ -544,98 +370,8 @@ export default function ConfiguracoesPage() {
               </LinhaConfig>
             </Secao>
           )}
-
-          {/* ABA 3: INTEGRAÇÕES & APIS */}
-          {aba === 'integracoes' && (
-            <Secao
-              icone={Cpu}
-              titulo="Status das Conexões Judiciais & Provedores"
-              descricao="Monitore as fontes integradas de dados processuais"
-            >
-              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
-                <CartaoFonte
-                  icone={Radio}
-                  nome="DataJud (CNJ)"
-                  detalhe="91 tribunais integrados"
-                  status="Operacional"
-                  tom="sucesso"
-                  descricao="Conexão direta com a API pública do Conselho Nacional de Justiça com endpoints estaduais, federais e trabalhistas."
-                />
-                <CartaoFonte
-                  icone={Globe}
-                  nome="InfoSimples"
-                  detalhe="Crawler complementar"
-                  status="Ativo"
-                  tom="acento"
-                  descricao="Provedor de varredura profunda com fallback inteligente e captura de metadados estendidos."
-                />
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5">
-                <label htmlFor={webhookId} className="block text-xs font-semibold uppercase tracking-wider text-tt-text-2">
-                  Webhook de Notificações Externas (Opcional)
-                </label>
-                <p className="mt-1 text-[13px] text-tt-text-2">
-                  Receba payloads JSON em tempo real em seu endpoint seguro ou automações (Zapier, Make, n8n).
-                </p>
-                <input
-                  id={webhookId}
-                  type="url"
-                  value={config.webhookUrl}
-                  onChange={e => setValor('webhookUrl', e.target.value)}
-                  placeholder="https://seu-servidor.com/api/webhook-processos"
-                  className="bf-input bf-input-sem-icone mt-3 text-sm"
-                />
-              </div>
-            </Secao>
-          )}
-
-          {/* ABA 4: APARÊNCIA & INTERFACE */}
-          {aba === 'aparencia' && (
-            <Secao
-              icone={Monitor}
-              titulo="Personalização Visual & Performance"
-              descricao="Ajuste o estilo e os efeitos de renderização do sistema"
-            >
-              <LinhaConfig
-                titulo="Efeito de Fibras Interativas no Fundo (WebGL)"
-                descricao="Renderização dinâmica de feixes dourados decorativos em segundo plano."
-              >
-                <Toggle
-                  ligado={config.efeitoFibers}
-                  onChange={() => toggle('efeitoFibers')}
-                  rotulo="Efeito de Fibras Interativas no Fundo (WebGL)"
-                />
-              </LinhaConfig>
-
-              <LinhaConfig
-                titulo="Modo de Alta Performance (Reduzir Animações)"
-                descricao="Diminui transições pesadas para computadores ou conexões com menor capacidade de processamento."
-              >
-                <Toggle
-                  ligado={config.animacoesReduzidas}
-                  onChange={() => toggle('animacoesReduzidas')}
-                  rotulo="Modo de Alta Performance (Reduzir Animações)"
-                />
-              </LinhaConfig>
-
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5">
-                <p id="rotulo-densidade" className="text-xs font-semibold uppercase tracking-wider text-tt-text-2">
-                  Densidade da Visualização de Tabelas
-                </p>
-                <div
-                  role="radiogroup"
-                  aria-labelledby="rotulo-densidade"
-                  className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
-                >
-                  {opcaoDensidade('confortavel', 'Confortável (Padrão)', 'Maior espaçamento para leitura detalhada')}
-                  {opcaoDensidade('compacto', 'Compacto', 'Mais linhas visíveis por tela sem rolagem')}
-                </div>
-              </div>
-            </Secao>
-          )}
-        </motion.div>
-      </AnimatePresence>
+        </div>
+      </ConteudoDeslizante>
     </div>
   );
 }
