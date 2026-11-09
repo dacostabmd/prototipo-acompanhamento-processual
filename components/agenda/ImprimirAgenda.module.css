@@ -1,0 +1,247 @@
+/* Página de impressão da agenda: sempre clara (fundo branco, texto escuro), em qualquer tema do app. */
+
+.pagina {
+  min-height: 100vh;
+  background: #eef1f6;
+  color: #111827;
+  padding: 24px 16px 48px;
+  font-family: var(--font-inter-tight), 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.barra {
+  max-width: 820px;
+  margin: 0 auto 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border: 1px solid #1e7cf2;
+  background: #1e7cf2;
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.botao:hover {
+  background: #fff;
+  color: #1e7cf2;
+}
+
+.botaoSec {
+  background: #fff;
+  color: #1e7cf2;
+}
+
+.botaoSec:hover {
+  background: #1e7cf2;
+  color: #fff;
+}
+
+.folha {
+  max-width: 820px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(11, 23, 48, 0.12);
+  padding: 28px 24px 20px;
+}
+
+@media (min-width: 640px) {
+  .folha {
+    padding: 40px 44px 28px;
+  }
+}
+
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 2px solid #0b1730;
+  padding-bottom: 14px;
+}
+
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-outfit), 'Outfit', sans-serif;
+  font-size: 20px;
+  color: #0b1730;
+}
+
+.marca strong {
+  font-weight: 700;
+}
+
+.marca span {
+  font-weight: 300;
+}
+
+.titulo {
+  margin: 18px 0 2px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #0b1730;
+}
+
+.meta {
+  margin: 0;
+  font-size: 12.5px;
+  color: #4b5563;
+}
+
+.grupo {
+  margin-top: 20px;
+  break-inside: avoid-page;
+}
+
+.grupoTitulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 0 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #d1d5db;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0b1730;
+}
+
+.grupoRotulo {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1b3fa8;
+}
+
+.atrasado {
+  color: #b42318;
+}
+
+.hoje {
+  color: #b54708;
+}
+
+.itens {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px dotted #e5e7eb;
+  break-inside: avoid;
+}
+
+.caixa {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin-top: 3px;
+  border: 1.5px solid #0b1730;
+  border-radius: 3px;
+}
+
+.itemTitulo {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+
+.itemMeta {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: #4b5563;
+  overflow-wrap: anywhere;
+}
+
+.itemDescricao {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: #6b7280;
+  overflow-wrap: anywhere;
+}
+
+.vazio {
+  margin: 28px 0;
+  text-align: center;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.rodape {
+  margin-top: 28px;
+  padding-top: 12px;
+  border-top: 1px solid #d1d5db;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 16px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.rodapeMarca {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #0b1730;
+  font-weight: 600;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 14mm 16mm;
+  }
+
+  .pagina {
+    background: #fff;
+    padding: 0;
+    min-height: 0;
+  }
+
+  .barra {
+    display: none;
+  }
+
+  .folha {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .pagina,
+  .pagina * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

@@ -26,6 +26,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   TriangleAlert,
+  Users,
   UserRound,
   Zap
 } from 'lucide-react';
@@ -629,12 +630,18 @@ export function AcompanhamentoProcessos() {
 
               {/* Coluna direita: canais e frequência dos alertas */}
               <div className="min-w-0 border-t border-white/5 pt-3 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+                {p.somenteLeitura && (
+                  <p className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2.5 py-1 text-[11px] font-medium text-[color:var(--tt-text-2)]">
+                    <Users size={12} className="text-[#1E7CF2]" />
+                    Compartilhado por {p.compartilhadoPor || 'um colega do escritório'} (somente leitura)
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-x-5 gap-y-2">
                   <Switch
                     size="sm"
                     color="brand"
                     checked={p.notificarEmail}
-                    disabled={salvando[`${p.processoId}:notificarEmail`]}
+                    disabled={p.somenteLeitura || salvando[`${p.processoId}:notificarEmail`]}
                     onChange={e => alternarCanal(p, 'notificarEmail', e.currentTarget.checked)}
                     label={
                       <span className="inline-flex items-center gap-1.5 text-sm text-white/80">
@@ -647,7 +654,7 @@ export function AcompanhamentoProcessos() {
                     size="sm"
                     color="brand"
                     checked={p.notificarWhatsapp}
-                    disabled={salvando[`${p.processoId}:notificarWhatsapp`]}
+                    disabled={p.somenteLeitura || salvando[`${p.processoId}:notificarWhatsapp`]}
                     onChange={e => alternarCanal(p, 'notificarWhatsapp', e.currentTarget.checked)}
                     label={
                       <span className="inline-flex items-center gap-1.5 text-sm text-white/80">

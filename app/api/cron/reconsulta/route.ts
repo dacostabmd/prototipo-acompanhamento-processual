@@ -5,6 +5,7 @@ import { buscarProcessoPorNumero } from '@/lib/motorConsulta';
 import { listarMovimentosDjen } from '@/lib/djen';
 import { gerarResumoAndamento } from '@/lib/resumoAndamento';
 import { enfileirarAlertas, processarFilaAlertas } from '@/lib/filaAlertas';
+import { criarPrazosAutomaticos } from '@/lib/prazos';
 import type { Movement } from '@/lib/mockProcesses';
 
 // Mesmo teto de app/api/processos (300s, Fluid Compute). Um dia inteiro de reconsultas pode não
@@ -334,6 +335,13 @@ async function processarUmProcesso(
     tribunal,
     movimentos: novos.slice(0, 10).map(m => ({ data: m.data, titulo: m.titulo, descricao: m.descricao || m.titulo })),
     resumo: resumo ? { resumo: resumo.resumo, significado: resumo.significado, proximoPasso: resumo.proximoPasso, urgencia: resumo.urgencia } : null
+  });
+
+  // Agenda de prazos: intimação urgente com prazo no texto vira prazo na agenda dos usuários Pro (dedupe por hash).
+  await criarPrazosAutomaticos(db, {
+    processoId: processo.id,
+    numeroCnj: processo.numero_cnj,
+    movimentos: novosParaAlerta.map(m => ({ data: m.data, titulo: m.titulo, descricao: m.descricao, tag: m.tag }))
   });
 
   return { custoCobrado: resultado.custoCobrado, alertasEnfileirados, resumoGerado: !!resumo };

@@ -218,9 +218,9 @@ a:hover {
   border-color: rgb(var(--bf-fg) / 0.28);
 }
 .bf-input:focus {
-  border-color: #1E7CF2;
+  border-color: rgb(var(--bf-fg) / 0.28);
   background: rgb(var(--bf-fg) / 0.06);
-  box-shadow: 0 0 0 3px rgba(30, 124, 242, 0.18);
+  box-shadow: none;
 }
 .bf-input[data-estado='ok'] {
   border-color: rgba(143, 185, 154, 0.55);
@@ -881,10 +881,10 @@ html.bf-trocando-tema .bf-paper * {
    Fica fora de @layer para vencer os estilos do Mantine.
    ============================================================ */
 .bf-side.bf-side {
-  /* Sidebar cinza #C7C7C7 com fontes/ícones em preto, nos dois modos. Redefine os tokens localmente. */
-  --tt-ink: #C7C7C7;
-  --tt-active: #B5B5B5;
-  --tt-line: #B0B0B0;
+  /* Sidebar branca (#FFFFFF, mesmo fundo dos formulários .bf-paper) com fontes/ícones em preto, nos dois modos. Redefine os tokens localmente. */
+  --tt-ink: #FFFFFF;
+  --tt-active: #EDEDED;
+  --tt-line: #E4E4E4;
   --tt-text: #000000;
   --tt-text-2: #000000;
   --tt-text-3: #1F1F1F;
@@ -898,7 +898,7 @@ html.bf-trocando-tema .bf-paper * {
   --color-red-200: #9B1C14;
   --color-red-400: #C0382B;
   color-scheme: light;
-  background: #C7C7C7;
+  background: #FFFFFF;
   border-right: 1px solid var(--tt-line);
   box-shadow: 1px 0 12px rgba(11, 23, 48, 0.08);
   padding: 12px;
@@ -1137,7 +1137,7 @@ html.bf-trocando-tema .bf-paper * {
   border-bottom-color: transparent;
 }
 :root:not([data-mantine-color-scheme='light']) .bf-side.bf-side {
-  /* Cores herdadas do bloco base (#C7C7C7 + preto); aqui só tira borda e sombra. */
+  /* Cores herdadas do bloco base (#FFFFFF + preto); aqui só tira borda e sombra. */
   border-right: 0;
   box-shadow: none;
 }

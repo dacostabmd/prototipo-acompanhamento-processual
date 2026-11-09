@@ -2,6 +2,7 @@
 
 import { useSharedProfile } from '@/components/ProfileProvider';
 import { AcompanhamentoProcessos } from '@/components/AcompanhamentoProcessos';
+import { MonitoramentoDiarioSection } from '@/components/MonitoramentoDiarioSection';
 
 export default function Processos() {
   const { profile } = useSharedProfile();
@@ -21,6 +22,8 @@ export default function Processos() {
       <div data-tour="proc-acompanhados">
         <AcompanhamentoProcessos />
       </div>
+
+      {!isConsultante && <MonitoramentoDiarioSection />}
     </div>
   );
 }

@@ -1084,7 +1084,7 @@ export default function ProcessTracker({
                 FASE 1: FORMULÁRIO DE PESQUISA (TELA ÚNICA)
                 ═════════════════════════════════════════════════════════════════ */}
         {!hasSearched && (
-          <div style={{ width: '100%', maxWidth: searching ? 900 : 780, animation: 'bf-fadein 0.5s ease both' }}>
+          <div style={{ width: '100%', maxWidth: searching ? 900 : '100%', animation: 'bf-fadein 0.5s ease both' }}>
             {formError && (
               <div
                 style={{
@@ -1468,8 +1468,7 @@ export default function ProcessTracker({
 
                   {!isConsultante && (
                     <motion.div variants={secaoEntradaVariants} data-tour="busca-modos">
-                      <h3 style={tituloBlocoStyle}>Como você quer buscar?</h3>
-                      <div role="radiogroup" aria-label="Como você quer buscar" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 10 }}>
+                      <div role="radiogroup" aria-label="Como você quer buscar" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
                         <OpcaoBusca
                           ativa={searchMode === 'numero'}
                           onClick={() => setSearchMode('numero')}
@@ -1499,8 +1498,8 @@ export default function ProcessTracker({
                     </motion.div>
                   )}
 
-                  <motion.div variants={secaoEntradaVariants} data-tour="busca-campos" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16 }}>
-                    <Revelar aberto={!isConsultante && searchMode === 'numero'} style={{ gridColumn: '1 / -1' }}>
+                  <motion.div variants={secaoEntradaVariants} data-tour="busca-campos" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, alignItems: 'start' }}>
+                    <Revelar aberto={!isConsultante && searchMode === 'numero'} style={{ minWidth: 0 }}>
                         <CampoTexto
                           id="campo-cnj"
                           rotulo="Número do processo"
@@ -1526,7 +1525,7 @@ export default function ProcessTracker({
                     </Revelar>
 
                     {searchMode === 'nome' ? (
-                      <motion.div key="campo-nome-parte" {...trocaSuave} style={{ gridColumn: '1 / -1' }}>
+                      <motion.div key="campo-nome-parte" {...trocaSuave} style={{ minWidth: 0 }}>
                         <CampoTexto
                           id="campo-nome-parte"
                           rotulo="Nome da parte"
@@ -1650,44 +1649,10 @@ export default function ProcessTracker({
                     </Revelar>
                   </motion.div>
 
-                  {/* Ajustes opcionais (recolhível) */}
-                  <motion.div variants={secaoEntradaVariants} data-tour="busca-ajustes" style={{ ...painelStyle, padding: 0 }}>
-                    <button
-                      type="button"
-                      onClick={() => setAjustesAbertos(v => !v)}
-                      aria-expanded={ajustesAbertos}
-                      aria-controls="ajustes-opcionais"
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 12,
-                        background: 'transparent',
-                        border: 'none',
-                        color: TEXT,
-                        padding: '14px 16px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        fontFamily: 'inherit'
-                      }}
-                    >
-                      <span style={{ minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>Ajustes opcionais</span>
-                        <span style={{ display: 'block', marginTop: 2, fontSize: 12, color: MUTED }}>
-                          {visaoAdvogado ? 'Papel no processo, celular, estado inicial e economia' : 'Papel no processo, celular e economia'}
-                        </span>
-                      </span>
-                      <motion.span
-                        animate={{ rotate: ajustesAbertos ? 180 : 0 }}
-                        transition={TRANSICAO_SUAVE}
-                        style={{ display: 'inline-flex', flexShrink: 0, color: MUTED }}
-                      >
-                        <ChevronDown size={16} />
-                      </motion.span>
-                    </button>
-                    <Revelar aberto={ajustesAbertos} id="ajustes-opcionais">
-                      <div style={{ padding: '4px 16px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* Ajustes opcionais: o botão fica no rodapé; o conteúdo abre aqui, acima dele. */}
+                  <Revelar aberto={ajustesAbertos} id="ajustes-opcionais" style={{ marginTop: -6 }}>
+                    <div style={{ ...painelStyle }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         <div>
                           <span style={rotuloCampoStyle}>Papel no processo</span>
                           <AbasDeslizantes
@@ -1759,8 +1724,8 @@ export default function ProcessTracker({
                           </div>
                         </Revelar>
                       </div>
-                    </Revelar>
-                  </motion.div>
+                    </div>
+                  </Revelar>
                 </motion.div>
 
                 <motion.footer
@@ -1776,10 +1741,40 @@ export default function ProcessTracker({
                     background: 'rgb(var(--bf-fg) / 0.02)'
                   }}
                 >
-                  <div style={{ minWidth: 0 }} data-tour="busca-custo">
-                    <div style={{ fontSize: 12, color: MUTED }}>Custo estimado</div>
-                    <div style={{ fontSize: 19, color: custoPrevisto === 0 ? '#12A37A' : TEXT, fontWeight: 700 }}>{custoPrevistoLabel}</div>
-                  </div>
+                  <button
+                    type="button"
+                    data-tour="busca-ajustes"
+                    onClick={() => setAjustesAbertos(v => !v)}
+                    aria-expanded={ajustesAbertos}
+                    aria-controls="ajustes-opcionais"
+                    title={visaoAdvogado ? 'Papel no processo, celular, estado inicial e economia' : 'Papel no processo, celular e economia'}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'transparent',
+                      border: 'none',
+                      color: TEXT,
+                      padding: '6px 0',
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      fontFamily: 'inherit'
+                    }}
+                  >
+                    Ajustes opcionais
+                    <motion.span
+                      animate={{ rotate: ajustesAbertos ? 180 : 0 }}
+                      transition={TRANSICAO_SUAVE}
+                      style={{ display: 'inline-flex', color: MUTED }}
+                    >
+                      <ChevronDown size={15} />
+                    </motion.span>
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginLeft: 'auto' }}>
+                  <span data-tour="busca-custo" title="Custo estimado" style={{ fontSize: 14, color: custoPrevisto === 0 ? '#12A37A' : TEXT, fontWeight: 600 }}>
+                    {custoPrevisto === 0 ? custoPrevistoLabel : `Custo estimado: ${custoPrevistoLabel}`}
+                  </span>
                   <button
                     type="submit"
                     className="bf-btn-ouro"
@@ -1809,6 +1804,7 @@ export default function ProcessTracker({
                   >
                     Pesquisar processos <ArrowRight size={16} />
                   </button>
+                  </div>
                 </motion.footer>
               </motion.form>
               </MotionConfig>
@@ -2780,7 +2776,6 @@ const rotuloCampoStyle: React.CSSProperties = {
   marginBottom: 7
 };
 
-const tituloBlocoStyle: React.CSSProperties = { margin: '0 0 10px', fontSize: 14.5, fontWeight: 600, color: TEXT };
 
 const painelStyle: React.CSSProperties = {
   border: `1px solid ${INPUT_BORDER}`,
@@ -2827,42 +2822,31 @@ function OpcaoBusca({
       aria-checked={ativa}
       aria-disabled={desabilitada}
       onClick={onClick}
+      title={subtitulo}
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 12,
-        padding: '14px 14px',
-        borderRadius: 10,
+        justifyContent: 'center',
+        gap: 8,
+        padding: '11px 12px',
+        borderRadius: 8,
         border: `1px solid ${ativa ? 'rgba(30, 124, 242,0.6)' : INPUT_BORDER}`,
-        background: ativa ? 'rgba(30, 124, 242,0.10)' : 'transparent',
+        background: ativa ? 'rgba(30, 124, 242,0.14)' : 'transparent',
         color: TEXT,
-        textAlign: 'left',
+        textAlign: 'center',
         cursor: desabilitada ? 'not-allowed' : 'pointer',
         opacity: desabilitada ? 0.55 : 1,
         fontFamily: 'inherit',
         transition: 'border-color 0.2s ease, background 0.2s ease'
       }}
     >
-      <span
-        aria-hidden
-        style={{
-          flexShrink: 0,
-          width: 30,
-          height: 30,
-          borderRadius: 8,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: ativa ? 'rgba(30, 124, 242,0.22)' : 'rgb(var(--bf-fg) / 0.06)',
-          color: ativa ? BLUE_LIGHT : MUTED
-        }}
-      >
-        {icone}
-      </span>
-      <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>{titulo}</span>
-        <span style={{ display: 'block', marginTop: 2, fontSize: 12, color: MUTED }}>{subtitulo}</span>
-      </span>
+      {desabilitada && (
+        <span aria-hidden style={{ display: 'inline-flex', flexShrink: 0, color: MUTED }}>
+          {icone}
+        </span>
+      )}
+      <span style={{ minWidth: 0, fontSize: 14, fontWeight: 500 }}>{titulo}</span>
+      <span className="sr-only">{subtitulo}</span>
     </button>
   );
 }

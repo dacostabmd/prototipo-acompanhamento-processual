@@ -5,6 +5,7 @@ import { parseCnj, formatProcessNumber } from '@/lib/cnj';
 import { consultarDataJud, type DataJudResultado } from '@/lib/datajud';
 import { buscarTrechosProcessuais } from '@/lib/ragDocumentos';
 import { getRedis } from '@/lib/redis';
+import { regraPrazoPorTipoAto } from '@/lib/prazos';
 
 /**
  * 1. Ferramenta para buscar e enriquecer dados de processo judicial no DataJud (CNJ).
@@ -277,39 +278,8 @@ export const explicarTermoJuridicoTool = tool(
  */
 export const calcularPrazoProcessualTool = tool(
   async ({ tipoAto }) => {
-    const ato = tipoAto.toLowerCase();
-
-    let prazoDiasUteis = 15;
-    let baseLegal = 'Art. 219 e 335 do CPC';
-    let descricao = 'Prazo padrão geral para grande parte dos atos no Código de Processo Civil.';
-
-    if (/contest|resposta do r[eé]u/.test(ato)) {
-      prazoDiasUteis = 15;
-      baseLegal = 'Art. 335 do CPC';
-      descricao = 'Prazo para apresentação de Contestação a partir da audiência de conciliação ou juntada do mandado de citação.';
-    } else if (/embargos de declara[cç][aã]o/.test(ato)) {
-      prazoDiasUteis = 5;
-      baseLegal = 'Art. 1.023 do CPC';
-      descricao = 'Prazo para opor Embargos de Declaração contra decisão omissa, contraditória ou obscura.';
-    } else if (/agravo de instrumento|apela[cç][aã]o|recurso/.test(ato)) {
-      prazoDiasUteis = 15;
-      baseLegal = 'Art. 1.003, § 5º do CPC';
-      descricao = 'Prazo para interposição da maioria dos recursos cíveis (exceto Embargos de Declaração).';
-    } else if (/pagamento volunt[aá]rio|art\.?\s*523/.test(ato)) {
-      prazoDiasUteis = 15;
-      baseLegal = 'Art. 523 do CPC';
-      descricao = 'Prazo para pagamento voluntário da condenação sem aplicação de multa de 10% e honorários de 10%. Após os 15 dias, iniciam-se mais 15 dias para Impugnação.';
-    } else if (/juiz|magistrad|despacho|excesso de prazo|demora|concluso|atraso/.test(ato)) {
-      prazoDiasUteis = 5;
-      baseLegal = 'Art. 226 e Art. 235 do CPC';
-      descricao =
-        'Prazos do juiz: 5 dias úteis para despachos, 10 dias úteis para decisões interlocutórias e 30 dias úteis para sentenças (art. 226 do CPC). ' +
-        'Havendo excesso de prazo injustificado (como 90 dias concluso para despacho), a parte pode peticionar requerendo providências de impulso oficial ao juízo e, persistindo a omissão após 10 dias, representar ao corregedor do tribunal ou ao Conselho Nacional de Justiça (CNJ) por excesso de prazo, nos termos expressos do art. 235 do CPC.';
-    } else if (/embargos [aà] execu[cç][aã]o/.test(ato)) {
-      prazoDiasUteis = 15;
-      baseLegal = 'Art. 915 do CPC';
-      descricao = 'Prazo para ajuizar Embargos à Execução de Título Extrajudicial a contar da juntada do comprovante da citação.';
-    }
+    // Tabela de prazos por tipo de ato: lib/prazos.ts (compartilhada com a agenda de prazos).
+    const { prazoDiasUteis, baseLegal, descricao } = regraPrazoPorTipoAto(tipoAto);
 
     return (
       `=== ORIENTAÇÃO DE PRAZO PROCESSUAL (CPC/15) ===\n` +

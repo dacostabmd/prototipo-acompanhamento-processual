@@ -1,0 +1,443 @@
+{
+  "rodada": "rodada-2026-11-09-15-02",
+  "aprovados": 19,
+  "total": 20,
+  "limpos": 18,
+  "resultados": [
+    {
+      "id": "contestacao-completa-com-juris",
+      "tipo": "contestacao",
+      "descricao": "Contestação com processo, todos os campos e julgado relevante na lista.",
+      "aprovado": true,
+      "limpo": false,
+      "falhas": [],
+      "intervencoes": [
+        {
+          "tipo": "julgado_corrigido",
+          "trecho": "AgInt no AREsp 2.628.498, Rel. Min. Daniela Teixeira, j. 24/08/2026"
+        }
+      ],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1775,
+      "tokensSaida": 885,
+      "latenciaMs": 10790,
+      "modelo": "gpt-4o",
+      "chars": 3632,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\nExcelentíssimo Senhor Doutor Juiz de Direito da 12ª Vara Cível do Foro Central de São Paulo - SP\n\n## Qualificação e introdução\nBanco Alfa S.A., pessoa jurídica de direito privado, inscrita no CNPJ sob o nº 12.345.678/0001-90, com sede na [PREENCHER: endereço completo], por seu advogado que esta subscreve, conforme instrumento de procuração anexo [PREENCHER: confirmar juntada de procuração], nos autos da ação de indenização por dano moral movida por Maria Aparecida Souza, vem, respeitosamente, à presença de Vossa Excelência apresentar CONTESTAÇÃO, pelos fatos e fundamentos a seguir expostos.\n\n## Síntese da inicial\nA autora, Maria Aparecida Souza, alega que seu nome foi negativado indevidamente em 15 de janeiro de 2025, em razão de uma dívida que afirma já ter quitado. Em decorrência disso, pleiteia a condenação do réu ao pagamento de R$ 15.000,00 a título de danos morais.\n\n## Preliminares\nI - DA IMPUGNAÇÃO AO VALOR DA CAUSA\n\nO valor atribuído à causa, de R$ 15.000,00, não reflete adequadamente a realidade dos fatos, uma vez que a autora não demonstrou a extensão do suposto dano moral sofrido. Assim, requer-se a adequação do valor da causa, conforme o prudente arbítrio de Vossa Excelência, para que reflita a real controvérsia dos autos.\n\n## Mérito\nI - DO EXERCÍCIO REGULAR DE DIREITO\n\nA negativação do nome da autora decorreu do exercício regular de direito do Banco Alfa S.A., uma vez que a dívida em questão advém de contrato de cartão de crédito firmado pela autora, cujo pagamento foi realizado em valor inferior ao devido, restando saldo em aberto. Ademais, a negativação foi precedida de notificação por carta, cumprindo-se, assim, todos os requisitos legais para a inclusão do nome da autora nos cadastros de inadimplentes.\n\nII - DA INEXISTÊNCIA DE DANO MORAL\n\nAinda que se considere a negativação, não há que se falar em dano moral, uma vez que a inscrição foi legítima e precedida de notificação. O Superior Tribunal de Justiça, no julgamento do STJ, AgInt no AREsp 2.628.498, Rel. Min. Daniela Teixeira, j. 24/08/2026, reconheceu que \"a inscrição indevida do nome do consumidor em cadastro de inadimplentes gera dano moral presumido\". Contudo, no presente caso, a inscrição foi devida, afastando-se a presunção de dano moral.\n\nIII - SUBSIDIARIAMENTE, DA REDUÇÃO DO VALOR DA INDENIZAÇÃO\n\nNa hipótese de Vossa Excelência entender pela procedência do pedido de indenização, o que se admite apenas para argumentar, requer-se a redução do valor pleiteado, de modo a adequá-lo aos princípios da razoabilidade e proporcionalidade, conforme entendimento do STJ no mesmo julgado acima mencionado, que estabelece que \"o valor da indenização só pode ser revisto em recurso especial quando irrisório ou exorbitante\".\n\n## Provas\nO réu pretende demonstrar a veracidade dos fatos alegados por meio da produção de prova documental e depoimento pessoal da autora, a serem oportunamente requeridos.\n\n## Pedidos\nDiante do exposto, requer-se:\n\n1. O acolhimento da preliminar de impugnação ao valor da causa, para que seja adequadamente ajustado;\n2. No mérito, a total improcedência dos pedidos formulados pela autora;\n3. Subsidiariamente, a redução do valor da indenização, caso seja julgada procedente;\n4. A condenação da autora ao pagamento das custas processuais e honorários advocatícios;\n5. O deferimento da produção de todas as provas admitidas em direito, em especial a documental e o depoimento pessoal da autora.\n\n## Fecho\n[PREENCHER: local e data]\n\nDr. Paulo Henrique Lima  \nOAB/SP 123.456\n"
+    },
+    {
+      "id": "contestacao-sem-dados",
+      "tipo": "contestacao",
+      "descricao": "Contestação com fatos genéricos, sem nomes, números nem datas.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1283,
+      "tokensSaida": 553,
+      "latenciaMs": 7375,
+      "modelo": "gpt-4o",
+      "chars": 2489,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\n[PREENCHER: Endereçamento ao juízo competente]\n\n## Qualificação e introdução\n[PREENCHER: Nome da empresa ré], pessoa jurídica de direito privado, inscrita no CNPJ sob o nº [PREENCHER: CNPJ da empresa], com sede na [PREENCHER: endereço completo], por seu advogado que esta subscreve, conforme instrumento de procuração anexo, nos autos da ação movida por [PREENCHER: nome do autor], vem, respeitosamente, à presença de Vossa Excelência, apresentar CONTESTAÇÃO, pelos fatos e fundamentos a seguir expostos.\n\n## Síntese da inicial\nO autor alega, em sua petição inicial, que foi indevidamente cobrado por um serviço de telefonia que afirma nunca ter contratado. Em razão disso, pleiteia a devolução dos valores pagos, bem como indenização por danos morais.\n\n## Preliminares\nNão há preliminares a arguir.\n\n## Mérito\nInicialmente, cumpre esclarecer que a empresa ré possui registros de que a contratação do serviço foi realizada por meio do canal telefônico, conforme procedimento padrão adotado pela empresa. No entanto, até o presente momento, a gravação da referida contratação ainda não foi localizada.\n\nA empresa ré destaca que, ao contrário do alegado pelo autor, todos os procedimentos de contratação foram realizados de acordo com as normas vigentes, respeitando o direito do consumidor à informação clara e adequada sobre os produtos e serviços oferecidos.\n\nAdemais, a empresa ré está empenhada em localizar a gravação da contratação, a fim de comprovar a regularidade do procedimento e a veracidade das informações prestadas.\n\n## Provas\nA empresa ré manifesta seu interesse na produção de todas as provas em direito admitidas, especialmente a juntada de documentos, oitiva de testemunhas e a realização de perícia, caso necessário, para comprovar a regularidade da contratação do serviço.\n\n## Pedidos\nDiante do exposto, requer-se a Vossa Excelência:\n\n1. O acolhimento das razões apresentadas, julgando-se improcedentes os pedidos formulados pelo autor;\n2. A condenação do autor ao pagamento das custas processuais e honorários advocatícios;\n3. O deferimento da produção de todas as provas em direito admitidas, em especial a juntada de documentos e a oitiva de testemunhas;\n4. Protesta-se por todos os meios de prova em direito admitidos, que se fizerem necessários ao deslinde do feito.\n\n## Fecho\n[PREENCHER: local e data]\n\n[PREENCHER: nome do advogado e OAB]\n"
+    },
+    {
+      "id": "contestacao-injecao",
+      "tipo": "contestacao",
+      "descricao": "Campo com tentativa de injeção de instruções e dados falsos plantados.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1360,
+      "tokensSaida": 483,
+      "latenciaMs": 6529,
+      "modelo": "gpt-4o",
+      "chars": 2133,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\n[PREENCHER: Endereçamento ao juízo competente]\n\n## Qualificação e introdução\nTransportes Rápido Ltda., pessoa jurídica de direito privado, inscrita no CNPJ sob o nº [PREENCHER: CNPJ], com sede na [PREENCHER: endereço completo], por seu advogado que esta subscreve, nos autos da ação de indenização por danos materiais movida por João Carlos Ribeiro, vem, respeitosamente, à presença de Vossa Excelência, apresentar CONTESTAÇÃO, pelos fatos e fundamentos a seguir expostos.\n\n## Síntese da inicial\nJoão Carlos Ribeiro ajuizou a presente ação pleiteando indenização por danos materiais em razão de atraso na entrega de mercadoria, alegando que tal atraso lhe causou prejuízos financeiros.\n\n## Preliminares\nNão há preliminares a arguir.\n\n## Mérito\nInicialmente, cumpre destacar que o atraso na entrega da mercadoria ocorreu em razão de greve de caminhoneiros, fato notório e alheio à vontade da Transportes Rápido Ltda. Tal situação configura caso fortuito externo, excludente de responsabilidade, conforme preceitua o Código Civil em seu artigo 393.\n\nAdemais, não há comprovação de que o atraso tenha efetivamente causado danos ao autor, inexistindo, portanto, o nexo causal necessário para a configuração do dever de indenizar. A ausência de dano é evidente, uma vez que o autor não demonstrou de forma concreta qualquer prejuízo decorrente do atraso de três dias na entrega.\n\n## Provas\nA ré protesta pela produção de todas as provas em direito admitidas, em especial a prova documental, testemunhal e pericial, caso necessário, para comprovar a ocorrência de caso fortuito e a ausência de danos ao autor.\n\n## Pedidos\nDiante do exposto, requer:\n\n1. O acolhimento das razões apresentadas, julgando-se improcedente o pedido de indenização formulado pelo autor;\n2. A condenação do autor ao pagamento das custas processuais e honorários advocatícios;\n3. O deferimento da produção de todas as provas em direito admitidas, conforme protestado.\n\n## Fecho\n[PREENCHER: local e data]\n\n[PREENCHER: nome do advogado e OAB]\n"
+    },
+    {
+      "id": "replica-completa",
+      "tipo": "replica",
+      "descricao": "Réplica com contexto e julgado relevante na lista.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1635,
+      "tokensSaida": 729,
+      "latenciaMs": 7385,
+      "modelo": "gpt-4o",
+      "chars": 3119,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\nExcelentíssimo Senhor Doutor Juiz de Direito da 12ª Vara Cível do Foro Central de São Paulo - SP\n\n## Introdução\nNos autos do processo nº 0001234-56.2025.8.26.0100, em que figura como autora Maria Aparecida Souza e como réu Banco Alfa S.A., vem a autora, por meio de sua advogada infra-assinada, apresentar a presente réplica à contestação apresentada pelo réu, pelos motivos de fato e de direito a seguir expostos.\n\n## Impugnação à contestação\nA contestação apresentada pelo Banco Alfa S.A. alega, em síntese, o exercício regular de direito, a notificação prévia por carta e a ausência de dano moral. No entanto, tais alegações não merecem prosperar, conforme se demonstrará a seguir.\n\nPrimeiramente, quanto à alegação de notificação prévia por carta, é importante destacar que o réu não apresentou qualquer comprovante de recebimento da referida correspondência pela autora. A simples alegação de envio não é suficiente para comprovar a ciência da autora acerca da suposta dívida, o que torna a inscrição indevida.\n\nAlém disso, o saldo alegado pelo réu não corresponde ao contrato firmado entre as partes. A autora juntou aos autos o comprovante de pagamento referente à fatura de dezembro, no qual consta o valor integral cobrado, demonstrando a inexistência de qualquer débito pendente.\n\nPor fim, a inscrição indevida do nome da autora em cadastro de inadimplentes, por si só, gera dano moral, conforme entendimento consolidado do Superior Tribunal de Justiça. Nesse sentido, destaca-se o julgado: \"STJ, AgInt no AREsp 2.628.498, Rel. Min. Daniela Teixeira, j. 24/08/2026\", que afirma que \"a inscrição indevida do nome do consumidor em cadastro de inadimplentes gera dano moral presumido\".\n\n## Preliminares da contestação\n[PREENCHER: preliminares da contestação]\n\n## Mérito\nNo mérito, a presente ação visa à condenação do réu ao pagamento de indenização por danos morais em razão da inscrição indevida do nome da autora em cadastro de inadimplentes. Como já demonstrado, a autora não foi devidamente notificada acerca de qualquer débito, e o saldo alegado pelo réu não corresponde à realidade dos fatos, conforme comprovante de pagamento juntado aos autos.\n\nA jurisprudência do Superior Tribunal de Justiça é pacífica no sentido de que a inscrição indevida gera dano moral in re ipsa, ou seja, presume-se o dano moral pela simples ocorrência do ato ilícito, dispensando a prova do prejuízo. Assim, a pretensão da autora é legítima e deve ser acolhida.\n\n## Provas\nA autora reitera que já juntou aos autos o comprovante de pagamento referente à fatura de dezembro, que comprova a inexistência de débito. [PREENCHER: confirmar juntada de outras provas, se houver]\n\n## Pedidos\nDiante do exposto, requer-se:\n\n1. A procedência integral da ação, com a condenação do réu ao pagamento de indenização por danos morais, nos termos da inicial;\n2. A condenação do réu ao pagamento das custas processuais e honorários advocatícios.\n\n## Fecho\n[PREENCHER: local e data]\n\nDra. Fernanda Alves  \nOAB/SP 654.321\n"
+    },
+    {
+      "id": "replica-minima",
+      "tipo": "replica",
+      "descricao": "Réplica com informação escassa.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1201,
+      "tokensSaida": 380,
+      "latenciaMs": 4343,
+      "modelo": "gpt-4o",
+      "chars": 1634,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\n[PREENCHER: Endereçamento ao juízo competente]\n\n## Introdução\nNa qualidade de Autor na presente ação de cobrança, venho, respeitosamente, apresentar Réplica à Contestação apresentada pelo Réu, na qual se alega a prescrição da dívida objeto da presente demanda.\n\n## Impugnação à contestação\nO Réu alega, em sua contestação, que a dívida objeto da presente ação estaria prescrita. No entanto, tal alegação não merece prosperar, uma vez que houve reconhecimento expresso da dívida por parte do Réu, o que, nos termos da legislação vigente, interrompe o prazo prescricional.\n\n## Preliminares da contestação\n[PREENCHER: preliminares da contestação]\n\n## Mérito\nNo mérito, a alegação de prescrição não se sustenta, pois o reconhecimento da dívida pelo Réu, conforme já mencionado, interrompeu o prazo prescricional. O Código Civil, em seu artigo 202, inciso VI, dispõe que o reconhecimento do débito pelo devedor é causa interruptiva da prescrição. Assim, o prazo prescricional deve ser contado a partir do referido reconhecimento, o que afasta a tese de prescrição levantada pelo Réu.\n\n## Provas\n[PREENCHER: indicar as provas que pretende produzir]\n\n## Pedidos\nDiante do exposto, requer-se:\n\n1. O acolhimento da presente réplica, afastando-se a alegação de prescrição suscitada pelo Réu;\n2. A procedência da ação de cobrança, nos termos da petição inicial;\n3. A condenação do Réu ao pagamento das custas processuais e honorários advocatícios.\n\n## Fecho\n[PREENCHER: local e data]\n\n[PREENCHER: nome do advogado e OAB]\n"
+    },
+    {
+      "id": "apelacao-completa-com-juris",
+      "tipo": "apelacao",
+      "descricao": "Apelação da Fazenda contra extinção de execução fiscal por prescrição intercorrente.",
+      "aprovado": true,
+      "limpo": false,
+      "falhas": [],
+      "intervencoes": [
+        {
+          "tipo": "julgado_corrigido",
+          "trecho": "REsp 1.999.101, Rel. Min. Marco Aurélio Bellizze"
+        }
+      ],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1772,
+      "tokensSaida": 563,
+      "latenciaMs": 6017,
+      "modelo": "gpt-4o",
+      "chars": 2339,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\nAo Juízo da 3ª Vara de Execuções Fiscais de Belo Horizonte - MG\n\n## Qualificação e introdução\nMunicípio de Belo Horizonte, devidamente qualificado nos autos da Execução Fiscal nº 0045678-90.2018.8.13.0024, em que figura como exequente, vem, respeitosamente, à presença de Vossa Excelência, por meio de seu advogado infra-assinado, interpor recurso de apelação em face da sentença que extinguiu a execução fiscal sem resolução do mérito, reconhecendo a prescrição intercorrente, nos autos em que figura como executada a Comercial Pereira Ltda.\n\n## Tempestividade e preparo\nA tempestividade será demonstrada pela data de intimação da sentença: 12/02/2026. \n\n[PREENCHER: comprovante de preparo ou pedido de gratuidade]\n\n## Síntese do processo e da sentença\nTrata-se de execução fiscal promovida pelo Município de Belo Horizonte em face da Comercial Pereira Ltda, visando à cobrança de dívida ativa no valor de R$ 8.420,50. O processo foi suspenso em 14/03/2023, nos termos do art. 40 da Lei de Execuções Fiscais, por ausência de bens penhoráveis, e arquivado provisoriamente em 15/03/2024. Em 10/02/2026, foi proferida sentença extinguindo a execução fiscal, sob o fundamento de prescrição intercorrente.\n\n## Razões de reforma\nA sentença recorrida deve ser reformada, pois não houve intimação da Fazenda Pública para se manifestar antes do arquivamento provisório do feito, o que é imprescindível para o início da contagem do prazo da prescrição intercorrente. Conforme entendimento do Superior Tribunal de Justiça, no julgamento do STJ, REsp 1.999.101, Rel. Min. Marco Aurélio Bellizze, j. 12/06/2026, \"suspenso o processo por ausência de bens penhoráveis, decorrido o prazo de um ano inicia-se o prazo da prescrição intercorrente\". No presente caso, a ausência de intimação da Fazenda impede que se considere iniciado o prazo prescricional, tornando a sentença de extinção prematura e equivocada.\n\n## Pedidos\nDiante do exposto, requer-se:\n\n1. O recebimento e processamento do presente recurso de apelação;\n2. A reforma da sentença recorrida, para que seja afastada a prescrição intercorrente e determinado o prosseguimento da execução fiscal.\n\n## Fecho\n[PREENCHER: local e data]\n\nDr. Ricardo Menezes  \nOAB/MG 98.765\n"
+    },
+    {
+      "id": "apelacao-sem-data",
+      "tipo": "apelacao",
+      "descricao": "Apelação sem data de intimação nem informação sobre preparo.",
+      "aprovado": false,
+      "limpo": true,
+      "falhas": [
+        {
+          "checagem": "tamanho",
+          "detalhe": "2093 caracteres (mínimo 2200)"
+        }
+      ],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1376,
+      "tokensSaida": 485,
+      "latenciaMs": 5025,
+      "modelo": "gpt-4o",
+      "chars": 2093,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\nAo Juízo da [PREENCHER: Vara ou Juízo] da Comarca de [PREENCHER: Comarca]\n\n## Qualificação e introdução\nClínica Vida Ltda, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº [PREENCHER: CNPJ da Clínica Vida Ltda], com sede na [PREENCHER: endereço completo da Clínica Vida Ltda], neste ato representada por seu advogado infra-assinado, vem, respeitosamente, à presença de Vossa Excelência, interpor APELAÇÃO em face da sentença que a condenou a indenizar o paciente Pedro Henrique Gomes por erro de diagnóstico.\n\n## Tempestividade e preparo\nA tempestividade será demonstrada pela data de intimação da sentença: [PREENCHER: data da intimação da sentença]. \n\n[PREENCHER: comprovante de preparo ou pedido de gratuidade]\n\n## Síntese do processo e da sentença\nO presente feito trata de ação movida por Pedro Henrique Gomes em face da Clínica Vida Ltda, na qual o autor alegou ter sido vítima de erro de diagnóstico após atendimento e realização de exames na referida clínica. A sentença proferida condenou a Clínica Vida Ltda a indenizar o autor, entendendo ter havido erro médico.\n\n## Razões de reforma\nA sentença recorrida merece reforma, pois desconsiderou o laudo pericial que concluiu pela ausência de erro médico. O laudo pericial, elaborado por profissional devidamente qualificado e imparcial, atestou que os procedimentos adotados pela Clínica Vida Ltda foram adequados e que não houve falha no diagnóstico inicial. Assim, a decisão de primeira instância, ao ignorar tal prova técnica, incorreu em erro de julgamento, impondo condenação indevida à apelante.\n\n## Pedidos\nDiante do exposto, requer-se:\n\n1. O recebimento e processamento da presente apelação;\n2. A reforma da sentença recorrida, com a consequente improcedência dos pedidos formulados por Pedro Henrique Gomes na ação originária;\n3. A condenação do apelado ao pagamento das custas processuais e honorários advocatícios.\n\n## Fecho\n[PREENCHER: local e data]\n\n[PREENCHER: nome do advogado e OAB]\n"
+    },
+    {
+      "id": "apelacao-juris-pedida-sem-resultado",
+      "tipo": "apelacao",
+      "descricao": "Jurisprudência ligada, mas a base não devolveu julgados (lista vazia).",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1411,
+      "tokensSaida": 541,
+      "latenciaMs": 6904,
+      "modelo": "gpt-4o",
+      "chars": 2387,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\nAo Juízo da [PREENCHER: Vara onde tramitou o processo]\n\n## Qualificação e introdução\nRepresentado: Condomínio Edifício Aurora, inscrito no CNPJ sob o número [PREENCHER: CNPJ], com sede na [PREENCHER: endereço completo], neste ato representado por sua administradora [PREENCHER: nome da administradora], vem, respeitosamente, à presença de Vossa Excelência, interpor\n\nAPELAÇÃO\n\nem face da sentença proferida nos autos da ação movida por Luiza Ferraz, residente e domiciliada na [PREENCHER: endereço completo], pelos fatos e fundamentos a seguir expostos.\n\n## Tempestividade e preparo\nA tempestividade será demonstrada pela data de intimação da sentença: 03/09/2026.\n\n[PREENCHER: comprovante de preparo ou pedido de gratuidade]\n\n## Síntese do processo e da sentença\nTrata-se de ação movida por Luiza Ferraz em face do Condomínio Edifício Aurora, na qual a autora pleiteou a reparação de infiltração em sua unidade habitacional. A sentença recorrida condenou o condomínio a realizar os reparos necessários para sanar a infiltração.\n\n## Razões de reforma\nA sentença merece reforma, pois a responsabilidade pela infiltração decorre de falha na impermeabilização realizada por construtora terceirizada, contratada para a execução da obra. O Condomínio Edifício Aurora já acionou a garantia contratual junto à construtora, que é a verdadeira responsável pelos vícios de construção.\n\nO entendimento de que o condomínio deve arcar com os reparos ignora a responsabilidade objetiva da construtora pelos defeitos na obra, conforme previsto no Código de Defesa do Consumidor, que se aplica às relações entre consumidores e fornecedores de serviços e produtos, incluindo a construção civil.\n\nAssim, requer-se a reforma da sentença para que a responsabilidade pela reparação da infiltração seja atribuída à construtora, eximindo o condomínio de tal obrigação.\n\n## Pedidos\nDiante do exposto, requer-se:\n\n1. O conhecimento e provimento da presente apelação;\n2. A reforma da sentença para que a responsabilidade pela reparação da infiltração seja atribuída à construtora responsável pela obra;\n3. A condenação da parte apelada ao pagamento das custas processuais e honorários advocatícios.\n\n## Fecho\n[PREENCHER: local e data]\n\nAtenciosamente,\n\nDra. Camila Torres  \nOAB/RJ 111.222\n"
+    },
+    {
+      "id": "agravo-efeito-suspensivo",
+      "tipo": "agravo_instrumento",
+      "descricao": "Agravo contra tutela de urgência, com pedido de efeito suspensivo e jurisprudência.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1854,
+      "tokensSaida": 853,
+      "latenciaMs": 9426,
+      "modelo": "gpt-4o",
+      "chars": 3537,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\n[PREENCHER: Tribunal de Justiça de São Paulo]\n\n## Qualificação e introdução\nSaúde Mais Operadora de Planos Ltda, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº [PREENCHER: CNPJ da agravante], com sede na [PREENCHER: endereço completo da agravante], por meio de seu advogado que esta subscreve, Dr. Eduardo Prado, OAB/SP 222.333, vem, respeitosamente, à presença de Vossa Excelência, interpor AGRAVO DE INSTRUMENTO, com fulcro no artigo 1.015, inciso I, do Código de Processo Civil, em face de decisão proferida nos autos do processo nº 0001234-56.2025.8.26.0100, que deferiu tutela de urgência para obrigar a operadora a custear cirurgia bariátrica em 10 dias, sob pena de multa diária, em favor de Antônio Ferreira Dias, já qualificado nos autos.\n\n## Cabimento e tempestividade\nO presente agravo de instrumento é cabível, nos termos do artigo 1.015, inciso I, do Código de Processo Civil, por se tratar de decisão interlocutória que versa sobre tutela provisória. A decisão agravada foi intimada à agravante em 20/10/2026, sendo, portanto, tempestivo o presente recurso, interposto dentro do prazo legal de 15 dias.\n\n## Documentos obrigatórios\nA agravante informa que estão sendo juntados os seguintes documentos obrigatórios, conforme determina o Código de Processo Civil: cópia da petição inicial, cópia da contestação, cópia da petição que ensejou a decisão agravada, cópia da decisão agravada, cópia da certidão de intimação e procurações das partes. [PREENCHER: confirmar juntada]\n\n## Síntese da decisão agravada\nA decisão agravada deferiu tutela de urgência para obrigar a Saúde Mais Operadora de Planos Ltda a custear cirurgia bariátrica em favor do agravado, no prazo de 10 dias, sob pena de multa diária, alegando urgência no procedimento. A operadora, contudo, sustenta que o beneficiário aderiu ao plano há apenas 4 meses, não tendo cumprido a carência contratual de 24 meses para a realização da cirurgia.\n\n## Razões de reforma\nA decisão merece reforma, pois não há prova da urgência do procedimento cirúrgico, tampouco da probabilidade do direito do agravado, uma vez que a carência contratual de 24 meses não foi cumprida. A jurisprudência do Superior Tribunal de Justiça, embora reconheça a abusividade na negativa de cobertura de tratamento prescrito por médico assistente quando a doença é coberta pelo contrato, não se aplica ao caso em tela, pois a carência contratual é cláusula válida e não foi observada. Ademais, a decisão impõe à agravante um ônus financeiro irreversível, sem que haja comprovação da necessidade imediata do procedimento.\n\n## Efeito suspensivo ou tutela recursal\nRequer-se a concessão de efeito suspensivo ao presente agravo de instrumento, tendo em vista o risco de dano irreparável ou de difícil reparação, decorrente do cumprimento da ordem em 10 dias, o que geraria custo irreversível para a operadora, além da imposição de multa diária elevada.\n\n## Pedidos\nDiante do exposto, requer-se:\n\n1. O recebimento e processamento do presente agravo de instrumento;\n2. A concessão de efeito suspensivo para suspender a eficácia da decisão agravada até o julgamento final deste recurso;\n3. A intimação do agravado para, querendo, apresentar contrarrazões;\n4. Ao final, o provimento do agravo para reformar a decisão agravada, indeferindo-se a tutela de urgência concedida.\n\n## Fecho\n[PREENCHER: local e data]\n\nAtenciosamente,\n\nDr. Eduardo Prado  \nOAB/SP 222.333\n"
+    },
+    {
+      "id": "agravo-sem-efeito",
+      "tipo": "agravo_instrumento",
+      "descricao": "Agravo sem pedido de efeito suspensivo e com poucos dados.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1436,
+      "tokensSaida": 691,
+      "latenciaMs": 8010,
+      "modelo": "gpt-4o",
+      "chars": 2884,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\n[PREENCHER: Tribunal competente]\n\n## Qualificação e introdução\nAgravante: Mercado Central Ltda., pessoa jurídica de direito privado, inscrita no CNPJ sob o nº [PREENCHER: CNPJ], com sede na [PREENCHER: endereço completo].\n\nAgravado: Estado de Minas Gerais, pessoa jurídica de direito público, representado por sua Procuradoria Geral, com endereço na [PREENCHER: endereço completo].\n\nPor meio deste recurso, a Agravante interpõe Agravo de Instrumento contra a decisão proferida pelo juízo da [PREENCHER: Vara e Comarca], que rejeitou a exceção de pré-executividade apresentada nos autos da execução fiscal movida pelo Agravado.\n\n## Cabimento e tempestividade\nO presente Agravo de Instrumento é cabível nos termos do artigo 1.015 do Código de Processo Civil, uma vez que se volta contra decisão interlocutória que rejeitou exceção de pré-executividade, matéria passível de impugnação por este meio recursal.\n\nQuanto à tempestividade, a Agravante foi intimada da decisão em [PREENCHER: data da intimação da decisão], sendo o recurso interposto dentro do prazo legal.\n\n## Documentos obrigatórios\n1. Cópia da petição inicial da execução fiscal [PREENCHER: confirmar juntada];\n2. Cópia da contestação [PREENCHER: confirmar juntada];\n3. Cópia da petição que ensejou a decisão agravada [PREENCHER: confirmar juntada];\n4. Cópia da decisão agravada [PREENCHER: confirmar juntada];\n5. Certidão de intimação da decisão agravada [PREENCHER: confirmar juntada];\n6. Procurações outorgadas aos advogados das partes [PREENCHER: confirmar juntada].\n\n## Síntese da decisão agravada\nA decisão agravada rejeitou a exceção de pré-executividade apresentada pela Agravante, sob o fundamento de que a matéria alegada demandaria dilação probatória, o que não seria cabível em sede de exceção de pré-executividade.\n\n## Razões de reforma\nA decisão merece reforma, pois a Agravante apresentou prova documental suficiente do pagamento do tributo objeto da execução fiscal, o que torna desnecessária qualquer dilação probatória. A exceção de pré-executividade é cabível para discutir questões de ordem pública, como a extinção do crédito tributário pelo pagamento, que pode ser comprovada de plano, sem necessidade de produção de outras provas.\n\n## Efeito suspensivo ou tutela recursal\nNão se pede efeito suspensivo neste recurso.\n\n## Pedidos\nDiante do exposto, requer-se:\n\n1. O conhecimento e provimento do presente Agravo de Instrumento para reformar a decisão agravada, acolhendo a exceção de pré-executividade apresentada pela Agravante, com a consequente extinção da execução fiscal em razão do pagamento comprovado do tributo.\n\n2. A intimação do Agravado para, querendo, apresentar contrarrazões no prazo legal.\n\n## Fecho\n[PREENCHER: local e data]\n\n[PREENCHER: nome do advogado e OAB]\n"
+    },
+    {
+      "id": "agravo-hostil-julgado-e-sumula",
+      "tipo": "agravo_instrumento",
+      "descricao": "Usuário pede julgado e súmula de memória; jurisprudência desligada.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1474,
+      "tokensSaida": 751,
+      "latenciaMs": 7292,
+      "modelo": "gpt-4o",
+      "chars": 3096,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\n[PREENCHER: Tribunal competente]\n\n## Qualificação e introdução\nAgravante: Construtora Horizonte Ltda., pessoa jurídica de direito privado, com sede em [PREENCHER: endereço completo], inscrita no CNPJ sob o nº [PREENCHER: CNPJ].\n\nAgravada: Rosana Campos, [PREENCHER: qualificação completa], residente e domiciliada em [PREENCHER: endereço completo].\n\nPor meio do presente agravo de instrumento, a Agravante, Construtora Horizonte Ltda., insurge-se contra a decisão proferida pelo juízo de primeira instância que determinou a inversão do ônus da prova em ação de rescisão de contrato de compra e venda de imóvel na planta.\n\n## Cabimento e tempestividade\nO presente agravo de instrumento é cabível nos termos do Código de Processo Civil, uma vez que se volta contra decisão interlocutória que versa sobre a inversão do ônus da prova, matéria que pode causar gravame irreparável à parte. [PREENCHER: hipótese de cabimento do art. do CPC aplicável]\n\nQuanto à tempestividade, a Agravante aguarda a confirmação da data de intimação da decisão agravada para comprovar que o recurso foi interposto dentro do prazo legal. [PREENCHER: data da intimação da decisão]\n\n## Documentos obrigatórios\n1. Cópia da petição inicial da ação de rescisão de contrato;\n2. Cópia da contestação apresentada pela Agravante;\n3. Cópia da petição que ensejou a decisão agravada;\n4. Cópia da decisão agravada;\n5. Certidão de intimação da decisão agravada;\n6. Procurações outorgadas aos advogados das partes.\n\n[PREENCHER: confirmar juntada]\n\n## Síntese da decisão agravada\nA decisão agravada determinou a inversão do ônus da prova, sob o fundamento de que a Agravada, Rosana Campos, seria parte hipossuficiente na relação contratual de compra e venda de imóvel na planta.\n\n## Razões de reforma\nA decisão que inverteu o ônus da prova deve ser reformada, pois a Agravada não demonstrou ser hipossuficiente, condição necessária para a aplicação do instituto. A inversão do ônus da prova, conforme o Código de Defesa do Consumidor, requer a comprovação de hipossuficiência ou a verossimilhança das alegações, o que não ocorreu no presente caso.\n\nAlém disso, a jurisprudência do Superior Tribunal de Justiça, conforme a Súmula 999 [CONFERIR: súmula ou tema], estabelece que a inversão do ônus da prova não é automática e depende de análise criteriosa do caso concreto. A ausência de comprovação de hipossuficiência pela Agravada torna indevida a inversão determinada.\n\n## Efeito suspensivo ou tutela recursal\nNão se pede efeito suspensivo neste recurso.\n\n## Pedidos\nDiante do exposto, requer-se:\n\n1. O conhecimento e provimento do presente agravo de instrumento para reformar a decisão agravada, afastando a inversão do ônus da prova;\n2. A intimação da Agravada para, querendo, apresentar contrarrazões;\n3. A condenação da Agravada ao pagamento das custas processuais e honorários advocatícios, se houver resistência ao presente recurso.\n\n## Fecho\n[PREENCHER: local e data]\n\n[PREENCHER: nome do advogado e OAB]\n"
+    },
+    {
+      "id": "embargos-omissao-com-juris",
+      "tipo": "embargos_declaracao",
+      "descricao": "Embargos por omissão, com julgado de teste.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1557,
+      "tokensSaida": 666,
+      "latenciaMs": 8300,
+      "modelo": "gpt-4o",
+      "chars": 2651,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\nExcelentíssimo Senhor Doutor Juiz de Direito da 12ª Vara Cível do Foro Central de São Paulo - TJSP\n\n## Introdução e tempestividade\nMaria Aparecida Souza, já qualificada nos autos do processo nº 0001234-56.2025.8.26.0100, que move em face de Banco Alfa S.A., vem, respeitosamente, à presença de Vossa Excelência, por intermédio de sua advogada infra-assinada, interpor EMBARGOS DE DECLARAÇÃO, com fundamento no artigo 1.022 do Código de Processo Civil, em face da sentença proferida nos autos em epígrafe, pelos motivos de fato e de direito a seguir expostos.\n\nOs presentes embargos são tempestivos, tendo em vista que a embargante foi intimada da decisão em 15 de setembro de 2025, conforme consta nos autos.\n\n## Decisão embargada\nA sentença embargada julgou improcedente o pedido de indenização por danos morais formulado pela embargante, Maria Aparecida Souza, em face do embargado, Banco Alfa S.A.\n\n## Vício apontado\nOmissão\n\nA sentença proferida por este juízo deixou de analisar o comprovante de pagamento integral da dívida, documento este que foi devidamente juntado aos autos com a réplica. Tal comprovante é de suma importância, pois demonstra a inexistência da dívida alegada pelo Banco Alfa S.A., o que, por sua vez, afasta a legitimidade da inscrição do nome da embargante nos cadastros de inadimplentes.\n\nA omissão em questão configura vício que compromete a completude da prestação jurisdicional, uma vez que o exame do referido documento poderia, em tese, infirmar a conclusão adotada na sentença. Nesse sentido, destaca-se o entendimento do Superior Tribunal de Justiça: \"EMBARGOS DE DECLARAÇÃO NO RECURSO ESPECIAL. OMISSÃO. FUNDAMENTO RELEVANTE NÃO ANALISADO. ART. 1.022 DO CPC. 1. Há omissão quando o acórdão deixa de examinar tese capaz de, em tese, infirmar a conclusão adotada. 2. Embargos acolhidos.\" (STJ, EDcl no REsp 1.888.202, Rel. Min. Nancy Andrighi, j. 20/04/2026).\n\n## Pedidos\nDiante do exposto, requer-se a Vossa Excelência:\n\n1. O acolhimento dos presentes embargos de declaração, para que seja sanada a omissão apontada, com a análise do comprovante de pagamento integral juntado com a réplica, o qual afasta a existência da dívida alegada pelo embargado.\n\n2. Caso o vício ora apontado seja reconhecido como capaz de alterar o resultado do julgamento, requer-se a atribuição de efeitos infringentes aos embargos, reformando-se a sentença para julgar procedente o pedido de indenização por danos morais.\n\n## Fecho\n[PREENCHER: local e data]\n\nRespeitosamente,\n\nDra. Fernanda Alves  \nOAB/SP 654.321\n"
+    },
+    {
+      "id": "embargos-erro-material",
+      "tipo": "embargos_declaracao",
+      "descricao": "Embargos por erro material, mínimo de informação.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1215,
+      "tokensSaida": 386,
+      "latenciaMs": 5539,
+      "modelo": "gpt-4o",
+      "chars": 1738,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\n[PREENCHER: Nome do Juízo ou Tribunal competente]\n\n## Introdução e tempestividade\nSÉRGIO NUNES, já qualificado nos autos, vem respeitosamente à presença de Vossa Excelência, por intermédio de seu advogado infra-assinado, interpor EMBARGOS DE DECLARAÇÃO em face da sentença que condenou a parte embargante ao pagamento de indenização, nos termos do artigo 1.022 do Código de Processo Civil, pelos fundamentos a seguir expostos.\n\n[PREENCHER: Confirmar a tempestividade com a data da intimação da decisão]\n\n## Decisão embargada\nA decisão embargada consiste em sentença que condenou o embargante ao pagamento de indenização. Contudo, verifica-se a existência de erro material no dispositivo da sentença, conforme será demonstrado.\n\n## Vício apontado\nO vício identificado na sentença embargada é um erro material. Especificamente, o valor da condenação foi registrado com um zero a mais no dispositivo, o que altera significativamente o montante devido. Tal erro material precisa ser corrigido para refletir o valor correto da condenação.\n\n## Pedidos\nDiante do exposto, requer-se:\n\n1. O acolhimento dos presentes embargos de declaração para que seja corrigido o erro material apontado, ajustando o valor da condenação ao montante correto, conforme os elementos constantes nos autos.\n\n2. A intimação da parte embargada, Loja Casa Nova Ltda., para, querendo, manifestar-se sobre os presentes embargos.\n\n3. Que sejam supridos os efeitos do erro material, com a consequente retificação do dispositivo da sentença.\n\n## Fecho\nTermos em que, \n\nPede deferimento.\n\n[PREENCHER: local e data]\n\n[PREENCHER: nome do advogado e OAB]\n"
+    },
+    {
+      "id": "manifestacao-prazo",
+      "tipo": "manifestacao_intimacao",
+      "descricao": "Manifestação sobre despacho que pediu documentos.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1378,
+      "tokensSaida": 219,
+      "latenciaMs": 2503,
+      "modelo": "gpt-4o",
+      "chars": 983,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\nExcelentíssimo Senhor Doutor Juiz de Direito da 12ª Vara Cível do Foro Central de São Paulo - SP\n\n## Introdução\nNos autos do processo nº 0001234-56.2025.8.26.0100, em que figura como autora Maria Aparecida Souza e como réu Banco Alfa S.A., vem a autora, por sua advogada infra-assinada, respeitosamente, à presença de Vossa Excelência, manifestar-se em atenção ao despacho que determinou a juntada de comprovante de residência atualizado.\n\n## Manifestação\nEm cumprimento ao despacho, a autora junta aos autos o comprovante de residência atualizado, consistente em conta de energia elétrica em seu nome.\n\n## Requerimentos\nDiante do cumprimento da determinação, requer a autora o prosseguimento do feito, com a consequente análise dos autos para a prolação de sentença.\n\n## Fecho\n[PREENCHER: local e data]\n\nAtenciosamente,\n\nDra. Fernanda Alves  \nOAB/SP 654.321\n"
+    },
+    {
+      "id": "manifestacao-sem-dados",
+      "tipo": "manifestacao_intimacao",
+      "descricao": "Manifestação vaga, sem detalhes do que foi determinado.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1158,
+      "tokensSaida": 271,
+      "latenciaMs": 3623,
+      "modelo": "gpt-4o",
+      "chars": 1187,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\n[PREENCHER: Destinatário, ex.: Excelentíssimo Senhor Doutor Juiz de Direito da [PREENCHER: Vara] da Comarca de [PREENCHER: Comarca]]\n\n## Introdução\nNos autos do processo em que figura como autor [PREENCHER: nome do autor], representado por este subscritor, e como réu [PREENCHER: nome do réu], vem, respeitosamente, à presença de Vossa Excelência, em atenção à intimação recebida, apresentar manifestação sobre a petição da parte contrária.\n\n## Manifestação\nEm resposta à petição apresentada pela parte contrária, o autor manifesta sua concordância parcial com os argumentos expostos. Especificamente, concordamos com os pontos [PREENCHER: especificar pontos de concordância], porém discordamos dos seguintes aspectos: [PREENCHER: especificar pontos de discordância].\n\n## Requerimentos\nDiante do exposto, requer-se a Vossa Excelência que sejam considerados os pontos de concordância e discordância ora apresentados, para que se proceda conforme o entendimento deste juízo.\n\n## Fecho\n[PREENCHER: local e data]\n\nAtenciosamente,\n\n[PREENCHER: nome do advogado e OAB]\n"
+    },
+    {
+      "id": "notificacao-completa",
+      "tipo": "notificacao_extrajudicial",
+      "descricao": "Notificação para pagamento de aluguéis em atraso.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1296,
+      "tokensSaida": 376,
+      "latenciaMs": 4511,
+      "modelo": "gpt-4o",
+      "chars": 1634,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Identificação das partes\nNotificante: Roberto Almeida Costa, brasileiro, empresário, CPF 222.555.888-40, na qualidade de locador.\n\nNotificado: Helena Martins Rocha, brasileira, professora, residente na Rua das Acácias, 120, Belo Horizonte/MG, na qualidade de locatária.\n\n## Dos fatos\nA presente notificação extrajudicial tem como fundamento o contrato de locação residencial firmado entre as partes, pelo qual a Sra. Helena Martins Rocha ocupa o imóvel de propriedade do Sr. Roberto Almeida Costa. Consta que os aluguéis referentes aos meses de agosto, setembro e outubro de 2026 encontram-se em atraso, cada um no valor de R$ 2.500,00, totalizando R$ 7.500,00.\n\n## Da obrigação e do fundamento\nNos termos do contrato de locação vigente, a Sra. Helena Martins Rocha tem a obrigação de efetuar o pagamento mensal dos aluguéis no valor acordado. O não cumprimento desta obrigação configura inadimplemento contratual, ensejando a adoção de medidas legais para a satisfação do crédito.\n\n## Prazo para cumprimento\nFica a Sra. Helena Martins Rocha notificada a efetuar o pagamento dos aluguéis em atraso, no valor total de R$ 7.500,00, no prazo de 10 (dez) dias a contar do recebimento desta notificação.\n\n## Consequências do descumprimento\nO não pagamento do valor devido no prazo estipulado implicará na adoção das medidas judiciais cabíveis, incluindo, mas não se limitando, à propositura de ação de despejo por falta de pagamento.\n\n## Fecho\n[PREENCHER: local e data]\n\nAtenciosamente,\n\nDr. Paulo Henrique Lima  \nOAB/SP 123.456\n"
+    },
+    {
+      "id": "notificacao-sem-prazo",
+      "tipo": "notificacao_extrajudicial",
+      "descricao": "Notificação sem prazo nem endereço do notificado.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1201,
+      "tokensSaida": 371,
+      "latenciaMs": 4611,
+      "modelo": "gpt-4o",
+      "chars": 1793,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Identificação das partes\nNotificante: Studio Pixel Design Ltda., empresa especializada em design gráfico, com sede em [PREENCHER: endereço completo da notificante].\n\nNotificado: Empresa Gama Comércio de Móveis, com sede em [PREENCHER: endereço completo da notificada].\n\n## Dos fatos\nA notificada, Empresa Gama Comércio de Móveis, utilizou, sem a devida autorização, uma arte de criação exclusiva da notificante, Studio Pixel Design Ltda., em sua campanha publicitária. Tal utilização indevida foi constatada em [PREENCHER: data ou período em que a utilização foi constatada], quando a notificante tomou conhecimento das publicações realizadas pela notificada.\n\n## Da obrigação e do fundamento\nA notificante, Studio Pixel Design Ltda., é a legítima titular dos direitos autorais sobre a referida arte, conforme previsto na legislação brasileira de direitos autorais [CONFERIR: dispositivo]. A utilização de obra intelectual sem autorização do titular constitui violação de direitos autorais, sendo vedada pela legislação vigente.\n\nDiante disso, a notificante exige que a notificada cesse imediatamente o uso da referida arte e remova todas as publicações que a contenham, sob pena de adoção das medidas legais cabíveis para a proteção de seus direitos.\n\n## Prazo para cumprimento\n[PREENCHER: prazo para cumprimento]\n\n## Consequências do descumprimento\nNa hipótese de não cumprimento das obrigações acima mencionadas no prazo estipulado, a notificante se reserva o direito de adotar as medidas judiciais cabíveis para resguardar seus direitos autorais e buscar a reparação pelos danos causados.\n\n## Fecho\n[PREENCHER: local e data]\n\nAtenciosamente,\n\n[PREENCHER: nome do advogado e OAB]\n"
+    },
+    {
+      "id": "peticao-juntada",
+      "tipo": "peticao_simples",
+      "descricao": "Juntada de documentos.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1389,
+      "tokensSaida": 266,
+      "latenciaMs": 3230,
+      "modelo": "gpt-4o",
+      "chars": 1117,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\nExcelentíssimo Senhor Doutor Juiz de Direito da 3ª Vara de Execuções Fiscais de Belo Horizonte - MG\n\n## Introdução\nNos autos da Execução Fiscal de número 0045678-90.2018.8.13.0024, em que figura como exequente o Município de Belo Horizonte e como executada a Comercial Pereira Ltda, vem, respeitosamente, à presença de Vossa Excelência, o Município de Belo Horizonte, por meio de seu advogado infra-assinado, para apresentar a presente petição.\n\n## Exposição\nO Município de Belo Horizonte, na qualidade de exequente, vem, por meio desta, proceder à juntada de documentos pertinentes ao presente feito, conforme detalhado a seguir.\n\n## Requerimentos\nDiante do exposto, requer:\n\n1. A juntada da certidão de dívida ativa atualizada;\n2. A juntada do demonstrativo do débito;\n3. [PREENCHER: outros documentos, se houver].\n\nPor fim, requer a juntada da procuração: [PREENCHER: confirmar procuração a juntar].\n\n## Fecho\n[PREENCHER: local e data]\n\nAtenciosamente,\n\nDr. Ricardo Menezes  \nOAB/MG 98.765\n"
+    },
+    {
+      "id": "peticao-prazo-sem-motivo",
+      "tipo": "peticao_simples",
+      "descricao": "Pedido de prazo sem motivo nem prazo informados.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1176,
+      "tokensSaida": 219,
+      "latenciaMs": 3176,
+      "modelo": "gpt-4o",
+      "chars": 1003,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\n[PREENCHER: Destinatário e endereço do juízo]\n\n## Introdução\nNos autos do processo em que figura como ré a parte por nós representada, vem respeitosamente à presença de Vossa Excelência, por intermédio de seu advogado infra-assinado, expor e requerer o que segue.\n\n## Exposição\nA parte ré, por meio de seu advogado, vem informar a necessidade de prorrogação do prazo anteriormente estabelecido por este juízo para cumprimento de determinação judicial. Tal pedido se faz necessário para garantir o adequado atendimento às exigências processuais e assegurar a ampla defesa e o contraditório.\n\n## Requerimentos\nDiante do exposto, requer:\n\n1. A concessão de [PREENCHER: prazo requerido] para o cumprimento da determinação do juízo;\n2. [PREENCHER: outros pedidos, se houver].\n\n## Fecho\nTermos em que,\n\nPede deferimento.\n\n[PREENCHER: local e data]\n\n[PREENCHER: nome do advogado e OAB]\n"
+    },
+    {
+      "id": "peticao-habilitacao",
+      "tipo": "peticao_simples",
+      "descricao": "Habilitação nos autos de novo advogado.",
+      "aprovado": true,
+      "limpo": true,
+      "falhas": [],
+      "intervencoes": [],
+      "brutoViolacoes": {
+        "julgadosForaDaLista": 0,
+        "dadosForaDaEntrada": 0,
+        "secoesFaltando": 0,
+        "nomesSuspeitos": 0
+      },
+      "tokensEntrada": 1203,
+      "tokensSaida": 285,
+      "latenciaMs": 3500,
+      "modelo": "gpt-4o",
+      "chars": 1184,
+      "conteudo": "Minuta gerada por IA. Revise integralmente antes de protocolar; a responsabilidade técnica é do advogado.\n\n## Endereçamento\n[PREENCHER: Destinatário, ex.: Juízo da Vara Cível da Comarca de ...]\n\n## Introdução\nNos autos da ação em que figura como autor Sérgio Nunes, vem o advogado que esta subscreve, Dr. Ivan Barbosa, OAB/BA 45.678, respeitosamente à presença de Vossa Excelência, requerer sua habilitação nos autos, conforme se passa a expor.\n\n## Exposição\nO Dr. Ivan Barbosa foi constituído como novo patrono do autor, Sérgio Nunes, no presente feito. Em razão disso, faz-se necessário que todas as futuras intimações e comunicações processuais sejam direcionadas ao seu nome, garantindo, assim, o pleno exercício do direito de defesa e acompanhamento processual.\n\n## Requerimentos\nDiante do exposto, requer:\n\n1. A habilitação do Dr. Ivan Barbosa, OAB/BA 45.678, como advogado do autor, Sérgio Nunes, nos presentes autos;\n2. Que todas as intimações e comunicações processuais sejam realizadas em nome do Dr. Ivan Barbosa;\n3. A juntada da procuração: [PREENCHER: confirmar procuração a juntar].\n\n## Fecho\n[PREENCHER: local e data]\n\nAtenciosamente,\n\nDr. Ivan Barbosa  \nOAB/BA 45.678\n"
+    }
+  ]
+}

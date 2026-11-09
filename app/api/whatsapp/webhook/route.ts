@@ -4,6 +4,7 @@ import { normalizarTelefoneBr, enviarTextoWhatsApp, enviarInterativoWhatsApp } f
 import { responderDuvidaWhatsAppComAgente } from '@/lib/agent/andamentoAgent';
 import { analisarDocumentoOuImagemIntimacao } from '@/lib/whatsappMedia';
 import { indexarDocumentoProcessual } from '@/lib/ragDocumentos';
+import { desativarWhatsappDiario } from '@/lib/monitoramentoDiario';
 
 /**
  * Webhook oficial da Meta (WhatsApp Cloud API) para atendimento e acompanhamento bidirecional.
@@ -199,6 +200,7 @@ async function processarOptOutWhatsApp(telefoneNormalizado: string) {
         .from('ap_processos_monitorados')
         .update({ notificar_whatsapp: false })
         .in('user_id', userIds);
+      await desativarWhatsappDiario(db, userIds);
 
       console.log(`[whatsapp-webhook] Opt-out realizado para ${userIds.length} usuários.`);
     }

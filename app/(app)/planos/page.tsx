@@ -53,6 +53,36 @@ const RECURSOS_COMPARATIVOS = [
     destaque: true
   },
   {
+    nome: 'Monitoramento do Diário por OAB, nome ou termo',
+    free: '1 busca',
+    pro: 'Até 10 buscas',
+    destaque: true
+  },
+  {
+    nome: 'Agenda de prazos com lembretes (WhatsApp e e-mail)',
+    free: false,
+    pro: true,
+    destaque: true
+  },
+  {
+    nome: 'Busca de jurisprudência',
+    free: false,
+    pro: true,
+    destaque: true
+  },
+  {
+    nome: 'Modelos de peças com IA',
+    free: false,
+    pro: true,
+    destaque: true
+  },
+  {
+    nome: 'Escritório com vários usuários',
+    free: false,
+    pro: 'Até 3 pessoas',
+    destaque: false
+  },
+  {
     nome: 'Resumo com IA em Linguagem Humana',
     free: 'Básico (Web)',
     pro: 'Completo (Web + WhatsApp)',
@@ -81,7 +111,7 @@ const RECURSOS_COMPARATIVOS = [
 const FAQS = [
   {
     pergunta: 'Como funciona o cancelamento do Plano Pro?',
-    resposta: 'Você pode cancelar a qualquer momento em 1 clique, sem carência, sem multas contratuais e sem pegadinhas. Ao cancelar, você mantém o acesso Pro até o final do período vigente.'
+    resposta: 'Você pode cancelar a qualquer momento pela página de Planos, sem carência e sem multa. Ao voltar para o plano Gratuito, a assinatura recorrente é cancelada e os recursos exclusivos do Pro são pausados.'
   },
   {
     pergunta: 'Como funciona o envio de fotos de intimações pelo WhatsApp?',
@@ -193,6 +223,10 @@ export default function PlanosPage() {
                 <Check size={16} className="shrink-0 text-white/40" />
                 <span>Notificações por e-mail</span>
               </li>
+              <li className="flex items-center gap-2.5">
+                <Check size={16} className="shrink-0 text-white/40" />
+                <span>1 busca monitorada no Diário (OAB, nome ou termo)</span>
+              </li>
               <li className="flex items-center gap-2.5 text-white/35">
                 <span className="h-4 w-4 shrink-0 rounded-full border border-white/15" />
                 <span>Sem WhatsApp conversacional com IA</span>
@@ -208,6 +242,10 @@ export default function PlanosPage() {
               <li className="flex items-center gap-2.5 text-white/35">
                 <span className="h-4 w-4 shrink-0 rounded-full border border-white/15" />
                 <span>Sem radar de novos processos por CPF</span>
+              </li>
+              <li className="flex items-center gap-2.5 text-white/35">
+                <span className="h-4 w-4 shrink-0 rounded-full border border-white/15" />
+                <span>Sem agenda de prazos, jurisprudência e modelos de peças</span>
               </li>
             </ul>
           </div>
@@ -283,6 +321,36 @@ export default function PlanosPage() {
                 <Check size={16} className="shrink-0 text-[#1E7CF2]" />
                 <span>
                   <strong className="text-white">Radar de Novos Processos</strong>: alerta imediato de novas ações distribuídas no seu CPF/CNPJ
+                </span>
+              </li>
+              <li className="flex items-center gap-2.5">
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
+                <span>
+                  <strong className="text-white">Monitoramento do Diário</strong>: até 10 buscas por OAB, nome ou termo, com alerta de cada publicação
+                </span>
+              </li>
+              <li className="flex items-center gap-2.5">
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
+                <span>
+                  <strong className="text-white">Agenda de prazos</strong>: vencimentos calculados em dias úteis, lembretes e exportação para o calendário
+                </span>
+              </li>
+              <li className="flex items-center gap-2.5">
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
+                <span>
+                  <strong className="text-white">Jurisprudência</strong>: busca por assunto em acórdãos, com explicação em linguagem simples
+                </span>
+              </li>
+              <li className="flex items-center gap-2.5">
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
+                <span>
+                  <strong className="text-white">Modelos de peças com IA</strong>: minutas para o advogado revisar
+                </span>
+              </li>
+              <li className="flex items-center gap-2.5">
+                <Check size={16} className="shrink-0 text-[#1E7CF2]" />
+                <span>
+                  <strong className="text-white">Escritório</strong>: compartilhe o acompanhamento com até 3 pessoas
                 </span>
               </li>
               <li className="flex items-center gap-2.5">

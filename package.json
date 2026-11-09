@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "eval:agente": "tsx --env-file=.env.local evals/agente-whatsapp/avaliar.ts",
-    "test:smoke": "tsx --env-file=.env.local evals/homologacao-smoke-test.ts"
+    "eval:pecas": "tsx --env-file=.env.local evals/pecas/avaliar.ts",
+    "test:smoke": "tsx --env-file=.env.local evals/homologacao-smoke-test.ts",
+    "test:novas": "tsx --env-file=.env.local evals/novas-funcionalidades.ts",
+    "ingest:jurisprudencia": "tsx --env-file=.env.local scripts/ingestao-jurisprudencia.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",

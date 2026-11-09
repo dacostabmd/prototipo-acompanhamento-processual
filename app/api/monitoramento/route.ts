@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAdminClient, getUserId } from '@/lib/track';
 import { requireUser } from '@/lib/requireUser';
 import { normalizarTelefoneBr } from '@/lib/whatsapp';
+import { colegasDoEscritorio } from '@/lib/equipe';
 import type {
   ModoSensibilidade,
   MovimentacaoResumida,
@@ -12,6 +13,7 @@ import type {
 } from '@/lib/types/monitoramento';
 
 interface LinhaMonitoramento {
+  user_id?: string;
   processo_id: string;
   notificar_email: boolean | null;
   notificar_whatsapp: boolean | null;
@@ -68,13 +70,17 @@ export async function GET(request: Request) {
   const db = getAdminClient();
   if (!userId || !db) return NextResponse.json({ processos: [], telefoneValido: false } satisfies RespostaMonitoramento);
 
+  // Escritório: inclui, somente leitura, os processos dos colegas (sem escritório, só os do próprio usuário).
+  const colegas = await colegasDoEscritorio(userId);
+  const nomeDoColega = new Map(colegas.map(c => [c.id, c.nome]));
+
   const [monitoramentos, perfil] = await Promise.all([
     db
       .from('ap_processos_monitorados')
       .select(
-        'processo_id, notificar_email, notificar_whatsapp, tags, ap_processos(numero_cnj, tribunal, classe_processual, assunto_principal, valor_causa, data_distribuicao, orgao_julgador, comarca, metadados, ultima_movimentacao_em, ultima_consulta_em, proxima_consulta_em)'
+        'user_id, processo_id, notificar_email, notificar_whatsapp, tags, ap_processos(numero_cnj, tribunal, classe_processual, assunto_principal, valor_causa, data_distribuicao, orgao_julgador, comarca, metadados, ultima_movimentacao_em, ultima_consulta_em, proxima_consulta_em)'
       )
-      .eq('user_id', userId)
+      .in('user_id', [userId, ...colegas.map(c => c.id)])
       .order('created_at', { ascending: false }),
     db.from('ap_perfis').select('telefone').eq('id', userId).maybeSingle()
   ]);
@@ -84,7 +90,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Falha ao carregar o acompanhamento.' }, { status: 500 });
   }
 
-  const linhas = ((monitoramentos.data ?? []) as unknown as LinhaMonitoramento[]).filter(l => l.ap_processos);
+  const todas = ((monitoramentos.data ?? []) as unknown as LinhaMonitoramento[]).filter(l => l.ap_processos);
+  // Se o usuário e um colega acompanham o mesmo processo, vale o do próprio usuário (editável).
+  const meusIds = new Set(todas.filter(l => l.user_id === userId).map(l => l.processo_id));
+  const vistosDeColegas = new Set<string>();
+  const linhas = todas.filter(l => {
+    if (l.user_id === userId) return true;
+    if (meusIds.has(l.processo_id) || vistosDeColegas.has(l.processo_id)) return false;
+    vistosDeColegas.add(l.processo_id);
+    return true;
+  });
   const ids = linhas.map(l => l.processo_id);
 
   // Último resumo por processo: os resumos vêm do mais novo para o mais antigo, fica o primeiro de cada.
@@ -142,8 +157,9 @@ export async function GET(request: Request) {
     }
   }
 
-  const processos: ProcessoAcompanhado[] = linhas.map(l => {
+  const processos: (ProcessoAcompanhado & { compartilhadoPor?: string; somenteLeitura?: boolean })[] = linhas.map(l => {
     const p = l.ap_processos!;
+    const compartilhadoPor = l.user_id !== userId ? nomeDoColega.get(l.user_id ?? '') ?? 'Colega' : null;
     const meta = (p.metadados ?? {}) as Record<string, unknown>;
     const tagSensibilidade = (l.tags ?? []).find(t => t.startsWith('sensibilidade:'))?.replace('sensibilidade:', '');
     const sensibilidade: ModoSensibilidade =
@@ -157,8 +173,9 @@ export async function GET(request: Request) {
       ultimaMovimentacaoEm: p.ultima_movimentacao_em,
       ultimaConsultaEm: p.ultima_consulta_em,
       proximaConsultaEm: p.proxima_consulta_em,
-      notificarEmail: l.notificar_email ?? true,
-      notificarWhatsapp: l.notificar_whatsapp ?? false,
+      // Canais e sensibilidade são do colega: no registro compartilhado ficam desligados e fora do alcance do usuário.
+      notificarEmail: compartilhadoPor ? false : l.notificar_email ?? true,
+      notificarWhatsapp: compartilhadoPor ? false : l.notificar_whatsapp ?? false,
       sensibilidade,
       assunto: texto(p.assunto_principal),
       valorCausa: p.valor_causa != null && !Number.isNaN(Number(p.valor_causa)) ? Number(p.valor_causa) : null,
@@ -167,7 +184,8 @@ export async function GET(request: Request) {
       poloAtivo: extrairPolo(meta.parteAtiva),
       poloPassivo: extrairPolo(meta.partePassiva),
       movimentacoes: movimentacoes.get(l.processo_id) ?? [],
-      resumo: ultimoResumo.get(l.processo_id) ?? null
+      resumo: ultimoResumo.get(l.processo_id) ?? null,
+      ...(compartilhadoPor ? { compartilhadoPor, somenteLeitura: true } : {})
     };
   });
 

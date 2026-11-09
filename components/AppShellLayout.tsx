@@ -65,6 +65,17 @@ function AppShellLayoutInner({ children }: { children: ReactNode }) {
     };
   }, [pathname]);
 
+  // Convite de escritório pendente (ex.: login com Google volta direto para o app): retoma o aceite uma única vez.
+  useEffect(() => {
+    try {
+      const conviteToken = sessionStorage.getItem('ap_convite_pendente');
+      if (conviteToken && /^[A-Za-z0-9_-]{20,}$/.test(conviteToken)) {
+        sessionStorage.removeItem('ap_convite_pendente');
+        router.replace(`/equipe/convite/${conviteToken}`);
+      }
+    } catch {}
+  }, [router]);
+
   useEffect(() => {
     try {
       setExpanded(localStorage.getItem('bf-sidebar') !== '0');

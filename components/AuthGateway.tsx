@@ -49,6 +49,15 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
 
   const finish = () => {
     try {
+      const conviteToken = sessionStorage.getItem('ap_convite_pendente');
+      if (conviteToken && /^[A-Za-z0-9_-]{20,}$/.test(conviteToken)) {
+        sessionStorage.removeItem('ap_convite_pendente');
+        router.replace(`/equipe/convite/${conviteToken}`);
+        router.refresh();
+        return;
+      }
+    } catch {}
+    try {
       const cnjPendente = sessionStorage.getItem('ap_processo_pendente');
       if (cnjPendente && cleanDigits(cnjPendente).length === 20) {
         sessionStorage.removeItem('ap_processo_pendente');
@@ -79,7 +88,7 @@ export default function AuthGateway({ variante }: { variante: 'busca' | 'login' 
     if (supabase) {
       supabase.auth.getSession().then(({ data }) => {
         if (data?.session) {
-          router.replace('/painel');
+          finish();
         }
       });
     }

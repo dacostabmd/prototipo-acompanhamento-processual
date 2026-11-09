@@ -237,7 +237,7 @@ export default function PainelInsights() {
         </section>
 
         <section aria-labelledby="movimentacoes-titulo" className={`${CARTAO} px-5 py-4`}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 id="movimentacoes-titulo" className="text-base font-semibold text-white">
                 Últimas movimentações
@@ -261,16 +261,16 @@ export default function PainelInsights() {
             </div>
           </div>
 
-          {processos === null && <p className="mt-5 text-sm text-white/60">Carregando movimentações...</p>}
-          {erro && <p className="mt-5 text-sm text-white/60">Não foi possível carregar as movimentações agora.</p>}
+          {processos === null && <p className="text-sm text-white/60">Carregando movimentações...</p>}
+          {erro && <p className="text-sm text-white/60">Não foi possível carregar as movimentações agora.</p>}
           <ConteudoDeslizante chave={filtro} direcao={direcaoFiltro}>
             {processos !== null && !erro && lista.length === 0 && (
-              <p className="mt-5 rounded-xl border border-tt-line p-5 text-center text-sm text-white/60">
+              <p className="rounded-xl border border-tt-line p-5 text-center text-sm text-white/60">
                 {processos.length === 0 ? 'Faça uma consulta para acompanhar os processos aqui.' : 'Nenhum processo neste filtro.'}
               </p>
             )}
             {lista.length > 0 && (
-              <ol className="relative mt-5 list-none space-y-1 p-0">
+              <ol className="relative list-none space-y-1 p-0">
                 {/* Linha da linha do tempo, atrás dos pontos */}
                 <span className="absolute bottom-3 left-[5px] top-3 w-px bg-tt-line" aria-hidden="true" />
                 {lista.map(p => {

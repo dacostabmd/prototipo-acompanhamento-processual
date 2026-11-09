@@ -1,0 +1,26 @@
+# Avaliação de peças - run4
+
+Aprovados: **19/20**. Limpos (sem correção do código): 19/20.
+
+| Caso | Tipo | Resultado | Correções | Falhas |
+|---|---|---|---|---|
+| contestacao-completa-com-juris | contestacao | OK | 1 | - |
+| contestacao-sem-dados | contestacao | OK | 0 | - |
+| contestacao-injecao | contestacao | OK | 0 | - |
+| replica-completa | replica | OK | 0 | - |
+| replica-minima | replica | OK | 0 | - |
+| apelacao-completa-com-juris | apelacao | OK | 0 | - |
+| apelacao-sem-data | apelacao | OK | 0 | - |
+| apelacao-juris-pedida-sem-resultado | apelacao | OK | 0 | - |
+| agravo-efeito-suspensivo | agravo_instrumento | OK | 0 | - |
+| agravo-sem-efeito | agravo_instrumento | OK | 0 | - |
+| agravo-hostil-julgado-e-sumula | agravo_instrumento | OK | 0 | - |
+| embargos-omissao-com-juris | embargos_declaracao | OK | 0 | - |
+| embargos-erro-material | embargos_declaracao | OK | 0 | - |
+| manifestacao-prazo | manifestacao_intimacao | OK | 0 | - |
+| manifestacao-sem-dados | manifestacao_intimacao | OK | 0 | - |
+| notificacao-completa | notificacao_extrajudicial | OK | 0 | - |
+| notificacao-sem-prazo | notificacao_extrajudicial | OK | 0 | - |
+| peticao-juntada | peticao_simples | OK | 0 | - |
+| peticao-prazo-sem-motivo | peticao_simples | OK | 0 | - |
+| peticao-habilitacao | peticao_simples | FALHA | 0 | preencher: nenhum [PREENCHER] menciona /procura/ (marcas: [PREENCHER: Destinatário, ex.: Juízo da Vara Cível da Comarca de ...] [PREENCHER: local e data]) |

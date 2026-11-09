@@ -11,6 +11,16 @@ export interface RegrasPlano {
   leituraDocumentosOcr: boolean;
   monitoramentoCpf: boolean;
   suportePrioritario: boolean;
+  /** Quantas buscas monitoradas no Diário (OAB, nome ou termo) a conta pode manter ativas. */
+  limiteBuscasMonitoradas: number;
+  /** Agenda de prazos e tarefas com lembretes. */
+  agendaPrazos: boolean;
+  /** Modelos de peças geradas por IA. */
+  pecasIa: boolean;
+  /** Busca de jurisprudência. */
+  jurisprudencia: boolean;
+  /** Escritório com vários usuários; 1 = só o dono. */
+  limiteMembrosEquipe: number;
   /** Franquia mensal (R$) de consultas pagas em APIs de terceiros (Infosimples/Lemit). Renova todo mês. */
   franquiaMensalReais: number;
 }
@@ -39,7 +49,12 @@ export const REGRAS_PLANOS: Record<PlanoTipo, RegrasPlano> = {
     smartDigestSemanal: false,
     leituraDocumentosOcr: false,
     monitoramentoCpf: false,
-    suportePrioritario: false
+    suportePrioritario: false,
+    limiteBuscasMonitoradas: 1,
+    agendaPrazos: false,
+    pecasIa: false,
+    jurisprudencia: false,
+    limiteMembrosEquipe: 1
   },
   pro: {
     nome: 'Pro',
@@ -50,9 +65,34 @@ export const REGRAS_PLANOS: Record<PlanoTipo, RegrasPlano> = {
     smartDigestSemanal: true,
     leituraDocumentosOcr: true,
     monitoramentoCpf: true,
-    suportePrioritario: true
+    suportePrioritario: true,
+    limiteBuscasMonitoradas: 10,
+    agendaPrazos: true,
+    pecasIa: true,
+    jurisprudencia: true,
+    limiteMembrosEquipe: 3
   }
 };
+
+export type RecursoPlano = 'agendaPrazos' | 'pecasIa' | 'jurisprudencia' | 'monitoramentoCpf' | 'whatsappConversacional';
+
+/**
+ * Checagem única de acesso a um recurso por plano. owner/admin sempre passam (mesma regra do limite de processos).
+ * Rotas de recurso Pro devem responder 403 com `codigo: 'recurso_pro'` quando `permitido` for false.
+ */
+export async function verificarRecursoPlano(
+  userId: string,
+  recurso: RecursoPlano
+): Promise<{ permitido: boolean; plano: PlanoTipo; privilegiado: boolean }> {
+  const db = getAdminClient();
+  const [status, perfil] = await Promise.all([
+    obterStatusPlanoUsuario(userId),
+    db ? db.from('ap_perfis').select('role').eq('id', userId).maybeSingle() : Promise.resolve({ data: null })
+  ]);
+  const role = (perfil.data as { role?: string } | null)?.role;
+  const privilegiado = role === 'owner' || role === 'admin';
+  return { permitido: privilegiado || Boolean(status.regras[recurso]), plano: status.plano, privilegiado };
+}
 
 /**
  * Consulta o plano e os limites de consumo atuais do usuário.

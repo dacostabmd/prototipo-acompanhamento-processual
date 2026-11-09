@@ -29,6 +29,9 @@ export interface ProcessoAcompanhado {
   proximaConsultaEm: string | null;
   notificarEmail: boolean;
   notificarWhatsapp: boolean;
+  /** Processo de um colega do escritório: só leitura (nome de quem acompanha em `compartilhadoPor`). */
+  somenteLeitura?: boolean;
+  compartilhadoPor?: string;
   sensibilidade: ModoSensibilidade;
   assunto: string | null;
   valorCausa: number | null;
