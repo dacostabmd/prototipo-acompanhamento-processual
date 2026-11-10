@@ -280,3 +280,12 @@ Seis frentes novas, todas com acesso por plano em `lib/planos.ts` (`limiteBuscas
 - "Continuar" leva a `/consulta?busca=DOC&fontes=ID|ID`. `ProcessTracker` marca só essas fontes, desliga a economia por estado (todos os tribunais escolhidos rodam) e abre sozinho a confirmação de custo; a pesquisa só começa ao confirmar.
 - Mesma regra de acesso da busca por documento: Pro/advogado ou consultante (este com o próprio documento travado); os demais veem o convite ao Plano Pro no modal.
 - Não testado no navegador (só `tsc`).
+
+## Busca trabalhista gratuita por CNPJ/nome (`/trabalhista`) — Implementada (2026-11-10)
+
+- **Por que**: a CEAT da Infosimples no TRT1 só emite a certidão (`conseguiu_emitir_certidao_negativa`, `numero_certidao`...) e **não lista processos**; o DataJud não busca por parte. Isso contradiz a nota acima de que as CEATs "listam os números": vale para TRT2/TRT3, não para o TRT1.
+- **Como**: CNPJ -> razão social na BrasilAPI (`consultarCnpjBrasilApi`, exige `User-Agent`, senão responde 403) -> DJEN por `nomeParte` com `siglaTribunal=TRTn` (ou "todos os TRTs", filtrando `TRT*` localmente) em **qualquer polo**. Arquivos: `lib/trabalhista.ts`, `buscarPublicacoesPorParteDjen` em `lib/djen.ts`, `app/api/trabalhista/route.ts` (GET, login obrigatório, 12 buscas/min por usuário), `app/(app)/trabalhista/page.tsx`, `components/trabalhista/BuscaTrabalhista.tsx`, item "Trabalhista" em `lib/nav.ts`.
+- **Regra do autor**: aqui o padrão é qualquer polo (empresa costuma ser reclamada); o checkbox opcional "só autora" mantém quem aparece no polo ativo. Resultados marcam `exata` x `semelhante` (nome da parte contém o pesquisado).
+- **Limites**: só aparece processo com publicação no DJEN no período (30/90/180/365 dias); busca por nome, não por CNPJ; lê até 5 páginas de 100 (`truncado` avisa); DJEN limita ~20 req/janela por IP e às vezes dá timeout/500 (a tela mostra erro 503 amigável). CPF não é aceito.
+- **Testes**: `npx tsx scratch/teste_trabalhista.ts` (APIs reais, sem custo; Petrobras/TRT1 em 30 dias: 281 processos, `truncado`). Não testado no navegador (só `tsc` e o script).
+- **Pendente**: corrigir a leitura de `processos.lista_processos` (TRT24) e do campo `conseguiu_emitir_certidao_negativa` em `candidatosInfosimples`/`route.ts` de `/api/processos`; reavaliar o catálogo `TRT1 (CEAT)` (hoje cobra sem trazer números).

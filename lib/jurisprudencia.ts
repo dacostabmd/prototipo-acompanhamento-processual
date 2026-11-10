@@ -347,7 +347,7 @@ export async function explicarEmLinguagemSimples(
 // Sem Redis (dev/local), o limite vale só dentro da instância.
 const contagemLocal = new Map<string, { n: number; expira: number }>();
 
-export async function excedeuLimiteUsuario(userId: string, escopo: 'busca' | 'explicar', limite: number, janelaSegundos: number): Promise<boolean> {
+export async function excedeuLimiteUsuario(userId: string, escopo: 'busca' | 'explicar' | 'trabalhista', limite: number, janelaSegundos: number): Promise<boolean> {
   const redis = getRedis();
   if (redis) {
     try {

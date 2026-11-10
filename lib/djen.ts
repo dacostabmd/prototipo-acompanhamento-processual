@@ -419,6 +419,27 @@ export async function buscarPublicacoesPorNomeDjen(nome: string, opcoes: OpcoesB
   );
 }
 
+/**
+ * Publicações em que a parte aparece em QUALQUER polo (pessoa jurídica na Justiça do Trabalho costuma ser ré).
+ * `aceitaNome` decide se um nome de destinatário corresponde à parte pesquisada; `siglaTribunal` (ex.: TRT1) restringe
+ * a busca no próprio DJEN, e sem ela a conferência de tribunal fica com `aceitaTribunal`.
+ */
+export async function buscarPublicacoesPorParteDjen(
+  nome: string,
+  opcoes: OpcoesBuscaDiario,
+  filtros: { siglaTribunal?: string; aceitaNome: (nomeDestinatario: string) => boolean; aceitaTribunal?: (sigla: string) => boolean }
+): Promise<ResultadoBuscaDiario> {
+  const params: Record<string, string> = { nomeParte: nome.trim() };
+  if (filtros.siglaTribunal) params.siglaTribunal = filtros.siglaTribunal;
+  return coletarPublicacoes(
+    params,
+    c =>
+      (!filtros.aceitaTribunal || filtros.aceitaTribunal(c.siglaTribunal || '')) &&
+      (c.destinatarios ?? []).some(d => d.nome && filtros.aceitaNome(d.nome)),
+    opcoes
+  );
+}
+
 /** Publicações cujo texto contém o termo (busca de frase do próprio DJEN; sem filtro de polo). */
 export async function buscarPublicacoesPorTermoDjen(termo: string, opcoes: OpcoesBuscaDiario): Promise<ResultadoBuscaDiario> {
   return coletarPublicacoes({ texto: termo.trim() }, () => true, opcoes);
