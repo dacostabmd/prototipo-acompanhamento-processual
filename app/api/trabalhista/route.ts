@@ -10,6 +10,9 @@ import { registrarHistoricoConsulta } from '@/lib/historicoConsultas';
 import { BrasilApiIndisponivelError, CnpjNaoEncontradoError, consultarCnpjBrasilApi, type EmpresaCnpj } from '@/lib/trabalhista';
 import { buscarTrabalhistaComFallback } from '@/lib/trabalhistaFallback';
 
+// Roda em São Paulo: o DJEN (CNJ) respondeu do Brasil e falhou a partir da Vercel (região padrão nos EUA) em 2026-11-10.
+export const preferredRegion = 'gru1';
+
 const LIMITE_BUSCAS = 12; // por janela: cada busca lê várias páginas do DJEN (limite de ~20 req por IP do servidor)
 const JANELA_SEGUNDOS = 60;
 const PERIODOS_DIAS = [30, 90, 180, 365];

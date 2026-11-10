@@ -94,7 +94,9 @@ export async function buscarTrabalhistaComFallback(opcoes: OpcoesFallback): Prom
     } catch (e) {
       if (!(e instanceof DjenIndisponivelError)) throw e;
       estado.erroDjen = e;
-      etapas.push({ fonte: rotulo, resultado: 'indisponível no momento', custo: 0, falhou: true });
+      // O motivo técnico (HTTP 403/429/500, timeout, rede) vai para a tela e para o log: em produção é a única pista.
+      console.warn(`[trabalhista] ${rotulo}: ${e.message}`);
+      etapas.push({ fonte: rotulo, resultado: `indisponível (${e.message})`, custo: 0, falhou: true });
       return 0;
     }
   };
