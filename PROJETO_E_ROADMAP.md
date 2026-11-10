@@ -265,3 +265,11 @@ Seis frentes novas, todas com acesso por plano em `lib/planos.ts` (`limiteBuscas
 ### Achados sobre o banco de produção (conferidos em 2026-11-09)
 - Não existem `ap_monitoramento_documentos` (radar de CPF/CNPJ) nem `ap_documentos_vetoriais` (RAG): as migrations `20261026180000` e `20261026190000` não foram aplicadas, então essas duas funcionalidades falham em produção apesar de marcadas como implementadas. Confirmar também `20261026170000` (sensibilidade do Smart Digest).
 - Existem `ap_departamentos` e `ap_departamento_membros` (CRM interno).
+
+## Justiça do Trabalho na busca por CPF/CNPJ + nome opcional — Implementada (2026-11-10)
+
+- **CEAT (Certidão de Ações Trabalhistas) no catálogo** (`lib/fontesInfosimples.ts`): a consulta processual dos TRTs só aceita número, então a busca por CPF/CNPJ passou a usar as certidões da Infosimples: `tribunal/trtN/ceat` nos TRTs 1-17, 19-21, 23 e 24, `tribunal/trt6/certidao`, e `ceat-digital` nos TRTs 2 (CNPJ só pela raiz de 8 dígitos, cortada em `resolverAlvos`), 7 e 10. Ids `TRTn (CEAT)` e `TRTn (CEAT digital)`, `principal: true`, alias DataJud do próprio TRT (o DataJud completa as movimentações dos números achados). Também entrou `tribunal/trt3/processo` (busca por número). Fora: TRT22 (sem CEAT) e TRT18 (`nome_requerente` e `cpf_requerente` obrigatórios; precisa de decisão sobre quais dados usar). O parâmetro `nome` das CEATs não é enviado.
+- **Leitura da resposta** (`candidatosInfosimples` em `lib/motorConsulta.ts`): lê `processos_encontrados_cpf_cnpj.lista_processos` e `processos_encontrados_nome.lista_processos`; "nada consta" não gera alerta de formato desconhecido. Formato dos itens da lista **não verificado com chamada real** (tratamos texto e objeto).
+- **Onda 1 da varredura** (`app/api/processos/route.ts`): o TRT da mesma UF do tribunal prioritário entra junto na 1ª onda (antes só rodaria se o TJ não achasse nada).
+- **Nome opcional no CPF/CNPJ** (`components/ProcessTracker.tsx`): a validação exige só o documento; nome em branco é aceito (preenchido, precisa de 3+ letras). O filtro "Só como autor" avisa que sem nome não oculta nada.
+- Pendente: validar uma busca real (custo por CEAT a confirmar no painel da Infosimples; busca sem UF conhecida chama todas as 25 CEATs em paralelo) e rótulo do tribunal na tela, hoje "TRTn (CEAT) · 1º Grau" até o DataJud completar.

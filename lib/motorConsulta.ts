@@ -72,11 +72,17 @@ const ehObjeto = (v: any) => !!v && typeof v === 'object' && !Array.isArray(v);
  *   detalhes_primeiro_processo_lista (TJRJ) ou dados_processo, com polos na raiz (TRF3 consulta pública);
  * - listas processos, lista_processos, processos_lista, processo_lista, lista_processos_encontrados, que podem vir
  *   vazias junto com o detalhe ou com itens em texto (só o número, que viram { numero_processo }).
+ * - certidões de ações trabalhistas (CEAT dos TRTs): a lista fica um nível abaixo, em
+ *   processos_encontrados_cpf_cnpj.lista_processos (e processos_encontrados_nome.lista_processos), e o resto do
+ *   envelope (nada_consta, total_processos, numero_certidao...) não é processo.
  * Quem consome deduplica pelo número: o primeiro (mais completo) vence.
  */
 export function candidatosInfosimples(dado: any): any[] {
   if (!ehObjeto(dado)) return [];
-  const listas = [dado.processos, dado.lista_processos, dado.processos_lista, dado.processo_lista, dado.lista_processos_encontrados]
+  const encontradosCeat = [dado.processos_encontrados_cpf_cnpj, dado.processos_encontrados_nome]
+    .filter(ehObjeto)
+    .flatMap((e: any) => [e.lista_processos, e.processos, e.lista]);
+  const listas = [dado.processos, dado.lista_processos, dado.processos_lista, dado.processo_lista, dado.lista_processos_encontrados, ...encontradosCeat]
     .filter(Array.isArray)
     .flat()
     .map((item: any) => (typeof item === 'string' ? { numero_processo: item } : item))

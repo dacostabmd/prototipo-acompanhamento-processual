@@ -341,12 +341,13 @@ export default function ProcessTracker({
 
   // Ao buscar por número de processo, o CNJ (20 dígitos) é o dado principal e Nome/CPF tornam-se opcionais.
   // Por nome da parte, o nome é o dado principal e o documento é opcional (no modo, fullName = nome da parte).
+  // Por CPF/CNPJ, o documento é o dado principal e o nome é opcional (só confirma a pessoa e filtra o polo "autor").
   const isStep1Valid =
     searchMode === 'numero'
       ? isProcessNumberValid && (cpfInputDigits.length === 0 || isDocValid)
       : searchMode === 'nome'
       ? isPagante && partyNameInput.trim().length >= 3 && (cpfInputDigits.length === 0 || isDocValid)
-      : fullName.trim().length >= 3 && isDocValid;
+      : isDocValid && (fullName.trim().length === 0 || fullName.trim().length >= 3);
   const isStep2Valid = tipoBusca === 'numero' ? usaDatajudNumero || idsInfosimplesEfetivos.length > 0 : idsInfosimplesEfetivos.length > 0;
   // Celular opcional (da parte pesquisada): vazio é válido; se preenchido, exige DDD + número.
   const isStep4Valid = cleanDigits(phoneInput).length === 0 || cleanDigits(phoneInput).length >= 10;
@@ -373,7 +374,7 @@ export default function ProcessTracker({
   const pendenciasFormulario = [
     searchMode === 'numero' && !isProcessNumberValid && 'número do processo (20 dígitos)',
     searchMode === 'nome' && partyNameInput.trim().length < 3 && 'nome da parte',
-    searchMode === 'cpf' && fullName.trim().length < 3 && 'nome completo',
+    searchMode === 'cpf' && fullName.trim().length > 0 && fullName.trim().length < 3 && 'nome completo com ao menos 3 letras (ou deixe em branco)',
     searchMode === 'cpf' && !isDocValid && 'CPF ou CNPJ válido',
     searchMode !== 'cpf' && cpfInputDigits.length > 0 && !isDocValid && 'CPF/CNPJ válido (ou deixe em branco)',
     !isStep2Valid && 'ao menos uma fonte de consulta',
@@ -1550,13 +1551,12 @@ export default function ProcessTracker({
                       <CampoTexto
                         id="campo-nome"
                         rotulo="Nome completo"
-                        opcional={searchMode === 'numero' && !isConsultante}
+                        opcional
                         valor={fullName}
                         onChange={setFullName}
                         placeholder="Como aparece no documento"
-                        autoFocus={!isConsultante && searchMode === 'cpf'}
                         ok={fullName.trim().length >= 3}
-                        dica="Ajuda a confirmar a pessoa certa"
+                        dica="Ajuda a confirmar a pessoa certa e a filtrar só os processos em que ela é autora"
                       />
                       </motion.div>
                     )}
@@ -1567,6 +1567,7 @@ export default function ProcessTracker({
                       opcional={!isConsultante && searchMode !== 'cpf'}
                       ajuda={isConsultante ? 'Definido no seu cadastro.' : undefined}
                       travado={isConsultante}
+                      autoFocus={!isConsultante && searchMode === 'cpf'}
                       valor={cpfInput}
                       onChange={v => setCpfInput(formatDocumento(v))}
                       placeholder="000.000.000-00"
@@ -1672,7 +1673,11 @@ export default function ProcessTracker({
                           />
                           <ConteudoDeslizante chave={somenteAutor ? 'autor' : 'qualquer'} ordem={['qualquer', 'autor']}>
                             <span style={{ display: 'block', marginTop: 6, fontSize: 11.5, color: MUTED }}>
-                              {somenteAutor ? 'Oculta processos em que a pessoa é ré ou parte contrária.' : 'Mostra processos em que a pessoa é autora ou ré.'}
+                              {somenteAutor
+                                ? fullName.trim().length >= 3 || searchMode === 'nome'
+                                  ? 'Oculta processos em que a pessoa é ré ou parte contrária.'
+                                  : 'Informe o nome da pessoa para o filtro funcionar: sem ele, nenhum processo é ocultado.'
+                                : 'Mostra processos em que a pessoa é autora ou ré.'}
                             </span>
                           </ConteudoDeslizante>
                         </div>

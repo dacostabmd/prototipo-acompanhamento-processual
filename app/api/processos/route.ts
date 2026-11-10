@@ -7,7 +7,9 @@ import { extractDdd, prioritizeByTribunalOrDdd, tribunalByDdd, tribunalByUf } fr
 import { invalidateProcessosCache } from '@/lib/redis';
 import { consultarDataJud } from '@/lib/datajud';
 import { aliasesDatajudPermitidos } from '@/lib/fontesDatajud';
+import { ufsDoAlias } from '@/lib/regioes';
 import {
+  FONTE_INFOSIMPLES_POR_ID,
   IDS_PRINCIPAIS_INFOSIMPLES,
   fontesInfosimplesPara,
   type FonteInfosimples,
@@ -219,7 +221,11 @@ function resolverAlvos(tipo: TipoBusca, valor: string, selecionadas: unknown): A
     : new Set(IDS_PRINCIPAIS_INFOSIMPLES);
   return fontesInfosimplesPara(tipo)
     .filter((f: FonteInfosimples) => ids.has(f.id))
-    .map(f => ({ service: f.service, label: f.id, campo: f.params[tipo]!, valor, fixos: f.fixos?.[tipo] }));
+    .map(f => {
+      const campo = f.params[tipo]!;
+      // CEAT digital do TRT2: o CNPJ vai só pela raiz (8 primeiros dígitos).
+      return { service: f.service, label: f.id, campo, valor: campo === 'cnpj_raiz' ? valor.slice(0, 8) : valor, fixos: f.fixos?.[tipo] };
+    });
 }
 
 export async function POST(request: Request) {
@@ -569,7 +575,14 @@ export async function POST(request: Request) {
         };
         const doTribunal = (tj: string) => (t: (typeof targets)[number]) => t.label === tj || t.label.startsWith(`${tj} (`);
         const prioridade = decidirPrioridade(sinais, tj => targets.some(doTribunal(tj)));
-        const alvosPrioritarios = targets.filter(t => prioridade.tribunais.some(tj => doTribunal(tj)(t)));
+        // O TRT (CEAT) da mesma UF do tribunal prioritário entra na 1ª onda: a Justiça do Trabalho é onde a pessoa
+        // mais provavelmente tem processo, e sem isso ela só rodaria se o TJ não achasse nada.
+        const ufsPrioritarias = new Set(prioridade.tribunais.flatMap(tj => ufsDoAlias(tj.toLowerCase())));
+        const ehTrtDaUfPrioritaria = (t: (typeof targets)[number]) => {
+          const alias = FONTE_INFOSIMPLES_POR_ID.get(t.label)?.datajud;
+          return !!alias && /^trt\d+$/.test(alias) && ufsDoAlias(alias).some(uf => ufsPrioritarias.has(uf));
+        };
+        const alvosPrioritarios = targets.filter(t => prioridade.tribunais.some(tj => doTribunal(tj)(t)) || ehTrtDaUfPrioritaria(t));
         const dividirEmOndas = !!(economizarPorDdd && alvosPrioritarios.length > 0 && alvosPrioritarios.length < targets.length);
         const targetsPrimeiraOnda = dividirEmOndas ? alvosPrioritarios : targets;
         const targetsSegundaOnda = dividirEmOndas ? targets.filter(t => !alvosPrioritarios.includes(t)) : [];
@@ -631,7 +644,8 @@ export async function POST(request: Request) {
           if (result && result.code === 200 && result.data?.[0]) {
             const rawList = candidatosInfosimples(result.data[0]);
             if (rawList.length === 0 || !rawList.some(p => numeroDoRegistro(p))) {
-              if (result.data_count > 0) {
+              // Certidão negativa (CEAT "nada consta") é resposta válida sem processo: não é formato desconhecido.
+              if (result.data_count > 0 && result.data[0].nada_consta !== true) {
                 console.warn(`[processos] ${target.service}: resposta com dados, mas nenhum processo reconhecido. Chaves de data[0]: ${Object.keys(result.data[0]).join(', ')}`);
               }
             }
