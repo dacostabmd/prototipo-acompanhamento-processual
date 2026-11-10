@@ -387,14 +387,14 @@ export function UpgradeProModal({ opened, onClose, motivo, onSucesso }: UpgradeP
               )}
             </button>
           )}
-          <p className="mt-2 inline-flex items-center gap-1 text-[10px] text-white/35">
+          <p className="mb-0 mt-3 flex items-center justify-center gap-1 text-[10px] text-white/35">
             <Lock size={10} /> Pagamento processado pelo Asaas
           </p>
 
           <button
             type="button"
             onClick={onClose}
-            className="mt-2.5 inline-block cursor-pointer text-xs text-white/40 hover:text-white/70"
+            className="mx-auto mt-4 block cursor-pointer text-xs text-white/40 hover:text-white/70"
           >
             Continuar no plano Gratuito
           </button>

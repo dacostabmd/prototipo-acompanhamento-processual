@@ -128,9 +128,12 @@ export default function ProcessTracker({
   aiModel = 'claude-haiku-4-5',
   chatTone = 'Acolhedor'
 }: ProcessTrackerProps) {
-  const isPagante = useDevPagante();
-  const { profile } = useSharedProfile();
+  const devPagante = useDevPagante();
+  const { profile, loading: carregandoPerfil } = useSharedProfile();
   const isConsultante = profile.role === 'cliente';
+  // Conta Pro (e admin/owner) tem acesso a todos os recursos; as flags de simulação do protótipo seguem valendo.
+  const contaPro = profile.plano === 'pro' || profile.role === 'admin' || profile.role === 'owner';
+  const isPagante = devPagante || contaPro;
 
   // Dados da busca
   const [fullName, setFullName] = useState('');
@@ -193,11 +196,13 @@ export default function ProcessTracker({
   // "Visualizar como": usuário comum vê o formulário enxuto (busca recomendada); advogado vê também busca por
   // nome, documentos extras, estado inicial e a escolha manual de fontes. Consultante é sempre usuário comum.
   // Compartilhada com o botão flutuante "Simular conta" (components/DevMetrics.tsx).
-  const visaoAdvogado = useDevVisaoAdvogado();
-  // Usuário comum só busca por número (gratuito); pessoa/empresa e nome são da visão de advogado.
+  const devVisaoAdvogado = useDevVisaoAdvogado();
+  const visaoAdvogado = devVisaoAdvogado || contaPro;
+  // Usuário comum só busca por número (gratuito); pessoa/empresa e nome são da visão de advogado/Pro.
+  // Espera o perfil carregar para não voltar para "número" uma conta Pro que veio com CPF na URL.
   useEffect(() => {
-    if (!visaoAdvogado && !isConsultante) setSearchMode('numero');
-  }, [visaoAdvogado, isConsultante]);
+    if (!carregandoPerfil && !visaoAdvogado && !isConsultante) setSearchMode('numero');
+  }, [carregandoPerfil, visaoAdvogado, isConsultante]);
   const [ajustesAbertos, setAjustesAbertos] = useState(false);
 
   // Refinar a busca (opcional)
@@ -1482,7 +1487,7 @@ export default function ProcessTracker({
                           desabilitada={!visaoAdvogado}
                           icone={visaoAdvogado ? <UserRound size={15} /> : <Lock size={15} />}
                           titulo="Por pessoa ou empresa"
-                          subtitulo={visaoAdvogado ? 'Nome e CPF ou CNPJ' : 'Disponível para advogados'}
+                          subtitulo={visaoAdvogado ? 'Nome e CPF ou CNPJ' : 'Disponível no Plano Pro'}
                         />
                         {visaoAdvogado && (
                           <OpcaoBusca
