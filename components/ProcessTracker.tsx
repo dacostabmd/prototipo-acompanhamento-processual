@@ -56,7 +56,7 @@ import { extractDdd, prioritizeByTribunalOrDdd, tribunalByDdd, tribunalByUf, EST
 import { useSharedProfile } from '@/components/ProfileProvider';
 import { getAvgMs, recordSample } from '@/lib/tribunalTiming';
 import { custoTotal, formatarReais } from '@/lib/infosimplesPricing';
-import { fontesInfosimplesPara, IDS_PRINCIPAIS_INFOSIMPLES, type TipoBusca } from '@/lib/fontesInfosimples';
+import { FONTE_INFOSIMPLES_POR_ID, fontesInfosimplesPara, IDS_PRINCIPAIS_INFOSIMPLES, type TipoBusca } from '@/lib/fontesInfosimples';
 
 /* ── Design tokens (tema dark/glass) ─────────────────────────────────── */
 const BLUE = '#1E7CF2';
@@ -150,6 +150,8 @@ export default function ProcessTracker({
   // pesquisado está no polo ativo (Autor), descartando os em que o pesquisado é Réu/parte contrária.
   // Processos sem informação de polo confiável na fonte permanecem visíveis (não são descartados).
   const [somenteAutor, setSomenteAutor] = useState(false);
+  // Ligado pela Busca rápida (URL com fontes): pede a abertura automática da confirmação de custo.
+  const [autoConfirmar, setAutoConfirmar] = useState(false);
 
   // Consultante: documento fixo do próprio perfil, pré-preenchido e travado.
   useEffect(() => {
@@ -177,6 +179,14 @@ export default function ProcessTracker({
           // CPF/CNPJ vindo da busca rápida da Visão geral (busca por documento é da visão de advogado)
           setSearchMode('cpf');
           setCpfInput(formatDocumento(digitos));
+          // Busca rápida da Visão geral (/consulta?busca=DOC&fontes=ID|ID): só os tribunais escolhidos no modal, todos de
+          // uma vez (sem a economia por estado), e o diálogo de confirmação do custo abre sozinho.
+          const ids = (params.get('fontes') ?? '').split('|').filter(id => FONTE_INFOSIMPLES_POR_ID.has(id));
+          if (ids.length > 0) {
+            setInfosimplesSel(ids);
+            setEconomizarPorDdd(false);
+            setAutoConfirmar(true);
+          }
         }
       }
     } catch {}
@@ -355,6 +365,12 @@ export default function ProcessTracker({
 
   // Dialog de confirmação antes de pesquisar (o que será buscado e o custo em tokens).
   const [confirmarBuscaAberto, setConfirmarBuscaAberto] = useState(false);
+  // Vindo da Busca rápida: abre a confirmação assim que o formulário (já preenchido pela URL) estiver válido.
+  useEffect(() => {
+    if (!autoConfirmar || carregandoPerfil) return;
+    setAutoConfirmar(false);
+    if (formularioValido && searchMode === 'cpf' && (visaoAdvogado || isConsultante) && !searching) setConfirmarBuscaAberto(true);
+  }, [autoConfirmar, carregandoPerfil, formularioValido, searchMode, visaoAdvogado, isConsultante, searching]);
   const resumoBusca: ResumoBusca = {
     tipo: tipoBusca === 'numero' ? 'Número do processo' : tipoBusca === 'nome' ? 'Nome da parte' : tipoBusca === 'cnpj' ? 'CNPJ' : 'CPF',
     termo: tipoBusca === 'numero' ? processNumberInput.trim() : tipoBusca === 'nome' ? fullName.trim() : cpfInput.trim(),

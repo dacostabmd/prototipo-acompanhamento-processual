@@ -273,3 +273,10 @@ Seis frentes novas, todas com acesso por plano em `lib/planos.ts` (`limiteBuscas
 - **Onda 1 da varredura** (`app/api/processos/route.ts`): o TRT da mesma UF do tribunal prioritário entra junto na 1ª onda (antes só rodaria se o TJ não achasse nada).
 - **Nome opcional no CPF/CNPJ** (`components/ProcessTracker.tsx`): a validação exige só o documento; nome em branco é aceito (preenchido, precisa de 3+ letras). O filtro "Só como autor" avisa que sem nome não oculta nada.
 - Pendente: validar uma busca real (custo por CEAT a confirmar no painel da Infosimples; busca sem UF conhecida chama todas as 25 CEATs em paralelo) e rótulo do tribunal na tela, hoje "TRTn (CEAT) · 1º Grau" até o DataJud completar.
+
+## Busca rápida por tribunais específicos — Implementada (2026-11-10)
+
+- Botão "Busca rápida" na Visão geral (`components/BuscaRapidaPainel.tsx`) abre `components/BuscaRapidaModal.tsx`: CPF/CNPJ + multiselect (Mantine `MultiSelect`, agrupado por Justiça, busca por id, nome, estado ou "trabalhista") com atalhos Principais, Trabalhistas, Estaduais, Federais e Todos, e custo previsto. As opções mudam conforme o documento (CPF ou CNPJ).
+- "Continuar" leva a `/consulta?busca=DOC&fontes=ID|ID`. `ProcessTracker` marca só essas fontes, desliga a economia por estado (todos os tribunais escolhidos rodam) e abre sozinho a confirmação de custo; a pesquisa só começa ao confirmar.
+- Mesma regra de acesso da busca por documento: Pro/advogado ou consultante (este com o próprio documento travado); os demais veem o convite ao Plano Pro no modal.
+- Não testado no navegador (só `tsc`).
