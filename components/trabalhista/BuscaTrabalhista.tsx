@@ -20,8 +20,9 @@ interface Processo {
   tribunal: string;
   classe: string;
   orgao: string;
-  polo: 'ativo' | 'passivo' | 'ambos';
-  correspondencia: 'exata' | 'semelhante';
+  polo: 'ativo' | 'passivo' | 'ambos' | 'indefinido';
+  correspondencia: 'exata' | 'semelhante' | 'documento';
+  origem: 'djen' | 'infosimples';
   ultimaPublicacao: string;
   tipoUltimaPublicacao: string;
   resumoUltimaPublicacao: string;
@@ -30,7 +31,26 @@ interface Processo {
   reus: string[];
 }
 
+interface Etapa {
+  fonte: string;
+  resultado: string;
+  custo: number;
+  falhou?: boolean;
+}
+
+interface Certidao {
+  tribunal: string;
+  situacao: 'negativa' | 'positiva' | 'indefinida';
+  numeroCertidao?: string;
+  listaDisponivel: boolean;
+  processos: number;
+}
+
 interface Resultado {
+  etapas: Etapa[];
+  certidoes: Certidao[];
+  fallbackPago: 'executada' | 'nao_necessaria' | 'desligada' | 'sem_acesso' | 'sem_cnpj' | 'sem_token';
+  custoCobrado: number;
   empresa: Empresa | null;
   termo: string;
   processos: Processo[];
@@ -84,8 +104,11 @@ const PERIODOS = [
 const POLO_ROTULO: Record<Processo['polo'], string> = {
   passivo: 'Reclamada (polo passivo)',
   ativo: 'Reclamante (polo ativo)',
-  ambos: 'Aparece nos dois polos'
+  ambos: 'Aparece nos dois polos',
+  indefinido: 'Polo não informado'
 };
+
+const reais = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`;
 
 const CAMPO =
   'w-full cursor-pointer rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-[#1E7CF2]/60 focus:ring-1 focus:ring-[#1E7CF2]/60';
@@ -100,6 +123,7 @@ export function BuscaTrabalhista() {
   const [trt, setTrt] = useState('1');
   const [dias, setDias] = useState('180');
   const [somenteAutor, setSomenteAutor] = useState(false);
+  const [outrasFontes, setOutrasFontes] = useState(true);
   const [estado, setEstado] = useState<Estado>({ tipo: 'inicial' });
   const [copiado, setCopiado] = useState('');
   const sequencia = useRef(0);
@@ -115,6 +139,7 @@ export function BuscaTrabalhista() {
     try {
       const params = new URLSearchParams({ q, trt, dias });
       if (somenteAutor) params.set('somenteAutor', '1');
+      if (!outrasFontes) params.set('pago', '0');
       if (nomeAlternativo) params.set('nome', nomeAlternativo);
       const res = await authFetch(`/api/trabalhista?${params.toString()}`);
       const data = await res.json().catch(() => ({}));
@@ -217,6 +242,18 @@ export function BuscaTrabalhista() {
           />
           <span>Mostrar apenas processos em que a empresa é autora (reclamante). Empresas costumam ser rés na Justiça do Trabalho.</span>
         </label>
+        <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-white/70">
+          <input
+            type="checkbox"
+            checked={outrasFontes}
+            onChange={e => setOutrasFontes(e.target.checked)}
+            className="mt-0.5 cursor-pointer accent-[#1E7CF2]"
+          />
+          <span>
+            Se o diário não achar nada, procurar também na certidão trabalhista do tribunal (CNPJ, Infosimples, cerca de R$ 0,20 por
+            consulta, só Pro e advogados).
+          </span>
+        </label>
       </form>
 
       <div className="mt-5" aria-live="polite">
@@ -276,23 +313,42 @@ export function BuscaTrabalhista() {
               </div>
             )}
 
+            {resultado.certidoes
+              .filter(c => c.situacao === 'positiva' && !c.listaDisponivel)
+              .map(c => (
+                <div key={c.tribunal} className="mb-3 flex items-start gap-2.5 rounded-2xl border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 p-3 text-xs text-white/80">
+                  <Info size={15} className="mt-0.5 shrink-0 text-[#1E7CF2]" />
+                  <span>
+                    A certidão do {c.tribunal} não foi emitida como negativa para este CNPJ
+                    {c.numeroCertidao ? ` (certidão ${c.numeroCertidao})` : ''}, o que indica que há ação trabalhista contra a empresa. O tribunal não
+                    divulga os números por essa certidão: use um período maior no diário ou consulte o PJe do {c.tribunal}.
+                  </span>
+                </div>
+              ))}
+
             {resultado.processos.length === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center">
                 <SearchX size={26} className="mx-auto text-white/35" />
                 <p className="mb-0 mt-3 text-sm font-medium text-white/75">
-                  Nenhum processo de {rotuloTrt} com publicação no período para &quot;{resultado.termo}&quot;.
+                  Nenhum processo de {rotuloTrt} encontrado para &quot;{resultado.termo}&quot;.
                 </p>
                 <p className="mb-0 mt-1 text-xs text-white/50">
-                  Isso não prova que não há processos: só aparecem os que tiveram publicação no diário. Tente um período maior, outro TRT ou
+                  Isso não prova que não há processos: o diário só mostra os que tiveram publicação no período. Tente um período maior, outro TRT ou
                   &quot;Todos os TRTs&quot;.
+                  {resultado.fallbackPago === 'sem_acesso' && ' A certidão por CNPJ é exclusiva de contas Pro e advogados.'}
                 </p>
               </div>
             ) : (
               <>
                 <p className="mb-3 mt-0 text-xs text-white/50">
                   {resultado.processos.length} processo{resultado.processos.length === 1 ? '' : 's'} em {rotuloTrt} para &quot;{resultado.termo}&quot;
-                  ({resultado.totalPublicacoes} publicaç{resultado.totalPublicacoes === 1 ? 'ão' : 'ões'} de {dataBR(resultado.periodo.inicio)} a{' '}
-                  {dataBR(resultado.periodo.fim)})
+                  {resultado.totalPublicacoes > 0 && (
+                    <>
+                      {' '}
+                      ({resultado.totalPublicacoes} publicaç{resultado.totalPublicacoes === 1 ? 'ão' : 'ões'} de {dataBR(resultado.periodo.inicio)} a{' '}
+                      {dataBR(resultado.periodo.fim)})
+                    </>
+                  )}
                 </p>
                 {resultado.truncado && (
                   <div className="mb-3 flex items-start gap-2.5 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200">
@@ -318,6 +374,14 @@ export function BuscaTrabalhista() {
                           <span className="rounded-full border border-[#1E7CF2]/30 bg-[#1E7CF2]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[color:var(--tt-text-2)]">
                             {POLO_ROTULO[p.polo]}
                           </span>
+                          {p.correspondencia === 'documento' && (
+                            <span
+                              className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300"
+                              title="Encontrado pela certidão de ações trabalhistas, que busca pelo próprio CNPJ."
+                            >
+                              Confirmado por CNPJ
+                            </span>
+                          )}
                           {p.correspondencia === 'semelhante' && (
                             <span
                               className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-200"
@@ -330,9 +394,11 @@ export function BuscaTrabalhista() {
                       </header>
 
                       <p className="mb-0 mt-1.5 text-xs text-white/60">
-                        {[p.orgao, `Última publicação em ${dataBR(p.ultimaPublicacao)}`, p.tipoUltimaPublicacao, `${p.totalPublicacoes} no período`]
-                          .filter(Boolean)
-                          .join(' · ')}
+                        {p.origem === 'infosimples'
+                          ? 'Encontrado na certidão de ações trabalhistas do CNPJ (sem dados de andamento)'
+                          : [p.orgao, `Última publicação em ${dataBR(p.ultimaPublicacao)}`, p.tipoUltimaPublicacao, `${p.totalPublicacoes} no período`]
+                              .filter(Boolean)
+                              .join(' · ')}
                       </p>
 
                       {(p.autores.length > 0 || p.reus.length > 0) && (
@@ -372,6 +438,22 @@ export function BuscaTrabalhista() {
                 </div>
               </>
             )}
+
+            {resultado.etapas.length > 1 || resultado.custoCobrado > 0 ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/60">
+                <p className="m-0 font-medium text-white/70">
+                  Fontes consultadas{resultado.custoCobrado > 0 ? ` · custo ${reais(resultado.custoCobrado)}` : ' · sem custo'}
+                </p>
+                <ul className="m-0 mt-1.5 list-none space-y-1 p-0">
+                  {resultado.etapas.map(e => (
+                    <li key={e.fonte} className={e.falhou ? 'text-red-300' : undefined}>
+                      {e.fonte}: {e.resultado}
+                      {e.custo > 0 ? ` (${reais(e.custo)})` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </>
         )}
       </div>

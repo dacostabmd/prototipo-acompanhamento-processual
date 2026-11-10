@@ -1,34 +1,54 @@
-import { NextResponse } from 'next/server';
-import { getUserId } from '@/lib/track';
+import { createHash } from 'crypto';
+import { NextResponse, after } from 'next/server';
+import { getAdminClient, getUserId } from '@/lib/track';
 import { requireUser } from '@/lib/requireUser';
 import { excedeuLimiteUsuario } from '@/lib/jurisprudencia';
+import { verificarRecursoPlano } from '@/lib/planos';
 import { cleanDigits, isValidCnpj } from '@/lib/format';
 import { DjenIndisponivelError, normalizarNome } from '@/lib/djen';
-import {
-  BrasilApiIndisponivelError,
-  CnpjNaoEncontradoError,
-  buscarProcessosTrabalhistas,
-  consultarCnpjBrasilApi,
-  type EmpresaCnpj
-} from '@/lib/trabalhista';
+import { registrarHistoricoConsulta } from '@/lib/historicoConsultas';
+import { BrasilApiIndisponivelError, CnpjNaoEncontradoError, consultarCnpjBrasilApi, type EmpresaCnpj } from '@/lib/trabalhista';
+import { buscarTrabalhistaComFallback } from '@/lib/trabalhistaFallback';
 
 const LIMITE_BUSCAS = 12; // por janela: cada busca lê várias páginas do DJEN (limite de ~20 req por IP do servidor)
 const JANELA_SEGUNDOS = 60;
 const PERIODOS_DIAS = [30, 90, 180, 365];
 
 /**
- * GET /api/trabalhista?q=<CNPJ ou nome>&trt=1|2|...|24|todos&dias=30|90|180|365&somenteAutor=1&nome=<termo alternativo>
+ * Quem pode disparar as fontes pagas (certidão da Infosimples): mesma regra da busca por documento — Pro, advogado,
+ * owner ou admin. Sem Supabase (modo demonstração/dev) não há conta para checar e a etapa fica liberada.
+ */
+async function podeUsarFontesPagas(userId: string | null): Promise<boolean> {
+  const db = getAdminClient();
+  if (!db || !userId) return true;
+  const acesso = await verificarRecursoPlano(userId, 'monitoramentoCpf');
+  if (acesso.permitido) return true;
+  const { data } = await db.from('ap_perfis').select('role').eq('id', userId).maybeSingle();
+  return (data as { role?: string } | null)?.role === 'advogado';
+}
+
+/** Identificador para o limite de uso: o usuário, ou o IP (hash) quando não há conta (modo demonstração). */
+function chaveDoLimite(request: Request, userId: string | null): string {
+  if (userId) return userId;
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
+  return `anon:${createHash('sha256').update(ip).digest('hex').slice(0, 24)}`;
+}
+
+/**
+ * GET /api/trabalhista?q=<CNPJ ou nome>&trt=1|2|...|24|todos&dias=30|90|180|365&somenteAutor=1&nome=<termo alternativo>&pago=0
  *
- * Busca rápida de processos trabalhistas sem custo: CNPJ -> razão social (BrasilAPI) -> publicações do DJEN nos TRTs.
- * Qualquer polo por padrão (empresa costuma ser reclamada); `somenteAutor=1` mantém só quem aparece como autora.
- * `nome` troca o termo pesquisado no DJEN (ex.: nome fantasia) mantendo os dados do CNPJ de `q`.
+ * Busca rápida de processos trabalhistas: CNPJ -> razão social (BrasilAPI) -> publicações do DJEN nos TRTs (grátis).
+ * Se o diário não achar nada (ou falhar), cai nas outras fontes: nome fantasia no DJEN e, só para CNPJ, a certidão de
+ * ações trabalhistas da Infosimples (paga; `pago=0` desliga). Qualquer polo por padrão (empresa costuma ser reclamada);
+ * `somenteAutor=1` mantém só quem aparece como autora. `nome` troca o termo pesquisado (ex.: nome fantasia).
  */
 export async function GET(request: Request) {
   const unauthorized = await requireUser(request);
   if (unauthorized) return unauthorized;
 
+  // requireUser já barrou quem não tem sessão quando o Supabase está configurado; aqui o userId só serve para o
+  // limite de uso, o plano e o histórico. Sem ele (modo demonstração) a busca segue, limitada por IP.
   const userId = await getUserId(request);
-  if (!userId) return NextResponse.json({ error: 'Usuário não autenticado.' }, { status: 401 });
 
   const params = new URL(request.url).searchParams;
   const q = (params.get('q') || '').trim().slice(0, 200);
@@ -57,8 +77,9 @@ export async function GET(request: Request) {
   const diasBruto = Number.parseInt(params.get('dias') || '', 10);
   const dias = PERIODOS_DIAS.includes(diasBruto) ? diasBruto : 180;
   const somenteAutor = params.get('somenteAutor') === '1';
+  const quererPago = params.get('pago') !== '0';
 
-  if (await excedeuLimiteUsuario(userId, 'trabalhista', LIMITE_BUSCAS, JANELA_SEGUNDOS)) {
+  if (await excedeuLimiteUsuario(chaveDoLimite(request, userId), 'trabalhista', LIMITE_BUSCAS, JANELA_SEGUNDOS)) {
     return NextResponse.json(
       { error: 'Muitas buscas em pouco tempo. Aguarde um minuto e tente de novo.', codigo: 'limite' },
       { status: 429, headers: { 'Retry-After': String(JANELA_SEGUNDOS) } }
@@ -66,14 +87,36 @@ export async function GET(request: Request) {
   }
 
   try {
-    let empresa: EmpresaCnpj | null = null;
-    if (ehDocumento) {
-      empresa = await consultarCnpjBrasilApi(digitos);
-    }
+    const empresa: EmpresaCnpj | null = ehDocumento ? await consultarCnpjBrasilApi(digitos) : null;
     const termo = nomeAlternativo.length >= 5 ? nomeAlternativo : empresa ? empresa.razaoSocial : q;
+    const acessoPago = quererPago ? ((await podeUsarFontesPagas(userId)) ? 'ligada' : 'sem_acesso') : 'desligada';
 
-    const resultado = await buscarProcessosTrabalhistas(termo, { trt, dias, somenteAutor });
-    return NextResponse.json({ empresa, ...resultado, fonte: 'DJEN (CNJ)' });
+    const resultado = await buscarTrabalhistaComFallback({
+      termo,
+      empresa,
+      trt,
+      dias,
+      somenteAutor,
+      pago: acessoPago,
+      tokenInfosimples: process.env.INFOSIMPLES_API_TOKEN || process.env.INFOSIMPLES_TOKEN
+    });
+
+    // O que a Infosimples cobrou entra no histórico (e, por ele, na franquia mensal do plano).
+    if (resultado.tribunaisPagos.length > 0 && empresa) {
+      after(() =>
+        registrarHistoricoConsulta(userId, {
+          tipoBusca: 'cnpj',
+          termo: empresa.cnpj,
+          nomeParte: empresa.razaoSocial,
+          tribunais: resultado.tribunaisPagos,
+          totalProcessos: resultado.processos.length,
+          custoEstimado: resultado.custoCobrado,
+          custoCobrado: resultado.custoCobrado
+        })
+      );
+    }
+
+    return NextResponse.json({ empresa, ...resultado });
   } catch (e) {
     if (e instanceof CnpjNaoEncontradoError) {
       return NextResponse.json({ error: 'CNPJ não encontrado na Receita Federal. Confira os dígitos.' }, { status: 404 });

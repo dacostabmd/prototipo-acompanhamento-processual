@@ -79,7 +79,8 @@ const ehObjeto = (v: any) => !!v && typeof v === 'object' && !Array.isArray(v);
  */
 export function candidatosInfosimples(dado: any): any[] {
   if (!ehObjeto(dado)) return [];
-  const encontradosCeat = [dado.processos_encontrados_cpf_cnpj, dado.processos_encontrados_nome]
+  // `processos` como objeto { lista_processos, vara } é o formato da CEAT do TRT24 (como array é lido abaixo).
+  const encontradosCeat = [dado.processos_encontrados_cpf_cnpj, dado.processos_encontrados_nome, dado.processos]
     .filter(ehObjeto)
     .flatMap((e: any) => [e.lista_processos, e.processos, e.lista]);
   const listas = [dado.processos, dado.lista_processos, dado.processos_lista, dado.processo_lista, dado.lista_processos_encontrados, ...encontradosCeat]

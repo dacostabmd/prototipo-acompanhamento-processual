@@ -61,7 +61,10 @@ export async function consultarCnpjBrasilApi(cnpj: string): Promise<EmpresaCnpj>
   };
 }
 
-export type PoloEmpresa = 'ativo' | 'passivo' | 'ambos';
+/** 'indefinido' = a fonte (certidão por CNPJ) só informa o número do processo, sem o polo. */
+export type PoloEmpresa = 'ativo' | 'passivo' | 'ambos' | 'indefinido';
+
+export type OrigemProcessoTrabalhista = 'djen' | 'infosimples';
 
 export interface ProcessoTrabalhista {
   numeroCnj: string;
@@ -71,8 +74,12 @@ export interface ProcessoTrabalhista {
   orgao: string;
   /** Como a empresa aparece nas publicações: reclamante (ativo), reclamada (passivo) ou os dois. */
   polo: PoloEmpresa;
-  /** 'exata' quando o nome da parte é igual ao pesquisado; 'semelhante' quando só o contém (grafia diferente, filial...). */
-  correspondencia: 'exata' | 'semelhante';
+  /**
+   * 'exata' quando o nome da parte é igual ao pesquisado; 'semelhante' quando só o contém (grafia diferente, filial...);
+   * 'documento' quando a fonte buscou pelo próprio CNPJ (certidão), sem ambiguidade de nome.
+   */
+  correspondencia: 'exata' | 'semelhante' | 'documento';
+  origem: OrigemProcessoTrabalhista;
   ultimaPublicacao: string;
   tipoUltimaPublicacao: string;
   resumoUltimaPublicacao: string;
@@ -152,6 +159,7 @@ export async function buscarProcessosTrabalhistas(nome: string, opcoes: OpcoesTr
       orgao: pub.orgao,
       polo: 'passivo',
       correspondencia: 'semelhante',
+      origem: 'djen',
       ultimaPublicacao: pub.dataDisponibilizacao,
       tipoUltimaPublicacao: pub.tipoComunicacao,
       resumoUltimaPublicacao: resumo.length > MAX_TEXTO_RESUMO ? `${resumo.slice(0, MAX_TEXTO_RESUMO)}…` : resumo,
